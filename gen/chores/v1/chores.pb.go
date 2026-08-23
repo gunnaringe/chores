@@ -77,6 +77,9 @@ const (
 	IconType_ICON_TYPE_UNSPECIFIED  IconType = 0
 	IconType_ICON_TYPE_EMOJI        IconType = 1
 	IconType_ICON_TYPE_FONT_AWESOME IconType = 2
+	// A Google Material Symbols icon name (fonts.google.com/icons), e.g.
+	// "cleaning_services", rendered via the Material Symbols web font.
+	IconType_ICON_TYPE_MATERIAL_SYMBOLS IconType = 3
 )
 
 // Enum value maps for IconType.
@@ -85,11 +88,13 @@ var (
 		0: "ICON_TYPE_UNSPECIFIED",
 		1: "ICON_TYPE_EMOJI",
 		2: "ICON_TYPE_FONT_AWESOME",
+		3: "ICON_TYPE_MATERIAL_SYMBOLS",
 	}
 	IconType_value = map[string]int32{
-		"ICON_TYPE_UNSPECIFIED":  0,
-		"ICON_TYPE_EMOJI":        1,
-		"ICON_TYPE_FONT_AWESOME": 2,
+		"ICON_TYPE_UNSPECIFIED":      0,
+		"ICON_TYPE_EMOJI":            1,
+		"ICON_TYPE_FONT_AWESOME":     2,
+		"ICON_TYPE_MATERIAL_SYMBOLS": 3,
 	}
 )
 
@@ -123,7 +128,9 @@ func (IconType) EnumDescriptor() ([]byte, []int) {
 // An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
 // character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
 // Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
-// rendered as the CSS classes "fa-solid fa-broom").
+// rendered as the CSS classes "fa-solid fa-broom"). For
+// ICON_TYPE_MATERIAL_SYMBOLS, value is a Material Symbols icon name (e.g.
+// "cleaning_services").
 type Icon struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          IconType               `protobuf:"varint,1,opt,name=type,proto3,enum=chores.v1.IconType" json:"type,omitempty"`
@@ -645,6 +652,7 @@ type ChildSummary struct {
 	TotalEarnedCents      int64                  `protobuf:"varint,4,opt,name=total_earned_cents,json=totalEarnedCents,proto3" json:"total_earned_cents,omitempty"`
 	TotalPaidOutCents     int64                  `protobuf:"varint,5,opt,name=total_paid_out_cents,json=totalPaidOutCents,proto3" json:"total_paid_out_cents,omitempty"`
 	LastPayoutAt          *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_payout_at,json=lastPayoutAt,proto3" json:"last_payout_at,omitempty"`
+	EarnedTodayCents      int64                  `protobuf:"varint,7,opt,name=earned_today_cents,json=earnedTodayCents,proto3" json:"earned_today_cents,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -719,6 +727,13 @@ func (x *ChildSummary) GetLastPayoutAt() *timestamppb.Timestamp {
 		return x.LastPayoutAt
 	}
 	return nil
+}
+
+func (x *ChildSummary) GetEarnedTodayCents() int64 {
+	if x != nil {
+		return x.EarnedTodayCents
+	}
+	return 0
 }
 
 // Represents one occurrence of a recurring task, for one of the children it
@@ -2432,10 +2447,66 @@ func (x *ListPayoutsResponse) GetPayouts() []*Payout {
 	return nil
 }
 
+// One family a login identity is bound to as a specific family member.
+// Usually there's exactly one (a parent belongs to one household), but a
+// child can be bound to more than one — e.g. a child who lives in two
+// households, each running its own chores/allowance independently.
+type Membership struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Family        *Family                `protobuf:"bytes,2,opt,name=family,proto3" json:"family,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Membership) Reset() {
+	*x = Membership{}
+	mi := &file_chores_v1_chores_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Membership) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Membership) ProtoMessage() {}
+
+func (x *Membership) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Membership.ProtoReflect.Descriptor instead.
+func (*Membership) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *Membership) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *Membership) GetFamily() *Family {
+	if x != nil {
+		return x.Family
+	}
+	return nil
+}
+
 // GetMyMembership resolves the caller's login identity (when auth is
-// enabled) to the family member it's bound to, if any. In local-testing
-// mode (no auth configured) it always reports unbound, since there is no
-// login identity to resolve.
+// enabled) to every family member row it's bound to. In local-testing mode
+// (no auth configured) it always reports unbound, since there is no login
+// identity to resolve.
 type GetMyMembershipRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2444,7 +2515,7 @@ type GetMyMembershipRequest struct {
 
 func (x *GetMyMembershipRequest) Reset() {
 	*x = GetMyMembershipRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[40]
+	mi := &file_chores_v1_chores_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2456,7 +2527,7 @@ func (x *GetMyMembershipRequest) String() string {
 func (*GetMyMembershipRequest) ProtoMessage() {}
 
 func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[40]
+	mi := &file_chores_v1_chores_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2469,21 +2540,20 @@ func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyMembershipRequest.ProtoReflect.Descriptor instead.
 func (*GetMyMembershipRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{40}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{41}
 }
 
 type GetMyMembershipResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Bound         bool                   `protobuf:"varint,1,opt,name=bound,proto3" json:"bound,omitempty"`
-	User          *User                  `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	Family        *Family                `protobuf:"bytes,3,opt,name=family,proto3" json:"family,omitempty"`
+	Memberships   []*Membership          `protobuf:"bytes,2,rep,name=memberships,proto3" json:"memberships,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetMyMembershipResponse) Reset() {
 	*x = GetMyMembershipResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[41]
+	mi := &file_chores_v1_chores_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2495,7 +2565,7 @@ func (x *GetMyMembershipResponse) String() string {
 func (*GetMyMembershipResponse) ProtoMessage() {}
 
 func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[41]
+	mi := &file_chores_v1_chores_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2508,7 +2578,7 @@ func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyMembershipResponse.ProtoReflect.Descriptor instead.
 func (*GetMyMembershipResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{41}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *GetMyMembershipResponse) GetBound() bool {
@@ -2518,16 +2588,9 @@ func (x *GetMyMembershipResponse) GetBound() bool {
 	return false
 }
 
-func (x *GetMyMembershipResponse) GetUser() *User {
+func (x *GetMyMembershipResponse) GetMemberships() []*Membership {
 	if x != nil {
-		return x.User
-	}
-	return nil
-}
-
-func (x *GetMyMembershipResponse) GetFamily() *Family {
-	if x != nil {
-		return x.Family
+		return x.Memberships
 	}
 	return nil
 }
@@ -2553,7 +2616,7 @@ type Invitation struct {
 
 func (x *Invitation) Reset() {
 	*x = Invitation{}
-	mi := &file_chores_v1_chores_proto_msgTypes[42]
+	mi := &file_chores_v1_chores_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2565,7 +2628,7 @@ func (x *Invitation) String() string {
 func (*Invitation) ProtoMessage() {}
 
 func (x *Invitation) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[42]
+	mi := &file_chores_v1_chores_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2578,7 +2641,7 @@ func (x *Invitation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Invitation.ProtoReflect.Descriptor instead.
 func (*Invitation) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{42}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *Invitation) GetId() string {
@@ -2661,7 +2724,7 @@ type CreateInvitationRequest struct {
 
 func (x *CreateInvitationRequest) Reset() {
 	*x = CreateInvitationRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[43]
+	mi := &file_chores_v1_chores_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2673,7 +2736,7 @@ func (x *CreateInvitationRequest) String() string {
 func (*CreateInvitationRequest) ProtoMessage() {}
 
 func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[43]
+	mi := &file_chores_v1_chores_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2686,7 +2749,7 @@ func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInvitationRequest.ProtoReflect.Descriptor instead.
 func (*CreateInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{43}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateInvitationRequest) GetFamilyId() string {
@@ -2730,7 +2793,7 @@ type CreateInvitationResponse struct {
 
 func (x *CreateInvitationResponse) Reset() {
 	*x = CreateInvitationResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[44]
+	mi := &file_chores_v1_chores_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2742,7 +2805,7 @@ func (x *CreateInvitationResponse) String() string {
 func (*CreateInvitationResponse) ProtoMessage() {}
 
 func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[44]
+	mi := &file_chores_v1_chores_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2755,7 +2818,7 @@ func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInvitationResponse.ProtoReflect.Descriptor instead.
 func (*CreateInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{44}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *CreateInvitationResponse) GetInvitation() *Invitation {
@@ -2788,7 +2851,7 @@ type ListInvitationsRequest struct {
 
 func (x *ListInvitationsRequest) Reset() {
 	*x = ListInvitationsRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[45]
+	mi := &file_chores_v1_chores_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2800,7 +2863,7 @@ func (x *ListInvitationsRequest) String() string {
 func (*ListInvitationsRequest) ProtoMessage() {}
 
 func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[45]
+	mi := &file_chores_v1_chores_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2813,7 +2876,7 @@ func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsRequest.ProtoReflect.Descriptor instead.
 func (*ListInvitationsRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{45}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListInvitationsRequest) GetFamilyId() string {
@@ -2832,7 +2895,7 @@ type ListInvitationsResponse struct {
 
 func (x *ListInvitationsResponse) Reset() {
 	*x = ListInvitationsResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[46]
+	mi := &file_chores_v1_chores_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2844,7 +2907,7 @@ func (x *ListInvitationsResponse) String() string {
 func (*ListInvitationsResponse) ProtoMessage() {}
 
 func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[46]
+	mi := &file_chores_v1_chores_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2857,7 +2920,7 @@ func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsResponse.ProtoReflect.Descriptor instead.
 func (*ListInvitationsResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{46}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListInvitationsResponse) GetInvitations() []*Invitation {
@@ -2876,7 +2939,7 @@ type RevokeInvitationRequest struct {
 
 func (x *RevokeInvitationRequest) Reset() {
 	*x = RevokeInvitationRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[47]
+	mi := &file_chores_v1_chores_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2888,7 +2951,7 @@ func (x *RevokeInvitationRequest) String() string {
 func (*RevokeInvitationRequest) ProtoMessage() {}
 
 func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[47]
+	mi := &file_chores_v1_chores_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2901,7 +2964,7 @@ func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationRequest.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{47}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *RevokeInvitationRequest) GetInvitationId() string {
@@ -2919,7 +2982,7 @@ type RevokeInvitationResponse struct {
 
 func (x *RevokeInvitationResponse) Reset() {
 	*x = RevokeInvitationResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[48]
+	mi := &file_chores_v1_chores_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2931,7 +2994,7 @@ func (x *RevokeInvitationResponse) String() string {
 func (*RevokeInvitationResponse) ProtoMessage() {}
 
 func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[48]
+	mi := &file_chores_v1_chores_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2944,7 +3007,7 @@ func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationResponse.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{48}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{49}
 }
 
 type AcceptInvitationRequest struct {
@@ -2956,7 +3019,7 @@ type AcceptInvitationRequest struct {
 
 func (x *AcceptInvitationRequest) Reset() {
 	*x = AcceptInvitationRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[49]
+	mi := &file_chores_v1_chores_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2968,7 +3031,7 @@ func (x *AcceptInvitationRequest) String() string {
 func (*AcceptInvitationRequest) ProtoMessage() {}
 
 func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[49]
+	mi := &file_chores_v1_chores_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2981,7 +3044,7 @@ func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationRequest.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{49}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *AcceptInvitationRequest) GetToken() string {
@@ -3001,7 +3064,7 @@ type AcceptInvitationResponse struct {
 
 func (x *AcceptInvitationResponse) Reset() {
 	*x = AcceptInvitationResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[50]
+	mi := &file_chores_v1_chores_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3013,7 +3076,7 @@ func (x *AcceptInvitationResponse) String() string {
 func (*AcceptInvitationResponse) ProtoMessage() {}
 
 func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[50]
+	mi := &file_chores_v1_chores_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3026,7 +3089,7 @@ func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationResponse.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{50}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AcceptInvitationResponse) GetUser() *User {
@@ -3097,14 +3160,15 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"fullPayout\x12\x12\n" +
 	"\x04note\x18\x06 \x01(\tR\x04note\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb3\x02\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe1\x02\n" +
 	"\fChildSummary\x12%\n" +
 	"\x05child\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x05child\x126\n" +
 	"\x18earned_last_7_days_cents\x18\x02 \x01(\x03R\x14earnedLast7DaysCents\x12#\n" +
 	"\rbalance_cents\x18\x03 \x01(\x03R\fbalanceCents\x12,\n" +
 	"\x12total_earned_cents\x18\x04 \x01(\x03R\x10totalEarnedCents\x12/\n" +
 	"\x14total_paid_out_cents\x18\x05 \x01(\x03R\x11totalPaidOutCents\x12@\n" +
-	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\"\xe3\x01\n" +
+	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\x12,\n" +
+	"\x12earned_today_cents\x18\a \x01(\x03R\x10earnedTodayCents\"\xe3\x01\n" +
 	"\x0eTaskOccurrence\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\x12\x19\n" +
 	"\bdue_date\x18\x02 \x01(\tR\adueDate\x12\x1c\n" +
@@ -3210,12 +3274,15 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x19\n" +
 	"\bchild_id\x18\x02 \x01(\tR\achildId\"B\n" +
 	"\x13ListPayoutsResponse\x12+\n" +
-	"\apayouts\x18\x01 \x03(\v2\x11.chores.v1.PayoutR\apayouts\"\x18\n" +
-	"\x16GetMyMembershipRequest\"\x7f\n" +
+	"\apayouts\x18\x01 \x03(\v2\x11.chores.v1.PayoutR\apayouts\"\\\n" +
+	"\n" +
+	"Membership\x12#\n" +
+	"\x04user\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x04user\x12)\n" +
+	"\x06family\x18\x02 \x01(\v2\x11.chores.v1.FamilyR\x06family\"\x18\n" +
+	"\x16GetMyMembershipRequest\"h\n" +
 	"\x17GetMyMembershipResponse\x12\x14\n" +
-	"\x05bound\x18\x01 \x01(\bR\x05bound\x12#\n" +
-	"\x04user\x18\x02 \x01(\v2\x0f.chores.v1.UserR\x04user\x12)\n" +
-	"\x06family\x18\x03 \x01(\v2\x11.chores.v1.FamilyR\x06family\"\xe1\x02\n" +
+	"\x05bound\x18\x01 \x01(\bR\x05bound\x127\n" +
+	"\vmemberships\x18\x02 \x03(\v2\x15.chores.v1.MembershipR\vmemberships\"\xe1\x02\n" +
 	"\n" +
 	"Invitation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -3257,11 +3324,12 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\bUserRole\x12\x19\n" +
 	"\x15USER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10USER_ROLE_PARENT\x10\x01\x12\x13\n" +
-	"\x0fUSER_ROLE_CHILD\x10\x02*V\n" +
+	"\x0fUSER_ROLE_CHILD\x10\x02*v\n" +
 	"\bIconType\x12\x19\n" +
 	"\x15ICON_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fICON_TYPE_EMOJI\x10\x01\x12\x1a\n" +
-	"\x16ICON_TYPE_FONT_AWESOME\x10\x022\x88\x0e\n" +
+	"\x16ICON_TYPE_FONT_AWESOME\x10\x02\x12\x1e\n" +
+	"\x1aICON_TYPE_MATERIAL_SYMBOLS\x10\x032\x88\x0e\n" +
 	"\rChoresService\x12O\n" +
 	"\fCreateFamily\x12\x1e.chores.v1.CreateFamilyRequest\x1a\x1f.chores.v1.CreateFamilyResponse\x12O\n" +
 	"\fListFamilies\x12\x1e.chores.v1.ListFamiliesRequest\x1a\x1f.chores.v1.ListFamiliesResponse\x12I\n" +
@@ -3302,7 +3370,7 @@ func file_chores_v1_chores_proto_rawDescGZIP() []byte {
 }
 
 var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_chores_v1_chores_proto_goTypes = []any{
 	(UserRole)(0),                       // 0: chores.v1.UserRole
 	(IconType)(0),                       // 1: chores.v1.IconType
@@ -3346,30 +3414,31 @@ var file_chores_v1_chores_proto_goTypes = []any{
 	(*CreatePayoutResponse)(nil),        // 39: chores.v1.CreatePayoutResponse
 	(*ListPayoutsRequest)(nil),          // 40: chores.v1.ListPayoutsRequest
 	(*ListPayoutsResponse)(nil),         // 41: chores.v1.ListPayoutsResponse
-	(*GetMyMembershipRequest)(nil),      // 42: chores.v1.GetMyMembershipRequest
-	(*GetMyMembershipResponse)(nil),     // 43: chores.v1.GetMyMembershipResponse
-	(*Invitation)(nil),                  // 44: chores.v1.Invitation
-	(*CreateInvitationRequest)(nil),     // 45: chores.v1.CreateInvitationRequest
-	(*CreateInvitationResponse)(nil),    // 46: chores.v1.CreateInvitationResponse
-	(*ListInvitationsRequest)(nil),      // 47: chores.v1.ListInvitationsRequest
-	(*ListInvitationsResponse)(nil),     // 48: chores.v1.ListInvitationsResponse
-	(*RevokeInvitationRequest)(nil),     // 49: chores.v1.RevokeInvitationRequest
-	(*RevokeInvitationResponse)(nil),    // 50: chores.v1.RevokeInvitationResponse
-	(*AcceptInvitationRequest)(nil),     // 51: chores.v1.AcceptInvitationRequest
-	(*AcceptInvitationResponse)(nil),    // 52: chores.v1.AcceptInvitationResponse
-	(*timestamppb.Timestamp)(nil),       // 53: google.protobuf.Timestamp
+	(*Membership)(nil),                  // 42: chores.v1.Membership
+	(*GetMyMembershipRequest)(nil),      // 43: chores.v1.GetMyMembershipRequest
+	(*GetMyMembershipResponse)(nil),     // 44: chores.v1.GetMyMembershipResponse
+	(*Invitation)(nil),                  // 45: chores.v1.Invitation
+	(*CreateInvitationRequest)(nil),     // 46: chores.v1.CreateInvitationRequest
+	(*CreateInvitationResponse)(nil),    // 47: chores.v1.CreateInvitationResponse
+	(*ListInvitationsRequest)(nil),      // 48: chores.v1.ListInvitationsRequest
+	(*ListInvitationsResponse)(nil),     // 49: chores.v1.ListInvitationsResponse
+	(*RevokeInvitationRequest)(nil),     // 50: chores.v1.RevokeInvitationRequest
+	(*RevokeInvitationResponse)(nil),    // 51: chores.v1.RevokeInvitationResponse
+	(*AcceptInvitationRequest)(nil),     // 52: chores.v1.AcceptInvitationRequest
+	(*AcceptInvitationResponse)(nil),    // 53: chores.v1.AcceptInvitationResponse
+	(*timestamppb.Timestamp)(nil),       // 54: google.protobuf.Timestamp
 }
 var file_chores_v1_chores_proto_depIdxs = []int32{
 	1,  // 0: chores.v1.Icon.type:type_name -> chores.v1.IconType
-	53, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
+	54, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: chores.v1.User.role:type_name -> chores.v1.UserRole
-	53, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	53, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	54, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	54, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
 	2,  // 5: chores.v1.Task.icon:type_name -> chores.v1.Icon
-	53, // 6: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	53, // 7: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
+	54, // 6: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	54, // 7: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
 	4,  // 8: chores.v1.ChildSummary.child:type_name -> chores.v1.User
-	53, // 9: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
+	54, // 9: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
 	5,  // 10: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
 	6,  // 11: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
 	3,  // 12: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
@@ -3389,64 +3458,65 @@ var file_chores_v1_chores_proto_depIdxs = []int32{
 	8,  // 26: chores.v1.ListChildSummariesResponse.summaries:type_name -> chores.v1.ChildSummary
 	7,  // 27: chores.v1.CreatePayoutResponse.payout:type_name -> chores.v1.Payout
 	7,  // 28: chores.v1.ListPayoutsResponse.payouts:type_name -> chores.v1.Payout
-	4,  // 29: chores.v1.GetMyMembershipResponse.user:type_name -> chores.v1.User
-	3,  // 30: chores.v1.GetMyMembershipResponse.family:type_name -> chores.v1.Family
-	53, // 31: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	53, // 32: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	53, // 33: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
-	0,  // 34: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
-	0,  // 35: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
-	44, // 36: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
-	44, // 37: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
-	4,  // 38: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
-	3,  // 39: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
-	10, // 40: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
-	12, // 41: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
-	14, // 42: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
-	16, // 43: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
-	18, // 44: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
-	20, // 45: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
-	22, // 46: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
-	24, // 47: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
-	26, // 48: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
-	28, // 49: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
-	30, // 50: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
-	32, // 51: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
-	34, // 52: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
-	36, // 53: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
-	38, // 54: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
-	40, // 55: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
-	42, // 56: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
-	45, // 57: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
-	47, // 58: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
-	49, // 59: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
-	51, // 60: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
-	11, // 61: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
-	13, // 62: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
-	15, // 63: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
-	17, // 64: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
-	19, // 65: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
-	21, // 66: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
-	23, // 67: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
-	25, // 68: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
-	27, // 69: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
-	29, // 70: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
-	31, // 71: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
-	33, // 72: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
-	35, // 73: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
-	37, // 74: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
-	39, // 75: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
-	41, // 76: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
-	43, // 77: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
-	46, // 78: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
-	48, // 79: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
-	50, // 80: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
-	52, // 81: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
-	61, // [61:82] is the sub-list for method output_type
-	40, // [40:61] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	4,  // 29: chores.v1.Membership.user:type_name -> chores.v1.User
+	3,  // 30: chores.v1.Membership.family:type_name -> chores.v1.Family
+	42, // 31: chores.v1.GetMyMembershipResponse.memberships:type_name -> chores.v1.Membership
+	54, // 32: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	54, // 33: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	54, // 34: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
+	0,  // 35: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
+	0,  // 36: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
+	45, // 37: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
+	45, // 38: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
+	4,  // 39: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
+	3,  // 40: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
+	10, // 41: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
+	12, // 42: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
+	14, // 43: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
+	16, // 44: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
+	18, // 45: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
+	20, // 46: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
+	22, // 47: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
+	24, // 48: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
+	26, // 49: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
+	28, // 50: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
+	30, // 51: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
+	32, // 52: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
+	34, // 53: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
+	36, // 54: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
+	38, // 55: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
+	40, // 56: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
+	43, // 57: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
+	46, // 58: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
+	48, // 59: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
+	50, // 60: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
+	52, // 61: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
+	11, // 62: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
+	13, // 63: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
+	15, // 64: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
+	17, // 65: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
+	19, // 66: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
+	21, // 67: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
+	23, // 68: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
+	25, // 69: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
+	27, // 70: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
+	29, // 71: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
+	31, // 72: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
+	33, // 73: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
+	35, // 74: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
+	37, // 75: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
+	39, // 76: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
+	41, // 77: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
+	44, // 78: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
+	47, // 79: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
+	49, // 80: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
+	51, // 81: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
+	53, // 82: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
+	62, // [62:83] is the sub-list for method output_type
+	41, // [41:62] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_chores_v1_chores_proto_init() }
@@ -3460,7 +3530,7 @@ func file_chores_v1_chores_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chores_v1_chores_proto_rawDesc), len(file_chores_v1_chores_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   51,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

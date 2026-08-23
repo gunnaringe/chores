@@ -72,16 +72,23 @@ func TestOpen_MigratesPreExistingDatabase(t *testing.T) {
 		t.Fatalf("expected auth_subject to be NULL for a pre-existing row, got %q", authSubject.String)
 	}
 
-	// The unique index must actually be enforced post-migration.
+	// auth_subject is intentionally not unique: the same login can be bound
+	// to more than one user row (e.g. a child who's a member of two
+	// families), so a second row with the same auth_subject must succeed.
+	if _, err := conn.Exec(
+		`INSERT INTO families (id, name, created_at) VALUES ('fam2', 'Other Family', '2024-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("seed second family: %v", err)
+	}
 	if _, err := conn.Exec(
 		`INSERT INTO users (id, family_id, name, role, created_at, auth_subject) VALUES ('u2', 'fam1', 'Dad', 'parent', '2024-01-01T00:00:00Z', 'sub-1')`,
 	); err != nil {
 		t.Fatalf("insert with auth_subject: %v", err)
 	}
 	if _, err := conn.Exec(
-		`INSERT INTO users (id, family_id, name, role, created_at, auth_subject) VALUES ('u3', 'fam1', 'Other', 'parent', '2024-01-01T00:00:00Z', 'sub-1')`,
-	); err == nil {
-		t.Fatal("expected a duplicate auth_subject insert to fail the unique index")
+		`INSERT INTO users (id, family_id, name, role, created_at, auth_subject) VALUES ('u3', 'fam2', 'Other', 'child', '2024-01-01T00:00:00Z', 'sub-1')`,
+	); err != nil {
+		t.Fatalf("expected a second row with the same auth_subject to be allowed, got: %v", err)
 	}
 }
 

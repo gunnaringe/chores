@@ -39,15 +39,18 @@ const todayStr = () => {
   return local.toISOString().slice(0, 10);
 };
 
+// Display order is Monday-first; `code` stays the standard cron
+// day-of-week numbering (0=Sunday..6=Saturday) that scheduling.go expects,
+// so this only reorders how days are shown, not how schedules are stored.
 function DOW() {
   return [
-    { code: 0, label: t("days.sun") },
     { code: 1, label: t("days.mon") },
     { code: 2, label: t("days.tue") },
     { code: 3, label: t("days.wed") },
     { code: 4, label: t("days.thu") },
     { code: 5, label: t("days.fri") },
     { code: 6, label: t("days.sat") },
+    { code: 0, label: t("days.sun") },
   ];
 }
 
@@ -74,7 +77,7 @@ function daysFromSchedule(schedule) {
 const state = {
   familyId: localStorage.getItem("chores.familyId") || null,
   userId: localStorage.getItem("chores.userId") || null,
-  tab: "tasks",
+  tab: "home",
   families: [],
   users: [],
   tasks: [],
@@ -83,9 +86,10 @@ const state = {
   payouts: [],
   error: null,
   auth: null,
-  membership: null,
+  membership: null, // { bound, memberships: [{ user, family }] }
   invitations: [],
   lastInviteLink: null,
+  editingTaskId: null,
 };
 
 function setFamilyId(id) {
@@ -133,6 +137,12 @@ function isAuth0Mode() {
 
 async function loadMembership() {
   state.membership = await call("GetMyMembership", {});
+}
+
+function selectMembership(m) {
+  state.families = [m.family];
+  setFamilyId(m.family.id);
+  setUserId(m.user.id);
 }
 
 async function loadFamilies() {
@@ -232,6 +242,15 @@ function render() {
     return;
   }
 
+  // A login can be bound to more than one family (e.g. a child who's a
+  // member of two households). If there's more than one and none is
+  // currently selected, ask which one to open instead of falling through
+  // to the generic (local-testing-only) family picker below.
+  if (isAuth0Mode() && state.membership.memberships.length > 1 && !state.familyId) {
+    app.appendChild(renderHouseholdPicker());
+    return;
+  }
+
   if (!state.familyId) {
     app.appendChild(renderFamilyPicker());
     return;
@@ -244,15 +263,16 @@ function render() {
 
   app.appendChild(renderTopbar());
 
-  // Parents mostly live on one consolidated "Home" page (tasks, per-child
-  // completion, and accounting/payout together) since that's where they
-  // actually do things; switching to a child's own login-restricted view
-  // is a separate, rarer action (see the topbar). Children keep the
-  // original separate tabs.
+  // Parents get a dashboard-style "Home" tab (today's status per child, at
+  // a glance) plus separate tabs for managing tasks and for payouts/full
+  // accounting — those are different activities done at different times,
+  // not one big page. Children keep their original, simpler tabs.
   const parentMode = isParent();
   const tabDefs = parentMode
     ? [
         { key: "home", label: t("tabs.home") },
+        { key: "tasks", label: t("tabs.tasks") },
+        { key: "accounting", label: t("tabs.accounting") },
         { key: "family", label: t("tabs.family") },
       ]
     : [
@@ -260,7 +280,7 @@ function render() {
         { key: "accounting", label: t("tabs.accounting") },
         { key: "family", label: t("tabs.family") },
       ];
-  const activeTab = parentMode && state.tab !== "family" ? "home" : state.tab;
+  const activeTab = tabDefs.some((d) => d.key === state.tab) ? state.tab : tabDefs[0].key;
 
   const tabs = el(
     `<div class="tabs">${tabDefs
@@ -270,20 +290,16 @@ function render() {
   tabs.querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       state.tab = b.dataset.tab;
+      state.editingTaskId = null;
       render();
     })
   );
   app.appendChild(tabs);
 
-  if (parentMode) {
-    app.appendChild(activeTab === "family" ? renderFamilyTab() : renderHomeTab());
-  } else if (state.tab === "accounting") {
-    app.appendChild(renderAccountingTab());
-  } else if (state.tab === "family") {
-    app.appendChild(renderFamilyTab());
-  } else {
-    app.appendChild(renderChildOccurrences());
-  }
+  if (parentMode && activeTab === "home") app.appendChild(renderHomeTab());
+  else if (activeTab === "tasks") app.appendChild(parentMode ? renderTasksManagementTab() : renderChildOccurrences());
+  else if (activeTab === "accounting") app.appendChild(renderAccountingTab());
+  else app.appendChild(renderFamilyTab());
 }
 
 function escapeHtml(s) {
@@ -309,16 +325,47 @@ function faIconClass(value) {
   return cleaned || "star";
 }
 
+// Material Symbols are rendered as ligature text content (not a class
+// name), so escapeHtml() alone already makes them injection-safe; this
+// whitelist is just hygiene, matching how the names actually look
+// (lowercase, underscores).
+function materialIconName(value) {
+  const cleaned = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");
+  return cleaned || "star";
+}
+
 function taskLabel(task) {
   if (!task.icon || !task.icon.value) return escapeHtml(task.title);
   if (task.icon.type === "ICON_TYPE_FONT_AWESOME") {
     return `<i class="fa-solid fa-${faIconClass(task.icon.value)}"></i> ${escapeHtml(task.title)}`;
+  }
+  if (task.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS") {
+    return `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1em;">${escapeHtml(
+      materialIconName(task.icon.value)
+    )}</span> ${escapeHtml(task.title)}`;
   }
   return escapeHtml(task.icon.value) + " " + escapeHtml(task.title);
 }
 
 const EMOJI_CHOICES = ["🧹", "🧺", "🍽️", "🛏️", "🐶", "🗑️", "📚", "🧽", "🚗", "🌱", "🪥", "🧸"];
 const FA_CHOICES = ["broom", "shirt", "utensils", "bed", "dog", "trash", "book", "soap", "car", "seedling", "tooth", "paw"];
+const MATERIAL_CHOICES = [
+  "cleaning_services",
+  "checkroom",
+  "restaurant",
+  "bed",
+  "pets",
+  "delete",
+  "menu_book",
+  "soap",
+  "directions_car",
+  "eco",
+  "brush",
+  "toys",
+];
 
 function renderOnboarding() {
   const wrap = el(`<div></div>`);
@@ -348,15 +395,39 @@ function renderOnboarding() {
       if (!familyName) throw new Error(t("familyPicker.nameRequired"));
       await call("CreateFamily", { name: familyName, parentName });
       await loadMembership();
-      if (state.membership.bound) {
-        state.families = [state.membership.family];
-        setFamilyId(state.membership.family.id);
-        setUserId(state.membership.user.id);
+      if (state.membership.bound && state.membership.memberships.length) {
+        selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
         await loadFamilyData();
       }
     })
   );
   wrap.appendChild(form);
+  return wrap;
+}
+
+function renderHouseholdPicker() {
+  const wrap = el(`<div></div>`);
+  wrap.appendChild(el(`<h1>${window.APP_NAME}</h1><p>${escapeHtml(t("householdPicker.subtitle"))}</p>`));
+
+  const card = el(`<div class="card"></div>`);
+  state.membership.memberships.forEach((m) => {
+    const row = el(`
+      <div class="row">
+        <span>${escapeHtml(m.family.name)} — ${escapeHtml(m.user.name)} <span class="pill ${m.user.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(
+      roleLabel(m.user.role)
+    )}</span></span>
+        <button>${escapeHtml(t("familyPicker.open"))}</button>
+      </div>
+    `);
+    row.querySelector("button").addEventListener("click", () =>
+      withError(async () => {
+        selectMembership(m);
+        await loadFamilyData();
+      })
+    );
+    card.appendChild(row);
+  });
+  wrap.appendChild(card);
   return wrap;
 }
 
@@ -506,20 +577,32 @@ function renderTopbar() {
   // is only useful (and only allowed server-side) for a bound parent
   // acting on behalf of a child who doesn't have their own login, or in
   // local-testing mode where there's no login binding at all.
-  const canSwitch = !isAuth0Mode() || isParent();
-  const switchBtn = canSwitch ? `<button class="secondary" id="switch-user">${escapeHtml(t("topbar.switchUser"))}</button>` : "";
+  const canSwitchUser = !isAuth0Mode() || isParent();
+  const canSwitchHousehold = isAuth0Mode() && state.membership && state.membership.memberships.length > 1;
+  const buttons = [
+    canSwitchUser ? `<button class="secondary" id="switch-user">${escapeHtml(t("topbar.switchUser"))}</button>` : "",
+    canSwitchHousehold ? `<button class="secondary" id="switch-household">${escapeHtml(t("topbar.switchHousehold"))}</button>` : "",
+  ].join("");
   const bar = el(`
     <div class="topbar">
       <div>
         <h1>${escapeHtml(family ? family.name : window.APP_NAME)}</h1>
         <p style="margin:0">${escapeHtml(user ? user.name : "")} <span class="pill ${isParent() ? "parent" : "child"}">${escapeHtml(isParent() ? t("role.parent") : t("role.child"))}</span></p>
       </div>
-      <div class="actions">${switchBtn}</div>
+      <div class="actions">${buttons}</div>
     </div>
   `);
-  const switchBtnEl = bar.querySelector("#switch-user");
-  if (switchBtnEl) {
-    switchBtnEl.addEventListener("click", () => {
+  const switchUserEl = bar.querySelector("#switch-user");
+  if (switchUserEl) {
+    switchUserEl.addEventListener("click", () => {
+      setUserId(null);
+      render();
+    });
+  }
+  const switchHouseholdEl = bar.querySelector("#switch-household");
+  if (switchHouseholdEl) {
+    switchHouseholdEl.addEventListener("click", () => {
+      setFamilyId(null);
       setUserId(null);
       render();
     });
@@ -527,17 +610,60 @@ function renderTopbar() {
   return bar;
 }
 
-// ---- Home tab (parents) -----------------------------------------------------
+// ---- Home tab (parents): today's status per child, at a glance -----------------------------------------------------
 
 function renderHomeTab() {
   const wrap = el(`<div></div>`);
-  wrap.appendChild(renderTaskList());
-  wrap.appendChild(renderAddTaskForm());
-  wrap.appendChild(renderAccountingTab());
+  if (!state.summaries.length) {
+    wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("accounting.noChildren"))}</p></div>`));
+    return wrap;
+  }
+
+  state.summaries.forEach((s) => {
+    const card = el(`<div class="card"><h2>${escapeHtml(s.child.name)}</h2></div>`);
+
+    const todays = state.occurrences.filter((o) => o.childId === s.child.id && o.task.active !== false);
+    if (!todays.length) {
+      card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
+    } else {
+      todays.forEach((occ) => {
+        const done = !!occ.completed;
+        const row = el(`
+          <div class="row">
+            <div>
+              <div class="task-title">${taskLabel(occ.task)}</div>
+              <div class="task-meta">kr ${money(occ.task.priceCents)}</div>
+            </div>
+            <button class="checkbtn ${done ? "done" : "todo"}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}">${done ? "✓" : ""}</button>
+          </div>
+        `);
+        row.querySelector("button").addEventListener("click", () =>
+          withError(async () => {
+            if (done) {
+              await call("UncompleteTask", { taskId: occ.task.id, childId: s.child.id, dueDate: occ.dueDate });
+            } else {
+              await call("CompleteTask", { taskId: occ.task.id, childId: s.child.id, dueDate: occ.dueDate });
+            }
+            await loadFamilyData();
+          })
+        );
+        card.appendChild(row);
+      });
+    }
+
+    card.appendChild(el(`
+      <div class="grid-2" style="margin-top:10px;">
+        <div class="stat"><div class="value">kr ${money(s.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+        <div class="stat"><div class="value">kr ${money(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+      </div>
+    `));
+    wrap.appendChild(card);
+  });
+
   return wrap;
 }
 
-// ---- Tasks tab (children) -----------------------------------------------------
+// ---- Tasks tab (children): today's checklist -----------------------------------------------------
 
 function renderChildOccurrences() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("childTasks.heading"))}</h2></div>`);
@@ -580,6 +706,16 @@ function renderChildOccurrences() {
   return card;
 }
 
+// ---- Tasks tab (parents): manage task definitions -----------------------------------------------------
+
+function renderTasksManagementTab() {
+  const wrap = el(`<div></div>`);
+  wrap.appendChild(renderTaskList());
+  const editingTask = state.editingTaskId ? state.tasks.find((t_) => t_.id === state.editingTaskId) : null;
+  wrap.appendChild(renderTaskForm(editingTask));
+  return wrap;
+}
+
 function renderTaskList() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("taskList.heading"))}</h2></div>`);
   if (!state.tasks.length) {
@@ -590,52 +726,32 @@ function renderTaskList() {
   const usersById = new Map(state.users.map((u) => [u.id, u]));
   state.tasks.forEach((t_) => {
     const days = daysFromSchedule(t_.schedule);
-    const dayLabel = days && days.length < 7 ? days.map((d) => dow[d].label).join(", ") : t("taskList.everyDay");
+    const dayLabel =
+      days && days.length < 7
+        ? dow
+            .filter((d) => days.includes(d.code))
+            .map((d) => d.label)
+            .join(", ")
+        : t("taskList.everyDay");
+    const assignedNames = (t_.childIds || []).map((id) => (usersById.get(id) ? usersById.get(id).name : "?")).join(", ");
     const row = el(`
-      <div class="task-row">
-        <div class="task-row-top">
-          <div>
-            <div class="task-title">${taskLabel(t_)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.inactive"))}</span>` : ""}</div>
-            <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}</div>
-          </div>
-          <div class="actions">
-            <button class="secondary" data-action="toggle">${escapeHtml(t_.active === false ? t("taskList.activate") : t("taskList.deactivate"))}</button>
-            <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
-          </div>
+      <div class="row">
+        <div>
+          <div class="task-title">${taskLabel(t_)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""}</div>
+          <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
         </div>
-        <div class="child-toggles"></div>
+        <div class="actions">
+          <button class="secondary" data-action="edit">${escapeHtml(t("taskList.edit"))}</button>
+          <button class="secondary" data-action="toggle">${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}</button>
+          <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
+        </div>
       </div>
     `);
 
-    // For each child this task is assigned to, show today's status as a
-    // clickable pill — this is how a parent marks a chore done directly
-    // from their own home page, without switching to the child's login.
-    const togglesWrap = row.querySelector(".child-toggles");
-    (t_.childIds || []).forEach((childId) => {
-      const child = usersById.get(childId);
-      const name = child ? child.name : "?";
-      const occ = state.occurrences.find((o) => o.task.id === t_.id && o.childId === childId);
-      if (!occ) {
-        togglesWrap.appendChild(
-          el(`<button type="button" class="child-toggle" disabled title="${escapeHtml(t("taskList.notDueToday"))}">${escapeHtml(name)}</button>`)
-        );
-        return;
-      }
-      const done = !!occ.completed;
-      const btn = el(`<button type="button" class="child-toggle ${done ? "done" : ""}">${done ? "✓ " : ""}${escapeHtml(name)}</button>`);
-      btn.addEventListener("click", () =>
-        withError(async () => {
-          if (done) {
-            await call("UncompleteTask", { taskId: t_.id, childId, dueDate: occ.dueDate });
-          } else {
-            await call("CompleteTask", { taskId: t_.id, childId, dueDate: occ.dueDate });
-          }
-          await loadFamilyData();
-        })
-      );
-      togglesWrap.appendChild(btn);
+    row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+      state.editingTaskId = t_.id;
+      render();
     });
-
     row.querySelector('[data-action="toggle"]').addEventListener("click", () =>
       withError(async () => {
         await call("UpdateTask", {
@@ -655,6 +771,7 @@ function renderTaskList() {
       withError(async () => {
         if (!confirm(t("taskList.confirmDelete", { title: t_.title }))) return;
         await call("DeleteTask", { taskId: t_.id });
+        if (state.editingTaskId === t_.id) state.editingTaskId = null;
         await loadFamilyData();
       })
     );
@@ -663,11 +780,19 @@ function renderTaskList() {
   return card;
 }
 
-function renderAddTaskForm() {
+function iconTypeKey(icon) {
+  if (!icon) return "EMOJI";
+  if (icon.type === "ICON_TYPE_FONT_AWESOME") return "FONT_AWESOME";
+  if (icon.type === "ICON_TYPE_MATERIAL_SYMBOLS") return "MATERIAL_SYMBOLS";
+  return "EMOJI";
+}
+
+function renderTaskForm(existingTask) {
+  const isEdit = !!existingTask;
   const children = state.users.filter((u) => u.role === "USER_ROLE_CHILD");
   const form = el(`
     <div class="card">
-      <h2>${escapeHtml(t("addTask.heading"))}</h2>
+      <h2>${escapeHtml(isEdit ? t("taskList.editHeading") : t("addTask.heading"))}</h2>
       <div class="field">
         <label>${escapeHtml(t("addTask.titleLabel"))}</label>
         <input type="text" id="task-title" placeholder="${escapeHtml(t("addTask.titlePlaceholder"))}" />
@@ -679,10 +804,11 @@ function renderAddTaskForm() {
       <div class="field">
         <label>${escapeHtml(t("addTask.iconLabel"))}</label>
         <div class="icon-type-toggle">
-          <button type="button" class="secondary active" data-icon-type="EMOJI">${escapeHtml(t("addTask.iconTypeEmoji"))}</button>
+          <button type="button" class="secondary" data-icon-type="EMOJI">${escapeHtml(t("addTask.iconTypeEmoji"))}</button>
           <button type="button" class="secondary" data-icon-type="FONT_AWESOME">${escapeHtml(t("addTask.iconTypeFontAwesome"))}</button>
+          <button type="button" class="secondary" data-icon-type="MATERIAL_SYMBOLS">${escapeHtml(t("addTask.iconTypeMaterialSymbols"))}</button>
         </div>
-        <input type="text" id="task-icon" maxlength="32" style="width:8em;" placeholder="🧹" />
+        <input type="text" id="task-icon" maxlength="32" style="width:12em;" />
         <div id="task-icon-choices" class="icon-choices" style="margin-top:6px;"></div>
       </div>
       <div class="grid-2">
@@ -699,27 +825,44 @@ function renderAddTaskForm() {
         <label>${escapeHtml(t("addTask.assignLabel"))}</label>
         <div id="task-children"></div>
       </div>
-      <button id="add-task-btn">${escapeHtml(t("addTask.addBtn"))}</button>
+      <div class="actions">
+        <button id="save-task-btn">${escapeHtml(isEdit ? t("taskList.saveChanges") : t("addTask.addBtn"))}</button>
+        ${isEdit ? `<button type="button" class="secondary" id="cancel-edit-btn">${escapeHtml(t("taskList.cancel"))}</button>` : ""}
+      </div>
     </div>
   `);
+
+  if (isEdit) {
+    form.querySelector("#task-title").value = existingTask.title;
+    form.querySelector("#task-desc").value = existingTask.description || "";
+    form.querySelector("#task-price").value = (Number(existingTask.priceCents || 0) / 100).toFixed(2);
+  }
+
   const iconInput = form.querySelector("#task-icon");
   const iconChoicesWrap = form.querySelector("#task-icon-choices");
   const iconTypeButtons = [...form.querySelectorAll(".icon-type-toggle button")];
-  let selectedIconType = "EMOJI";
+  let selectedIconType = iconTypeKey(isEdit ? existingTask.icon : null);
+
+  const iconPlaceholders = { EMOJI: "🧹", FONT_AWESOME: "broom", MATERIAL_SYMBOLS: "cleaning_services" };
+  const iconChoiceLists = { EMOJI: EMOJI_CHOICES, FONT_AWESOME: FA_CHOICES, MATERIAL_SYMBOLS: MATERIAL_CHOICES };
 
   function renderIconChoices() {
     iconChoicesWrap.innerHTML = "";
-    const choices = selectedIconType === "EMOJI" ? EMOJI_CHOICES : FA_CHOICES;
-    choices.forEach((value) => {
+    iconChoiceLists[selectedIconType].forEach((value) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "secondary";
       if (selectedIconType === "EMOJI") {
         btn.textContent = value;
-      } else {
+      } else if (selectedIconType === "FONT_AWESOME") {
         const i = document.createElement("i");
         i.className = `fa-solid fa-${faIconClass(value)}`;
         btn.appendChild(i);
+      } else {
+        const span = document.createElement("span");
+        span.className = "material-symbols-outlined";
+        span.textContent = materialIconName(value);
+        btn.appendChild(span);
       }
       btn.addEventListener("click", () => {
         iconInput.value = value;
@@ -728,23 +871,25 @@ function renderAddTaskForm() {
     });
   }
 
-  iconTypeButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selectedIconType = btn.dataset.iconType;
-      iconTypeButtons.forEach((b) => b.classList.toggle("active", b === btn));
-      iconInput.placeholder = selectedIconType === "EMOJI" ? "🧹" : "broom";
-      iconInput.value = "";
-      renderIconChoices();
-    });
-  });
-  renderIconChoices();
+  function selectIconType(newType) {
+    selectedIconType = newType;
+    iconTypeButtons.forEach((b) => b.classList.toggle("active", b.dataset.iconType === newType));
+    iconInput.placeholder = iconPlaceholders[newType];
+    renderIconChoices();
+  }
+
+  iconTypeButtons.forEach((btn) => btn.addEventListener("click", () => selectIconType(btn.dataset.iconType)));
+  selectIconType(selectedIconType);
+  if (isEdit && existingTask.icon) iconInput.value = existingTask.icon.value;
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
+  const preCheckedDays = isEdit ? daysFromSchedule(existingTask.schedule) || [] : null;
   dow.forEach((d) => {
     const id = `day-${d.code}`;
+    const checked = isEdit ? preCheckedDays.includes(d.code) : d.code >= 1 && d.code <= 5;
     const label = el(`<label style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:0.85rem;">
-      <input type="checkbox" id="${id}" ${d.code >= 1 && d.code <= 5 ? "checked" : ""}/> ${escapeHtml(d.label)}
+      <input type="checkbox" id="${id}" ${checked ? "checked" : ""}/> ${escapeHtml(d.label)}
     </label>`);
     daysWrap.appendChild(label);
   });
@@ -753,10 +898,11 @@ function renderAddTaskForm() {
   if (!children.length) {
     childrenWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.noChildren"))}</p>`));
   } else {
+    const assignedIds = new Set(isEdit ? existingTask.childIds || [] : []);
     const checksWrap = el(`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;"></div>`);
     children.forEach((c) => {
       const label = el(`<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;">
-        <input type="checkbox" data-child-id="${c.id}" /> ${escapeHtml(c.name)}
+        <input type="checkbox" data-child-id="${c.id}" ${assignedIds.has(c.id) ? "checked" : ""} /> ${escapeHtml(c.name)}
       </label>`);
       checksWrap.appendChild(label);
     });
@@ -768,17 +914,17 @@ function renderAddTaskForm() {
     childrenWrap.appendChild(selectAllBtn);
   }
 
-  form.querySelector("#add-task-btn").addEventListener("click", () =>
+  form.querySelector("#save-task-btn").addEventListener("click", () =>
     withError(async () => {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
       const iconValueRaw = iconInput.value.trim();
-      const icon = iconValueRaw
-        ? {
-            type: selectedIconType === "FONT_AWESOME" ? "ICON_TYPE_FONT_AWESOME" : "ICON_TYPE_EMOJI",
-            value: selectedIconType === "FONT_AWESOME" ? faIconClass(iconValueRaw) : iconValueRaw,
-          }
-        : undefined;
+      const iconTypeProto = { EMOJI: "ICON_TYPE_EMOJI", FONT_AWESOME: "ICON_TYPE_FONT_AWESOME", MATERIAL_SYMBOLS: "ICON_TYPE_MATERIAL_SYMBOLS" }[
+        selectedIconType
+      ];
+      const iconValue =
+        selectedIconType === "FONT_AWESOME" ? faIconClass(iconValueRaw) : selectedIconType === "MATERIAL_SYMBOLS" ? materialIconName(iconValueRaw) : iconValueRaw;
+      const icon = iconValueRaw ? { type: iconTypeProto, value: iconValue } : undefined;
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
       const days = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
       const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);
@@ -786,18 +932,39 @@ function renderAddTaskForm() {
       if (!(priceKr >= 0)) throw new Error(t("addTask.pricePositive"));
       if (!childIds.length) throw new Error(t("addTask.childRequired"));
       const schedule = buildScheduleFromDays(days);
-      await call("CreateTask", {
-        familyId: state.familyId,
-        title,
-        description,
-        icon,
-        priceCents: Math.round(priceKr * 100),
-        schedule,
-        childIds,
-      });
+      if (isEdit) {
+        await call("UpdateTask", {
+          taskId: existingTask.id,
+          title,
+          description,
+          icon,
+          priceCents: Math.round(priceKr * 100),
+          schedule,
+          childIds,
+          active: existingTask.active !== false,
+        });
+        state.editingTaskId = null;
+      } else {
+        await call("CreateTask", {
+          familyId: state.familyId,
+          title,
+          description,
+          icon,
+          priceCents: Math.round(priceKr * 100),
+          schedule,
+          childIds,
+        });
+      }
       await loadFamilyData();
     })
   );
+  const cancelBtn = form.querySelector("#cancel-edit-btn");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      state.editingTaskId = null;
+      render();
+    });
+  }
   return form;
 }
 
@@ -997,15 +1164,26 @@ function renderInvitationsSection() {
 withError(async () => {
   await loadAuth();
   if (isAuth0Mode()) {
-    // A login is bound to at most one family member. Always resolve that
-    // from the server on boot rather than trusting stale localStorage,
-    // since a different login could have used this same browser before.
+    // A login may be bound to more than one family (e.g. a child who's a
+    // member of two households). Always resolve this from the server on
+    // boot rather than trusting stale localStorage, since a different
+    // login could have used this same browser before.
     await loadMembership();
     if (state.membership.bound) {
-      state.families = [state.membership.family];
-      setFamilyId(state.membership.family.id);
-      setUserId(state.membership.user.id);
-      await loadFamilyData();
+      const memberships = state.membership.memberships;
+      const stored = memberships.find((m) => m.family.id === state.familyId && m.user.id === state.userId);
+      if (stored) {
+        selectMembership(stored);
+        await loadFamilyData();
+      } else if (memberships.length === 1) {
+        selectMembership(memberships[0]);
+        await loadFamilyData();
+      } else {
+        // More than one membership and no (still valid) stored choice:
+        // clear any stale selection so render() shows the household picker.
+        setFamilyId(null);
+        setUserId(null);
+      }
     } else {
       setFamilyId(null);
       setUserId(null);

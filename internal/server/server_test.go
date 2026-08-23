@@ -66,13 +66,17 @@ func TestCreateFamily_Auth0Mode_AutoBindsFoundingParent(t *testing.T) {
 	if !membership.Msg.Bound {
 		t.Fatal("expected the founding parent to be bound")
 	}
-	if membership.Msg.User.Name != "Mom" {
-		t.Fatalf("expected bound user name %q, got %q", "Mom", membership.Msg.User.Name)
+	if len(membership.Msg.Memberships) != 1 {
+		t.Fatalf("expected exactly 1 membership, got %d", len(membership.Msg.Memberships))
 	}
-	if membership.Msg.Family.Id != resp.Msg.Family.Id {
-		t.Fatalf("bound family %q does not match created family %q", membership.Msg.Family.Id, resp.Msg.Family.Id)
+	m := membership.Msg.Memberships[0]
+	if m.User.Name != "Mom" {
+		t.Fatalf("expected bound user name %q, got %q", "Mom", m.User.Name)
 	}
-	if !membership.Msg.User.AuthBound {
+	if m.Family.Id != resp.Msg.Family.Id {
+		t.Fatalf("bound family %q does not match created family %q", m.Family.Id, resp.Msg.Family.Id)
+	}
+	if !m.User.AuthBound {
 		t.Fatal("expected AuthBound to be true for the founding parent")
 	}
 
@@ -530,5 +534,89 @@ func TestTaskIcon(t *testing.T) {
 	}
 	if noIcon.Msg.Task.Icon != nil {
 		t.Fatalf("expected no icon, got %+v", noIcon.Msg.Task.Icon)
+	}
+}
+
+// TestChild_CanBeMemberOfMultipleFamilies covers the split-household case:
+// the same login (e.g. a child) can be bound to a family member row in more
+// than one family, each independently scoped — completing a task, viewing
+// a summary, etc. in one family must have no bearing on the other.
+func TestChild_CanBeMemberOfMultipleFamilies(t *testing.T) {
+	s := newTestServer(t)
+	ctxParentA := withIdentity("auth0|parentA")
+	ctxParentB := withIdentity("auth0|parentB")
+	ctxKid := withIdentity("auth0|kid")
+
+	famA, err := s.CreateFamily(ctxParentA, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family A", ParentName: "Parent A"}))
+	if err != nil {
+		t.Fatalf("CreateFamily A: %v", err)
+	}
+	famB, err := s.CreateFamily(ctxParentB, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family B", ParentName: "Parent B"}))
+	if err != nil {
+		t.Fatalf("CreateFamily B: %v", err)
+	}
+
+	invA, err := s.CreateInvitation(ctxParentA, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: famA.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation A: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxKid, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invA.Msg.Token})); err != nil {
+		t.Fatalf("AcceptInvitation A: %v", err)
+	}
+
+	invB, err := s.CreateInvitation(ctxParentB, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: famB.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation B: %v", err)
+	}
+	acceptB, err := s.AcceptInvitation(ctxKid, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invB.Msg.Token}))
+	if err != nil {
+		t.Fatalf("expected the same login to accept a second family's invitation, got: %v", err)
+	}
+
+	membership, err := s.GetMyMembership(ctxKid, connect.NewRequest(&v1.GetMyMembershipRequest{}))
+	if err != nil {
+		t.Fatalf("GetMyMembership: %v", err)
+	}
+	if len(membership.Msg.Memberships) != 2 {
+		t.Fatalf("expected 2 memberships, got %d: %+v", len(membership.Msg.Memberships), membership.Msg.Memberships)
+	}
+	seenFamilies := map[string]bool{}
+	for _, m := range membership.Msg.Memberships {
+		seenFamilies[m.Family.Id] = true
+	}
+	if !seenFamilies[famA.Msg.Family.Id] || !seenFamilies[famB.Msg.Family.Id] {
+		t.Fatalf("expected memberships in both families, got %+v", membership.Msg.Memberships)
+	}
+
+	// Accepting the same family's invitation twice (a second, separate
+	// invite to family A) must still be rejected.
+	invA2, err := s.CreateInvitation(ctxParentA, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: famA.Msg.Family.Id, Name: "Kid Again", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation A2: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxKid, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invA2.Msg.Token})); codeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("expected FailedPrecondition re-joining the same family, got %v", err)
+	}
+
+	// The two family memberships are fully independent: a task and
+	// completion in family A must not be visible or actionable from B.
+	taskA, err := s.CreateTask(ctxParentA, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: famA.Msg.Family.Id, Title: "Chore A", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{membership.Msg.Memberships[0].User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask A: %v", err)
+	}
+	kidBUserID := acceptB.Msg.User.Id
+	if _, err := s.CompleteTask(ctxKid, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: taskA.Msg.Task.Id, ChildId: kidBUserID, DueDate: "2024-01-01",
+	})); err == nil {
+		t.Fatal("expected completing family A's task using the family B user id to fail")
 	}
 }

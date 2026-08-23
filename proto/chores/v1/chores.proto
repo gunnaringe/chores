@@ -16,12 +16,17 @@ enum IconType {
   ICON_TYPE_UNSPECIFIED = 0;
   ICON_TYPE_EMOJI = 1;
   ICON_TYPE_FONT_AWESOME = 2;
+  // A Google Material Symbols icon name (fonts.google.com/icons), e.g.
+  // "cleaning_services", rendered via the Material Symbols web font.
+  ICON_TYPE_MATERIAL_SYMBOLS = 3;
 }
 
 // An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
 // character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
 // Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
-// rendered as the CSS classes "fa-solid fa-broom").
+// rendered as the CSS classes "fa-solid fa-broom"). For
+// ICON_TYPE_MATERIAL_SYMBOLS, value is a Material Symbols icon name (e.g.
+// "cleaning_services").
 message Icon {
   IconType type = 1;
   string value = 2;
@@ -92,6 +97,7 @@ message ChildSummary {
   int64 total_earned_cents = 4;
   int64 total_paid_out_cents = 5;
   google.protobuf.Timestamp last_payout_at = 6;
+  int64 earned_today_cents = 7;
 }
 
 // Represents one occurrence of a recurring task, for one of the children it
@@ -256,15 +262,23 @@ message ListPayoutsResponse {
   repeated Payout payouts = 1;
 }
 
+// One family a login identity is bound to as a specific family member.
+// Usually there's exactly one (a parent belongs to one household), but a
+// child can be bound to more than one — e.g. a child who lives in two
+// households, each running its own chores/allowance independently.
+message Membership {
+  User user = 1;
+  Family family = 2;
+}
+
 // GetMyMembership resolves the caller's login identity (when auth is
-// enabled) to the family member it's bound to, if any. In local-testing
-// mode (no auth configured) it always reports unbound, since there is no
-// login identity to resolve.
+// enabled) to every family member row it's bound to. In local-testing mode
+// (no auth configured) it always reports unbound, since there is no login
+// identity to resolve.
 message GetMyMembershipRequest {}
 message GetMyMembershipResponse {
   bool bound = 1;
-  User user = 2;
-  Family family = 3;
+  repeated Membership memberships = 2;
 }
 
 // An invitation grants whoever holds its (unguessable, single-use) token

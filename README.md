@@ -6,34 +6,44 @@ SQLite storage, Buf-generated Connect API.
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
-The Font Awesome icon set is the one external dependency the app pulls in
-at runtime, from cdnjs (with a Subresource Integrity hash pinned in
-`web/index.html`) — everything else is embedded in the binary. That's an
+Font Awesome and Google's Material Symbols are the two external
+dependencies the app pulls in at runtime — Font Awesome from cdnjs (with a
+Subresource Integrity hash pinned in `web/index.html`), Material Symbols
+from Google Fonts — everything else is embedded in the binary. That's an
 acceptable tradeoff here since the app already needs a live connection to
 its own backend for essentially everything; there's no offline mode to
 preserve.
 
 - Parents create tasks with a price, a cron-like recurrence (`0 0 * * 1,3,5`
-  = every Monday, Wednesday, Friday — the UI offers day-of-week checkboxes
-  that build this expression for you), an assignment to one or more children
-  (with a "select all" shortcut), and an optional icon shown next to the
-  title everywhere the task appears — either any emoji, or a
-  [Font Awesome](https://fontawesome.com) Free Solid icon (loaded from its
-  CDN), each with a row of quick-pick suggestions plus a free-text field. A
-  task only shows up for the children it's assigned to.
-- A parent's Home page is a single consolidated view: the task list (with a
-  per-child, per-day toggle to mark a chore done directly, without switching
-  identity), the add-task form, and accounting/payout for every child — all
-  in one place, since that's where parents actually spend their time.
-  Switching to a specific child's own restricted view (via "Switch user")
-  is a separate action, mainly useful for previewing what a kid sees, or for
-  a parent marking a chore done on behalf of a child who doesn't have their
-  own login.
+  = every Monday, Wednesday, Friday — the UI offers day-of-week checkboxes,
+  shown Monday-first, that build this expression for you), an assignment to
+  one or more children (with a "select all" shortcut), and an optional icon
+  shown next to the title everywhere the task appears — any emoji, a
+  [Font Awesome](https://fontawesome.com) Free Solid icon, or a
+  [Material Symbols](https://fonts.google.com/icons) icon, each with a row
+  of quick-pick suggestions plus a free-text field. A task only shows up
+  for the children it's assigned to, can be edited in place at any time,
+  and can be paused (and later resumed) instead of deleted.
+- A parent's Home tab is a daily dashboard: for each child, today's tasks
+  and their completion status, what they've earned today, and their
+  outstanding balance — all at a glance. Managing tasks (add/edit/pause/
+  delete) lives on its own Tasks tab, and payouts/balance history live on
+  their own Accounting tab, since those are different activities done at
+  different times. Switching to a specific child's own restricted view (via
+  "Switch user") is a separate action, mainly useful for previewing what a
+  kid sees, or for a parent marking a chore done on behalf of a child who
+  doesn't have their own login.
 - Children mark their own assigned tasks done for a given day, and see only
   their own accounting.
 - Accounting tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
+- A child can belong to more than one family at once (e.g. a child who
+  splits time between two households, each running its own independent
+  chores/allowance) — when a login is bound to more than one family, it's
+  asked which household to open, with a "Switch household" control to
+  change later. A parent's login, by contrast, is always scoped to exactly
+  one family.
 
 When Auth0 is enabled, a login is bound to a specific family member: the
 first parent to log in creates the family and is bound to it automatically,
@@ -126,6 +136,12 @@ parent can revoke an invite before it's accepted, which also removes the
 unclaimed slot it created. Accepting an invite isn't restricted to any
 particular email address — possession of the link is what grants access, so
 only share it with the intended person.
+
+A parent login can only ever be bound to one family this way — accepting a
+second parent invite with a login that already belongs somewhere is
+rejected. A child invite has no such limit: the same login can accept
+invites into more than one family, which is exactly the "lives in two
+households" case.
 
 ## Installing as an app (PWA)
 

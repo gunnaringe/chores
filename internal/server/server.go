@@ -60,12 +60,11 @@ func (s *Server) currentIdentity(ctx context.Context) (auth.Identity, bool) {
 	return auth.FromContext(ctx)
 }
 
-// boundUser returns the user row the caller's login identity is bound to,
-// or nil if it isn't bound to any (which requireRole/requireMembership
-// treat as "no family membership").
-func (s *Server) boundUser(ctx context.Context, identity auth.Identity) (*v1.User, error) {
+// boundUserInFamily returns the user row the caller's login identity is
+// bound to within familyID specifically, or nil if none.
+func (s *Server) boundUserInFamily(ctx context.Context, identity auth.Identity, familyID string) (*v1.User, error) {
 	var userID string
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&userID)
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -82,23 +81,20 @@ func (s *Server) requireMembership(ctx context.Context, familyID string) error {
 }
 
 // requireRole ensures the caller is bound to familyID and, if any roles are
-// given, that their role is one of them. A no-op in local-testing mode.
-// Used to keep family-management actions (adding members, managing tasks,
-// inviting people, paying out) restricted to parents now that children can
-// have their own login and API access.
+// given, that their role there is one of them. A no-op in local-testing
+// mode. Used to keep family-management actions (adding members, managing
+// tasks, inviting people, paying out) restricted to parents now that
+// children can have their own login and API access.
 func (s *Server) requireRole(ctx context.Context, familyID string, allowed ...v1.UserRole) error {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
 		return nil
 	}
-	user, err := s.boundUser(ctx, identity)
+	user, err := s.boundUserInFamily(ctx, identity, familyID)
 	if err != nil {
 		return err
 	}
 	if user == nil {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("you don't belong to a family yet"))
-	}
-	if user.FamilyId != familyID {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("not a member of this family"))
 	}
 	if len(allowed) == 0 {
@@ -117,15 +113,15 @@ func (s *Server) requireParent(ctx context.Context, familyID string) error {
 }
 
 // requireSelfOrParent ensures a bound child can only act on their own
-// child_id — a bound parent, or local-testing mode, is unrestricted.
-// Callers should also call requireMembership/requireParent for the
-// relevant family first.
-func (s *Server) requireSelfOrParent(ctx context.Context, childID string) error {
+// child_id within familyID — a bound parent there, or local-testing mode,
+// is unrestricted. Callers should also call requireMembership/requireParent
+// for familyID first.
+func (s *Server) requireSelfOrParent(ctx context.Context, familyID, childID string) error {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
 		return nil
 	}
-	user, err := s.boundUser(ctx, identity)
+	user, err := s.boundUserInFamily(ctx, identity, familyID)
 	if err != nil {
 		return err
 	}
@@ -136,15 +132,15 @@ func (s *Server) requireSelfOrParent(ctx context.Context, childID string) error 
 }
 
 // selfFilterForChild returns the child_id filter a list RPC should use: a
-// bound child is always forced to see only their own data, overriding
-// whatever was requested. Anyone else (a bound parent, or local-testing
-// mode) gets requested back unchanged.
-func (s *Server) selfFilterForChild(ctx context.Context, requested string) (string, error) {
+// bound child (within familyID) is always forced to see only their own
+// data, overriding whatever was requested. Anyone else (a bound parent, or
+// local-testing mode) gets requested back unchanged.
+func (s *Server) selfFilterForChild(ctx context.Context, familyID, requested string) (string, error) {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
 		return requested, nil
 	}
-	user, err := s.boundUser(ctx, identity)
+	user, err := s.boundUserInFamily(ctx, identity, familyID)
 	if err != nil {
 		return "", err
 	}
@@ -295,6 +291,8 @@ func iconTypeToDB(t v1.IconType) (string, error) {
 		return "emoji", nil
 	case v1.IconType_ICON_TYPE_FONT_AWESOME:
 		return "fontawesome", nil
+	case v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS:
+		return "materialsymbols", nil
 	default:
 		return "", fmt.Errorf("invalid icon type %v", t)
 	}
@@ -306,6 +304,8 @@ func iconTypeFromDB(t string) v1.IconType {
 		return v1.IconType_ICON_TYPE_EMOJI
 	case "fontawesome":
 		return v1.IconType_ICON_TYPE_FONT_AWESOME
+	case "materialsymbols":
+		return v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS
 	default:
 		return v1.IconType_ICON_TYPE_UNSPECIFIED
 	}
@@ -686,7 +686,7 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	if err := s.requireMembership(ctx, familyID); err != nil {
 		return nil, err
 	}
-	childFilter, err := s.selfFilterForChild(ctx, req.Msg.GetChildId())
+	childFilter, err := s.selfFilterForChild(ctx, familyID, req.Msg.GetChildId())
 	if err != nil {
 		return nil, err
 	}
@@ -830,7 +830,7 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	if err := s.requireMembership(ctx, task.FamilyId); err != nil {
 		return nil, err
 	}
-	if err := s.requireSelfOrParent(ctx, childID); err != nil {
+	if err := s.requireSelfOrParent(ctx, task.FamilyId, childID); err != nil {
 		return nil, err
 	}
 
@@ -887,7 +887,7 @@ func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.Unc
 	if err := s.requireMembership(ctx, task.FamilyId); err != nil {
 		return nil, err
 	}
-	if err := s.requireSelfOrParent(ctx, childID); err != nil {
+	if err := s.requireSelfOrParent(ctx, task.FamilyId, childID); err != nil {
 		return nil, err
 	}
 	if _, err := s.db.ExecContext(ctx,
@@ -907,7 +907,7 @@ func (s *Server) ListTaskCompletions(ctx context.Context, req *connect.Request[v
 	if err := s.requireMembership(ctx, familyID); err != nil {
 		return nil, err
 	}
-	childFilter, err := s.selfFilterForChild(ctx, req.Msg.GetChildId())
+	childFilter, err := s.selfFilterForChild(ctx, familyID, req.Msg.GetChildId())
 	if err != nil {
 		return nil, err
 	}
@@ -940,8 +940,9 @@ func (s *Server) ListTaskCompletions(ctx context.Context, req *connect.Request[v
 // ---- Accounting -----------------------------------------------------
 
 func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildSummary, error) {
-	var totalEarned, earnedLast7Days, totalPaidOut sql.NullInt64
+	var totalEarned, earnedLast7Days, earnedToday, totalPaidOut sql.NullInt64
 	sevenDaysAgo := formatTime(nowUTC().AddDate(0, 0, -7))
+	today := scheduling.FormatDate(nowUTC())
 
 	if err := s.db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ?`,
@@ -953,6 +954,12 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND completed_at >= ?`,
 		child.Id, sevenDaysAgo,
 	).Scan(&earnedLast7Days); err != nil {
+		return nil, err
+	}
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND due_date = ?`,
+		child.Id, today,
+	).Scan(&earnedToday); err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx,
@@ -973,6 +980,7 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 	summary := &v1.ChildSummary{
 		Child:                 child,
 		EarnedLast_7DaysCents: earnedLast7Days.Int64,
+		EarnedTodayCents:      earnedToday.Int64,
 		TotalEarnedCents:      totalEarned.Int64,
 		TotalPaidOutCents:     totalPaidOut.Int64,
 		BalanceCents:          totalEarned.Int64 - totalPaidOut.Int64,
@@ -1014,7 +1022,7 @@ func (s *Server) GetChildSummary(ctx context.Context, req *connect.Request[v1.Ge
 	if err := s.requireMembership(ctx, child.FamilyId); err != nil {
 		return nil, err
 	}
-	if err := s.requireSelfOrParent(ctx, childID); err != nil {
+	if err := s.requireSelfOrParent(ctx, child.FamilyId, childID); err != nil {
 		return nil, err
 	}
 	summary, err := s.computeSummary(ctx, child)
@@ -1032,7 +1040,7 @@ func (s *Server) ListChildSummaries(ctx context.Context, req *connect.Request[v1
 	if err := s.requireMembership(ctx, familyID); err != nil {
 		return nil, err
 	}
-	childFilter, err := s.selfFilterForChild(ctx, "")
+	childFilter, err := s.selfFilterForChild(ctx, familyID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -1126,7 +1134,7 @@ func (s *Server) ListPayouts(ctx context.Context, req *connect.Request[v1.ListPa
 	if err := s.requireMembership(ctx, familyID); err != nil {
 		return nil, err
 	}
-	childFilter, err := s.selfFilterForChild(ctx, req.Msg.GetChildId())
+	childFilter, err := s.selfFilterForChild(ctx, familyID, req.Msg.GetChildId())
 	if err != nil {
 		return nil, err
 	}
@@ -1168,30 +1176,52 @@ const invitationTTL = 7 * 24 * time.Hour
 // GetMyMembership resolves the caller's login identity to the family
 // member it's bound to, if any. In local-testing mode it always reports
 // unbound, since there is no login identity to resolve.
+// GetMyMembership returns every user row the caller's login identity is
+// bound to. Usually that's at most one (a parent belongs to one household),
+// but a child can be bound to several — e.g. one per household they split
+// time between.
 func (s *Server) GetMyMembership(ctx context.Context, _ *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error) {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
 		return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: false}), nil
 	}
 
-	var userID string
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&userID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: false}), nil
-	}
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM users WHERE auth_subject = ? ORDER BY created_at`, identity.Sub)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	var userIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		userIDs = append(userIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	rows.Close()
 
-	user, err := s.getUser(ctx, userID)
-	if err != nil {
-		return nil, err
+	if len(userIDs) == 0 {
+		return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: false}), nil
 	}
-	family, err := s.getFamily(ctx, user.FamilyId)
-	if err != nil {
-		return nil, err
+
+	memberships := make([]*v1.Membership, 0, len(userIDs))
+	for _, userID := range userIDs {
+		user, err := s.getUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		family, err := s.getFamily(ctx, user.FamilyId)
+		if err != nil {
+			return nil, err
+		}
+		memberships = append(memberships, &v1.Membership{User: user, Family: family})
 	}
-	return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: true, User: user, Family: family}), nil
+	return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: true, Memberships: memberships}), nil
 }
 
 // CreateInvitation creates an unclaimed parent slot in the family and an
@@ -1342,11 +1372,13 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitations require auth0 login to be enabled"))
 	}
 
-	var invID, familyID, userID, expiresAtStr string
+	var invID, familyID, userID, role, expiresAtStr string
 	var acceptedAt sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, family_id, user_id, expires_at, accepted_at FROM invitations WHERE token = ?`, token,
-	).Scan(&invID, &familyID, &userID, &expiresAtStr, &acceptedAt)
+		`SELECT i.id, i.family_id, i.user_id, u.role, i.expires_at, i.accepted_at
+		 FROM invitations i JOIN users u ON u.id = i.user_id
+		 WHERE i.token = ?`, token,
+	).Scan(&invID, &familyID, &userID, &role, &expiresAtStr, &acceptedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("invitation not found"))
 	}
@@ -1364,10 +1396,20 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitation has expired"))
 	}
 
+	// Parents stay limited to one family via this flow. Children can be
+	// members of several families (e.g. split households), but not the same
+	// family twice.
 	var existing string
-	err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&existing)
-	if err == nil {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you already belong to a family"))
+	if role == "parent" {
+		err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&existing)
+		if err == nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you already belong to a family"))
+		}
+	} else {
+		err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&existing)
+		if err == nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you are already a member of this family"))
+		}
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeInternal, err)

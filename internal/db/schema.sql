@@ -16,13 +16,19 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('parent', 'child')),
     created_at TEXT NOT NULL,
-    -- The login identity (Auth0 "sub") bound to this user, if any. Only
-    -- ever set for parents; children don't log in themselves. NULL until an
-    -- invitation is accepted (or the founding parent's first login).
-    auth_subject TEXT UNIQUE,
+    -- The login identity (Auth0 "sub") bound to this user row, if any. Not
+    -- unique: one login can be bound to more than one row (e.g. a child
+    -- who's a member of two families), but never to two rows in the *same*
+    -- family. NULL until an invitation is accepted (or the founding
+    -- parent's first login).
+    auth_subject TEXT,
     email TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_users_family ON users(family_id);
+-- idx_users_auth_subject is created in migrate(), not here: schema.sql runs
+-- unconditionally via CREATE TABLE IF NOT EXISTS, even against an old table
+-- shape that doesn't have the auth_subject column yet, and creating an
+-- index on a not-yet-existing column would fail outright.
 
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,

@@ -89,7 +89,7 @@ func main() {
 	mux.HandleFunc("/auth/logout", authMgr.LogoutHandler)
 	mux.HandleFunc("/auth/me", authMgr.MeHandler)
 
-	path, handler := choresv1connect.NewChoresServiceHandler(svc)
+	path, handler := choresv1connect.NewChoresServiceHandler(svc, server.JSONCodecOption())
 	mux.Handle(path, authMgr.RequireAuth(handler))
 
 	mux.Handle("/invite/accept", authMgr.RequirePage(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
