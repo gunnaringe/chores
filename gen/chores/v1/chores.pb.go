@@ -240,7 +240,9 @@ type Task struct {
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// The children this task applies to. Always non-empty for a task created
 	// through the API.
-	ChildIds      []string `protobuf:"bytes,9,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	ChildIds []string `protobuf:"bytes,9,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	// Optional emoji or short icon shown next to the task, e.g. "🧹".
+	Icon          string `protobuf:"bytes,10,opt,name=icon,proto3" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -336,6 +338,13 @@ func (x *Task) GetChildIds() []string {
 		return x.ChildIds
 	}
 	return nil
+}
+
+func (x *Task) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
 }
 
 type TaskCompletion struct {
@@ -1076,7 +1085,9 @@ type CreateTaskRequest struct {
 	Schedule    string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	// Which children this task applies to. Must be non-empty and every id
 	// must be a child in family_id.
-	ChildIds      []string `protobuf:"bytes,6,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	ChildIds []string `protobuf:"bytes,6,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	// Optional emoji or short icon shown next to the task, e.g. "🧹".
+	Icon          string `protobuf:"bytes,7,opt,name=icon,proto3" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1153,6 +1164,13 @@ func (x *CreateTaskRequest) GetChildIds() []string {
 	return nil
 }
 
+func (x *CreateTaskRequest) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
+}
+
 type CreateTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
@@ -1206,7 +1224,9 @@ type UpdateTaskRequest struct {
 	Schedule    string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	Active      bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
 	// Replaces the task's full set of assigned children. Must be non-empty.
-	ChildIds      []string `protobuf:"bytes,7,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	ChildIds []string `protobuf:"bytes,7,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	// Optional emoji or short icon shown next to the task, e.g. "🧹".
+	Icon          string `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1288,6 +1308,13 @@ func (x *UpdateTaskRequest) GetChildIds() []string {
 		return x.ChildIds
 	}
 	return nil
+}
+
+func (x *UpdateTaskRequest) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
 }
 
 type UpdateTaskResponse struct {
@@ -2930,7 +2957,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
 	"\x05email\x18\x06 \x01(\tR\x05email\x12\x1d\n" +
 	"\n" +
-	"auth_bound\x18\a \x01(\bR\tauthBound\"\x98\x02\n" +
+	"auth_bound\x18\a \x01(\bR\tauthBound\"\xac\x02\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x14\n" +
@@ -2942,7 +2969,9 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x06active\x18\a \x01(\bR\x06active\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1b\n" +
-	"\tchild_ids\x18\t \x03(\tR\bchildIds\"\xee\x01\n" +
+	"\tchild_ids\x18\t \x03(\tR\bchildIds\x12\x12\n" +
+	"\x04icon\x18\n" +
+	" \x01(\tR\x04icon\"\xee\x01\n" +
 	"\x0eTaskCompletion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
@@ -2996,7 +3025,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10ListUsersRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
 	"\x11ListUsersResponse\x12%\n" +
-	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xc2\x01\n" +
+	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xd6\x01\n" +
 	"\x11CreateTaskRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3004,9 +3033,10 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x1b\n" +
-	"\tchild_ids\x18\x06 \x03(\tR\bchildIds\"9\n" +
+	"\tchild_ids\x18\x06 \x03(\tR\bchildIds\x12\x12\n" +
+	"\x04icon\x18\a \x01(\tR\x04icon\"9\n" +
 	"\x12CreateTaskResponse\x12#\n" +
-	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xd6\x01\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xea\x01\n" +
 	"\x11UpdateTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3015,7 +3045,8 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x16\n" +
 	"\x06active\x18\x06 \x01(\bR\x06active\x12\x1b\n" +
-	"\tchild_ids\x18\a \x03(\tR\bchildIds\"9\n" +
+	"\tchild_ids\x18\a \x03(\tR\bchildIds\x12\x12\n" +
+	"\x04icon\x18\b \x01(\tR\x04icon\"9\n" +
 	"\x12UpdateTaskResponse\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\",\n" +
 	"\x11DeleteTaskRequest\x12\x17\n" +

@@ -292,6 +292,13 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function taskLabel(task) {
+  const icon = task.icon ? escapeHtml(task.icon) + " " : "";
+  return icon + escapeHtml(task.title);
+}
+
+const ICON_CHOICES = ["🧹", "🧺", "🍽️", "🛏️", "🐶", "🗑️", "📚", "🧽", "🚗", "🌱", "🪥", "🧸"];
+
 function renderOnboarding() {
   const wrap = el(`<div></div>`);
   wrap.appendChild(el(`
@@ -523,7 +530,7 @@ function renderChildOccurrences() {
     const row = el(`
       <div class="row">
         <div>
-          <div class="task-title">${escapeHtml(occ.task.title)}</div>
+          <div class="task-title">${taskLabel(occ.task)}</div>
           <div class="task-meta">kr ${money(occ.task.priceCents)}${occ.task.description ? " — " + escapeHtml(occ.task.description) : ""}</div>
         </div>
         <button class="checkbtn ${done ? "done" : "todo"}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}">${done ? "✓" : ""}</button>
@@ -567,7 +574,7 @@ function renderTaskList() {
       <div class="task-row">
         <div class="task-row-top">
           <div>
-            <div class="task-title">${escapeHtml(t_.title)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.inactive"))}</span>` : ""}</div>
+            <div class="task-title">${taskLabel(t_)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.inactive"))}</span>` : ""}</div>
             <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}</div>
           </div>
           <div class="actions">
@@ -618,6 +625,7 @@ function renderTaskList() {
           schedule: t_.schedule,
           active: t_.active === false,
           childIds: t_.childIds,
+          icon: t_.icon,
         });
         await loadFamilyData();
       })
@@ -647,6 +655,11 @@ function renderAddTaskForm() {
         <label>${escapeHtml(t("addTask.descLabel"))}</label>
         <input type="text" id="task-desc" />
       </div>
+      <div class="field">
+        <label>${escapeHtml(t("addTask.iconLabel"))}</label>
+        <input type="text" id="task-icon" maxlength="8" style="width:4em;" placeholder="🧹" />
+        <div id="task-icon-choices" style="margin-top:6px;"></div>
+      </div>
       <div class="grid-2">
         <div class="field">
           <label>${escapeHtml(t("addTask.priceLabel"))}</label>
@@ -664,6 +677,19 @@ function renderAddTaskForm() {
       <button id="add-task-btn">${escapeHtml(t("addTask.addBtn"))}</button>
     </div>
   `);
+  const iconInput = form.querySelector("#task-icon");
+  const iconChoicesWrap = form.querySelector("#task-icon-choices");
+  iconChoicesWrap.style.display = "flex";
+  iconChoicesWrap.style.flexWrap = "wrap";
+  iconChoicesWrap.style.gap = "4px";
+  ICON_CHOICES.forEach((icon) => {
+    const btn = el(`<button type="button" class="secondary" style="padding:4px 8px;">${icon}</button>`);
+    btn.addEventListener("click", () => {
+      iconInput.value = icon;
+    });
+    iconChoicesWrap.appendChild(btn);
+  });
+
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
   dow.forEach((d) => {
@@ -697,6 +723,7 @@ function renderAddTaskForm() {
     withError(async () => {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
+      const icon = iconInput.value.trim();
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
       const days = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
       const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);
@@ -708,6 +735,7 @@ function renderAddTaskForm() {
         familyId: state.familyId,
         title,
         description,
+        icon,
         priceCents: Math.round(priceKr * 100),
         schedule,
         childIds,

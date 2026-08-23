@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     price_cents INTEGER NOT NULL,
     schedule TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_family ON tasks(family_id);
 

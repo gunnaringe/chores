@@ -463,3 +463,50 @@ func TestTaskAssignment(t *testing.T) {
 		t.Fatalf("expected task reassigned to child B only, got %+v", updated.Msg.Tasks[0])
 	}
 }
+
+func TestTaskIcon(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id}, Icon: "🧹",
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if task.Msg.Task.Icon != "🧹" {
+		t.Fatalf("expected icon 🧹 on create, got %q", task.Msg.Task.Icon)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(fetched.Msg.Tasks) != 1 || fetched.Msg.Tasks[0].Icon != "🧹" {
+		t.Fatalf("expected icon 🧹 to persist, got %+v", fetched.Msg.Tasks[0])
+	}
+
+	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100, Active: true,
+		ChildIds: []string{child.Msg.User.Id}, Icon: "🍽️",
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	updated, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks after update: %v", err)
+	}
+	if len(updated.Msg.Tasks) != 1 || updated.Msg.Tasks[0].Icon != "🍽️" {
+		t.Fatalf("expected icon updated to 🍽️, got %+v", updated.Msg.Tasks[0])
+	}
+}

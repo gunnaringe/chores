@@ -45,6 +45,8 @@ message Task {
   // The children this task applies to. Always non-empty for a task created
   // through the API.
   repeated string child_ids = 9;
+  // Optional emoji or short icon shown next to the task, e.g. "🧹".
+  string icon = 10;
 }
 
 message TaskCompletion {
@@ -132,6 +134,8 @@ message CreateTaskRequest {
   // Which children this task applies to. Must be non-empty and every id
   // must be a child in family_id.
   repeated string child_ids = 6;
+  // Optional emoji or short icon shown next to the task, e.g. "🧹".
+  string icon = 7;
 }
 message CreateTaskResponse {
   Task task = 1;
@@ -146,6 +150,8 @@ message UpdateTaskRequest {
   bool active = 6;
   // Replaces the task's full set of assigned children. Must be non-empty.
   repeated string child_ids = 7;
+  // Optional emoji or short icon shown next to the task, e.g. "🧹".
+  string icon = 8;
 }
 message UpdateTaskResponse {
   Task task = 1;
