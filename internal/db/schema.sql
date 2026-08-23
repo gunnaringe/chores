@@ -101,3 +101,26 @@ CREATE TABLE IF NOT EXISTS invitations (
     accepted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_invitations_family ON invitations(family_id);
+
+-- Small generic key/value store for app-wide config that isn't tied to any
+-- family — currently just the generated VAPID keypair used to sign Web Push
+-- messages.
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+-- One row per browser/device that has enabled push notifications, tied to
+-- whichever user was active there at the time. endpoint is unique so
+-- re-subscribing (e.g. after the browser rotates it, or re-enabling after
+-- disabling) replaces the old row instead of accumulating stale ones.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_family ON push_subscriptions(family_id);

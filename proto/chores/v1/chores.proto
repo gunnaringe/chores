@@ -376,6 +376,41 @@ message AcceptInvitationResponse {
   Family family = 2;
 }
 
+// A browser's Web Push subscription (from PushManager.subscribe()), tied to
+// whichever user was active in this browser when notifications were
+// enabled. One row per browser/device — re-subscribing with the same
+// endpoint (e.g. re-enabling after disabling) replaces it rather than
+// duplicating it.
+message PushSubscription {
+  string endpoint = 1;
+  string p256dh = 2;
+  string auth = 3;
+}
+
+// Returns the public key the frontend needs to create a subscription
+// (PushManager.subscribe({applicationServerKey})). Not tied to any family or
+// login — it's the same for the whole deployment.
+message GetPushConfigRequest {}
+message GetPushConfigResponse {
+  // Empty if the server has no VAPID keys configured, meaning push isn't
+  // available at all (the config page should say so rather than offering a
+  // dead toggle).
+  string vapid_public_key = 1;
+}
+
+message SubscribeToPushRequest {
+  string user_id = 1;
+  PushSubscription subscription = 2;
+}
+message SubscribeToPushResponse {}
+
+// Idempotent: removing an endpoint that was never subscribed (or already
+// removed) is not an error.
+message UnsubscribeFromPushRequest {
+  string endpoint = 1;
+}
+message UnsubscribeFromPushResponse {}
+
 service ChoresService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
@@ -404,4 +439,8 @@ service ChoresService {
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
   rpc RevokeInvitation(RevokeInvitationRequest) returns (RevokeInvitationResponse);
   rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
+
+  rpc GetPushConfig(GetPushConfigRequest) returns (GetPushConfigResponse);
+  rpc SubscribeToPush(SubscribeToPushRequest) returns (SubscribeToPushResponse);
+  rpc UnsubscribeFromPush(UnsubscribeFromPushRequest) returns (UnsubscribeFromPushResponse);
 }

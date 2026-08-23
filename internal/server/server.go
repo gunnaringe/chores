@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -23,10 +24,20 @@ import (
 type Server struct {
 	choresv1connect.UnimplementedChoresServiceHandler
 	db *sql.DB
+
+	// VAPID keypair used to sign Web Push messages. Empty when key setup
+	// failed (see ensureVAPIDKeys), in which case push notifications are
+	// silently unavailable rather than fatal to the rest of the app.
+	vapidPublicKey  string
+	vapidPrivateKey string
 }
 
 func New(db *sql.DB) *Server {
-	return &Server{db: db}
+	s := &Server{db: db}
+	if err := s.ensureVAPIDKeys(); err != nil {
+		log.Printf("push notifications disabled: %v", err)
+	}
+	return s
 }
 
 func newID() string {
@@ -972,8 +983,8 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 		return nil, err
 	}
 
-	var childFamilyID string
-	if err := s.db.QueryRowContext(ctx, `SELECT family_id FROM users WHERE id = ? AND role = 'child'`, childID).Scan(&childFamilyID); err != nil {
+	var childFamilyID, childName string
+	if err := s.db.QueryRowContext(ctx, `SELECT family_id, name FROM users WHERE id = ? AND role = 'child'`, childID).Scan(&childFamilyID, &childName); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("child not found"))
 		}
@@ -1007,6 +1018,8 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	go s.notifyTaskCompleted(task.FamilyId, s.actingUserID(ctx, task.FamilyId), childName, task.Title, task.PriceCents)
 
 	return connect.NewResponse(&v1.CompleteTaskResponse{Completion: completion}), nil
 }

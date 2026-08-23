@@ -3275,6 +3275,327 @@ func (x *AcceptInvitationResponse) GetFamily() *Family {
 	return nil
 }
 
+// A browser's Web Push subscription (from PushManager.subscribe()), tied to
+// whichever user was active in this browser when notifications were
+// enabled. One row per browser/device — re-subscribing with the same
+// endpoint (e.g. re-enabling after disabling) replaces it rather than
+// duplicating it.
+type PushSubscription struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	P256Dh        string                 `protobuf:"bytes,2,opt,name=p256dh,proto3" json:"p256dh,omitempty"`
+	Auth          string                 `protobuf:"bytes,3,opt,name=auth,proto3" json:"auth,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushSubscription) Reset() {
+	*x = PushSubscription{}
+	mi := &file_chores_v1_chores_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushSubscription) ProtoMessage() {}
+
+func (x *PushSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushSubscription.ProtoReflect.Descriptor instead.
+func (*PushSubscription) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *PushSubscription) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+func (x *PushSubscription) GetP256Dh() string {
+	if x != nil {
+		return x.P256Dh
+	}
+	return ""
+}
+
+func (x *PushSubscription) GetAuth() string {
+	if x != nil {
+		return x.Auth
+	}
+	return ""
+}
+
+// Returns the public key the frontend needs to create a subscription
+// (PushManager.subscribe({applicationServerKey})). Not tied to any family or
+// login — it's the same for the whole deployment.
+type GetPushConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPushConfigRequest) Reset() {
+	*x = GetPushConfigRequest{}
+	mi := &file_chores_v1_chores_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPushConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPushConfigRequest) ProtoMessage() {}
+
+func (x *GetPushConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPushConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetPushConfigRequest) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{53}
+}
+
+type GetPushConfigResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Empty if the server has no VAPID keys configured, meaning push isn't
+	// available at all (the config page should say so rather than offering a
+	// dead toggle).
+	VapidPublicKey string `protobuf:"bytes,1,opt,name=vapid_public_key,json=vapidPublicKey,proto3" json:"vapid_public_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetPushConfigResponse) Reset() {
+	*x = GetPushConfigResponse{}
+	mi := &file_chores_v1_chores_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPushConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPushConfigResponse) ProtoMessage() {}
+
+func (x *GetPushConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPushConfigResponse.ProtoReflect.Descriptor instead.
+func (*GetPushConfigResponse) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetPushConfigResponse) GetVapidPublicKey() string {
+	if x != nil {
+		return x.VapidPublicKey
+	}
+	return ""
+}
+
+type SubscribeToPushRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Subscription  *PushSubscription      `protobuf:"bytes,2,opt,name=subscription,proto3" json:"subscription,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubscribeToPushRequest) Reset() {
+	*x = SubscribeToPushRequest{}
+	mi := &file_chores_v1_chores_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubscribeToPushRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeToPushRequest) ProtoMessage() {}
+
+func (x *SubscribeToPushRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeToPushRequest.ProtoReflect.Descriptor instead.
+func (*SubscribeToPushRequest) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *SubscribeToPushRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SubscribeToPushRequest) GetSubscription() *PushSubscription {
+	if x != nil {
+		return x.Subscription
+	}
+	return nil
+}
+
+type SubscribeToPushResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubscribeToPushResponse) Reset() {
+	*x = SubscribeToPushResponse{}
+	mi := &file_chores_v1_chores_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubscribeToPushResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeToPushResponse) ProtoMessage() {}
+
+func (x *SubscribeToPushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeToPushResponse.ProtoReflect.Descriptor instead.
+func (*SubscribeToPushResponse) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{56}
+}
+
+// Idempotent: removing an endpoint that was never subscribed (or already
+// removed) is not an error.
+type UnsubscribeFromPushRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint      string                 `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnsubscribeFromPushRequest) Reset() {
+	*x = UnsubscribeFromPushRequest{}
+	mi := &file_chores_v1_chores_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnsubscribeFromPushRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnsubscribeFromPushRequest) ProtoMessage() {}
+
+func (x *UnsubscribeFromPushRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnsubscribeFromPushRequest.ProtoReflect.Descriptor instead.
+func (*UnsubscribeFromPushRequest) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *UnsubscribeFromPushRequest) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+type UnsubscribeFromPushResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnsubscribeFromPushResponse) Reset() {
+	*x = UnsubscribeFromPushResponse{}
+	mi := &file_chores_v1_chores_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnsubscribeFromPushResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnsubscribeFromPushResponse) ProtoMessage() {}
+
+func (x *UnsubscribeFromPushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnsubscribeFromPushResponse.ProtoReflect.Descriptor instead.
+func (*UnsubscribeFromPushResponse) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{58}
+}
+
 var File_chores_v1_chores_proto protoreflect.FileDescriptor
 
 const file_chores_v1_chores_proto_rawDesc = "" +
@@ -3512,7 +3833,21 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"j\n" +
 	"\x18AcceptInvitationResponse\x12#\n" +
 	"\x04user\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x04user\x12)\n" +
-	"\x06family\x18\x02 \x01(\v2\x11.chores.v1.FamilyR\x06family*P\n" +
+	"\x06family\x18\x02 \x01(\v2\x11.chores.v1.FamilyR\x06family\"Z\n" +
+	"\x10PushSubscription\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x16\n" +
+	"\x06p256dh\x18\x02 \x01(\tR\x06p256dh\x12\x12\n" +
+	"\x04auth\x18\x03 \x01(\tR\x04auth\"\x16\n" +
+	"\x14GetPushConfigRequest\"A\n" +
+	"\x15GetPushConfigResponse\x12(\n" +
+	"\x10vapid_public_key\x18\x01 \x01(\tR\x0evapidPublicKey\"r\n" +
+	"\x16SubscribeToPushRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12?\n" +
+	"\fsubscription\x18\x02 \x01(\v2\x1b.chores.v1.PushSubscriptionR\fsubscription\"\x19\n" +
+	"\x17SubscribeToPushResponse\"8\n" +
+	"\x1aUnsubscribeFromPushRequest\x12\x1a\n" +
+	"\bendpoint\x18\x01 \x01(\tR\bendpoint\"\x1d\n" +
+	"\x1bUnsubscribeFromPushResponse*P\n" +
 	"\bUserRole\x12\x19\n" +
 	"\x15USER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10USER_ROLE_PARENT\x10\x01\x12\x13\n" +
@@ -3527,7 +3862,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x17REPEAT_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10REPEAT_MODE_ONCE\x10\x01\x12\x16\n" +
 	"\x12REPEAT_MODE_WEEKLY\x10\x02\x12\x14\n" +
-	"\x10REPEAT_MODE_CRON\x10\x032\x88\x0e\n" +
+	"\x10REPEAT_MODE_CRON\x10\x032\x9c\x10\n" +
 	"\rChoresService\x12O\n" +
 	"\fCreateFamily\x12\x1e.chores.v1.CreateFamilyRequest\x1a\x1f.chores.v1.CreateFamilyResponse\x12O\n" +
 	"\fListFamilies\x12\x1e.chores.v1.ListFamiliesRequest\x1a\x1f.chores.v1.ListFamiliesResponse\x12I\n" +
@@ -3553,7 +3888,10 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10CreateInvitation\x12\".chores.v1.CreateInvitationRequest\x1a#.chores.v1.CreateInvitationResponse\x12X\n" +
 	"\x0fListInvitations\x12!.chores.v1.ListInvitationsRequest\x1a\".chores.v1.ListInvitationsResponse\x12[\n" +
 	"\x10RevokeInvitation\x12\".chores.v1.RevokeInvitationRequest\x1a#.chores.v1.RevokeInvitationResponse\x12[\n" +
-	"\x10AcceptInvitation\x12\".chores.v1.AcceptInvitationRequest\x1a#.chores.v1.AcceptInvitationResponseB5Z3github.com/gunnaringe/chores/gen/chores/v1;choresv1b\x06proto3"
+	"\x10AcceptInvitation\x12\".chores.v1.AcceptInvitationRequest\x1a#.chores.v1.AcceptInvitationResponse\x12R\n" +
+	"\rGetPushConfig\x12\x1f.chores.v1.GetPushConfigRequest\x1a .chores.v1.GetPushConfigResponse\x12X\n" +
+	"\x0fSubscribeToPush\x12!.chores.v1.SubscribeToPushRequest\x1a\".chores.v1.SubscribeToPushResponse\x12d\n" +
+	"\x13UnsubscribeFromPush\x12%.chores.v1.UnsubscribeFromPushRequest\x1a&.chores.v1.UnsubscribeFromPushResponseB5Z3github.com/gunnaringe/chores/gen/chores/v1;choresv1b\x06proto3"
 
 var (
 	file_chores_v1_chores_proto_rawDescOnce sync.Once
@@ -3568,7 +3906,7 @@ func file_chores_v1_chores_proto_rawDescGZIP() []byte {
 }
 
 var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_chores_v1_chores_proto_goTypes = []any{
 	(UserRole)(0),                       // 0: chores.v1.UserRole
 	(IconType)(0),                       // 1: chores.v1.IconType
@@ -3625,20 +3963,27 @@ var file_chores_v1_chores_proto_goTypes = []any{
 	(*RevokeInvitationResponse)(nil),    // 52: chores.v1.RevokeInvitationResponse
 	(*AcceptInvitationRequest)(nil),     // 53: chores.v1.AcceptInvitationRequest
 	(*AcceptInvitationResponse)(nil),    // 54: chores.v1.AcceptInvitationResponse
-	(*timestamppb.Timestamp)(nil),       // 55: google.protobuf.Timestamp
+	(*PushSubscription)(nil),            // 55: chores.v1.PushSubscription
+	(*GetPushConfigRequest)(nil),        // 56: chores.v1.GetPushConfigRequest
+	(*GetPushConfigResponse)(nil),       // 57: chores.v1.GetPushConfigResponse
+	(*SubscribeToPushRequest)(nil),      // 58: chores.v1.SubscribeToPushRequest
+	(*SubscribeToPushResponse)(nil),     // 59: chores.v1.SubscribeToPushResponse
+	(*UnsubscribeFromPushRequest)(nil),  // 60: chores.v1.UnsubscribeFromPushRequest
+	(*UnsubscribeFromPushResponse)(nil), // 61: chores.v1.UnsubscribeFromPushResponse
+	(*timestamppb.Timestamp)(nil),       // 62: google.protobuf.Timestamp
 }
 var file_chores_v1_chores_proto_depIdxs = []int32{
 	1,  // 0: chores.v1.Icon.type:type_name -> chores.v1.IconType
-	55, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
+	62, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: chores.v1.User.role:type_name -> chores.v1.UserRole
-	55, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	55, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	62, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	62, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
 	3,  // 5: chores.v1.Task.icon:type_name -> chores.v1.Icon
 	2,  // 6: chores.v1.Task.repeat_mode:type_name -> chores.v1.RepeatMode
-	55, // 7: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	55, // 8: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
+	62, // 7: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	62, // 8: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
 	5,  // 9: chores.v1.ChildSummary.child:type_name -> chores.v1.User
-	55, // 10: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
+	62, // 10: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
 	6,  // 11: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
 	7,  // 12: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
 	4,  // 13: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
@@ -3663,62 +4008,69 @@ var file_chores_v1_chores_proto_depIdxs = []int32{
 	5,  // 32: chores.v1.Membership.user:type_name -> chores.v1.User
 	4,  // 33: chores.v1.Membership.family:type_name -> chores.v1.Family
 	43, // 34: chores.v1.GetMyMembershipResponse.memberships:type_name -> chores.v1.Membership
-	55, // 35: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	55, // 36: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	55, // 37: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
+	62, // 35: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	62, // 36: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	62, // 37: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
 	0,  // 38: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
 	0,  // 39: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
 	46, // 40: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
 	46, // 41: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
 	5,  // 42: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
 	4,  // 43: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
-	11, // 44: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
-	13, // 45: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
-	15, // 46: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
-	17, // 47: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
-	19, // 48: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
-	21, // 49: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
-	23, // 50: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
-	25, // 51: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
-	27, // 52: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
-	29, // 53: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
-	31, // 54: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
-	33, // 55: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
-	35, // 56: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
-	37, // 57: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
-	39, // 58: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
-	41, // 59: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
-	44, // 60: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
-	47, // 61: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
-	49, // 62: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
-	51, // 63: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
-	53, // 64: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
-	12, // 65: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
-	14, // 66: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
-	16, // 67: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
-	18, // 68: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
-	20, // 69: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
-	22, // 70: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
-	24, // 71: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
-	26, // 72: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
-	28, // 73: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
-	30, // 74: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
-	32, // 75: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
-	34, // 76: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
-	36, // 77: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
-	38, // 78: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
-	40, // 79: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
-	42, // 80: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
-	45, // 81: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
-	48, // 82: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
-	50, // 83: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
-	52, // 84: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
-	54, // 85: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
-	65, // [65:86] is the sub-list for method output_type
-	44, // [44:65] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	55, // 44: chores.v1.SubscribeToPushRequest.subscription:type_name -> chores.v1.PushSubscription
+	11, // 45: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
+	13, // 46: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
+	15, // 47: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
+	17, // 48: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
+	19, // 49: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
+	21, // 50: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
+	23, // 51: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
+	25, // 52: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
+	27, // 53: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
+	29, // 54: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
+	31, // 55: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
+	33, // 56: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
+	35, // 57: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
+	37, // 58: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
+	39, // 59: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
+	41, // 60: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
+	44, // 61: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
+	47, // 62: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
+	49, // 63: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
+	51, // 64: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
+	53, // 65: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
+	56, // 66: chores.v1.ChoresService.GetPushConfig:input_type -> chores.v1.GetPushConfigRequest
+	58, // 67: chores.v1.ChoresService.SubscribeToPush:input_type -> chores.v1.SubscribeToPushRequest
+	60, // 68: chores.v1.ChoresService.UnsubscribeFromPush:input_type -> chores.v1.UnsubscribeFromPushRequest
+	12, // 69: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
+	14, // 70: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
+	16, // 71: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
+	18, // 72: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
+	20, // 73: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
+	22, // 74: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
+	24, // 75: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
+	26, // 76: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
+	28, // 77: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
+	30, // 78: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
+	32, // 79: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
+	34, // 80: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
+	36, // 81: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
+	38, // 82: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
+	40, // 83: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
+	42, // 84: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
+	45, // 85: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
+	48, // 86: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
+	50, // 87: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
+	52, // 88: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
+	54, // 89: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
+	57, // 90: chores.v1.ChoresService.GetPushConfig:output_type -> chores.v1.GetPushConfigResponse
+	59, // 91: chores.v1.ChoresService.SubscribeToPush:output_type -> chores.v1.SubscribeToPushResponse
+	61, // 92: chores.v1.ChoresService.UnsubscribeFromPush:output_type -> chores.v1.UnsubscribeFromPushResponse
+	69, // [69:93] is the sub-list for method output_type
+	45, // [45:69] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_chores_v1_chores_proto_init() }
@@ -3732,7 +4084,7 @@ func file_chores_v1_chores_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chores_v1_chores_proto_rawDesc), len(file_chores_v1_chores_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   52,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

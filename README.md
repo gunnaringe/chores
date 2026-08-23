@@ -48,6 +48,30 @@ preserve.
   asked which household to open, with a "Switch household" control to
   change later. A parent's login, by contrast, is always scoped to exactly
   one family.
+- The page auto-refreshes every 5 minutes (so a completion made from another
+  device or family member's session shows up without a manual reload),
+  pausing automatically while a form on the page has focus so it never wipes
+  out something you're mid-typing. This — and Web Push notifications, sent
+  to every other subscribed device in the family whenever a task is
+  completed — can each be turned off from the Settings page (the button
+  next to "Switch user" in the top bar).
+
+### Push notifications
+
+Push notifications use the standard Web Push API: the server generates a
+VAPID keypair on first run (stored in the `app_settings` table, stable for
+the life of the database) and signs every push with it, so no external push
+service account or API key is needed beyond what's already built into the
+browser. Enabling notifications from the Settings page subscribes the
+current browser via `PushManager` and registers that subscription with the
+server; completing a task then pushes a notification to every *other*
+subscribed device in the family (not the one that just completed it) with
+the child's name and the task title. A subscription the push service
+reports as gone (the browser unsubscribed, or it expired) is cleaned up
+automatically on the next send attempt.
+
+This needs a real service worker, which requires either `https://` or
+`http://localhost` — it won't work over a plain HTTP LAN address.
 
 When Auth0 is enabled, a login is bound to a specific family member: the
 first parent to log in creates the family and is bound to it automatically,
@@ -157,7 +181,9 @@ cached) so the shell keeps loading offline. Both the app and the login page
 register the service worker, so an install prompt can appear before or
 after logging in. On a phone, use the browser's "Add to Home Screen" /
 "Install app" option; on desktop Chrome/Edge, an install icon appears in
-the address bar.
+the address bar. `web/sw.js` also handles incoming Web Push events (see
+Push notifications above) and focuses or opens the app when a notification
+is tapped.
 
 ## Regenerating the Connect/protobuf code
 
@@ -173,7 +199,7 @@ buf generate
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — cron-expression date matching for recurring tasks
-- `internal/server` — Connect service implementation
+- `internal/server` — Connect service implementation (`push.go` holds VAPID key setup and Web Push sending)
 - `internal/auth` — Auth0 login (or the local-testing bypass) gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint

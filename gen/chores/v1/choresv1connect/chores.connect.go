@@ -94,6 +94,15 @@ const (
 	// ChoresServiceAcceptInvitationProcedure is the fully-qualified name of the ChoresService's
 	// AcceptInvitation RPC.
 	ChoresServiceAcceptInvitationProcedure = "/chores.v1.ChoresService/AcceptInvitation"
+	// ChoresServiceGetPushConfigProcedure is the fully-qualified name of the ChoresService's
+	// GetPushConfig RPC.
+	ChoresServiceGetPushConfigProcedure = "/chores.v1.ChoresService/GetPushConfig"
+	// ChoresServiceSubscribeToPushProcedure is the fully-qualified name of the ChoresService's
+	// SubscribeToPush RPC.
+	ChoresServiceSubscribeToPushProcedure = "/chores.v1.ChoresService/SubscribeToPush"
+	// ChoresServiceUnsubscribeFromPushProcedure is the fully-qualified name of the ChoresService's
+	// UnsubscribeFromPush RPC.
+	ChoresServiceUnsubscribeFromPushProcedure = "/chores.v1.ChoresService/UnsubscribeFromPush"
 )
 
 // ChoresServiceClient is a client for the chores.v1.ChoresService service.
@@ -119,6 +128,9 @@ type ChoresServiceClient interface {
 	ListInvitations(context.Context, *connect.Request[v1.ListInvitationsRequest]) (*connect.Response[v1.ListInvitationsResponse], error)
 	RevokeInvitation(context.Context, *connect.Request[v1.RevokeInvitationRequest]) (*connect.Response[v1.RevokeInvitationResponse], error)
 	AcceptInvitation(context.Context, *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error)
+	GetPushConfig(context.Context, *connect.Request[v1.GetPushConfigRequest]) (*connect.Response[v1.GetPushConfigResponse], error)
+	SubscribeToPush(context.Context, *connect.Request[v1.SubscribeToPushRequest]) (*connect.Response[v1.SubscribeToPushResponse], error)
+	UnsubscribeFromPush(context.Context, *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error)
 }
 
 // NewChoresServiceClient constructs a client for the chores.v1.ChoresService service. By default,
@@ -258,6 +270,24 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(choresServiceMethods.ByName("AcceptInvitation")),
 			connect.WithClientOptions(opts...),
 		),
+		getPushConfig: connect.NewClient[v1.GetPushConfigRequest, v1.GetPushConfigResponse](
+			httpClient,
+			baseURL+ChoresServiceGetPushConfigProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("GetPushConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		subscribeToPush: connect.NewClient[v1.SubscribeToPushRequest, v1.SubscribeToPushResponse](
+			httpClient,
+			baseURL+ChoresServiceSubscribeToPushProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("SubscribeToPush")),
+			connect.WithClientOptions(opts...),
+		),
+		unsubscribeFromPush: connect.NewClient[v1.UnsubscribeFromPushRequest, v1.UnsubscribeFromPushResponse](
+			httpClient,
+			baseURL+ChoresServiceUnsubscribeFromPushProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("UnsubscribeFromPush")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -284,6 +314,9 @@ type choresServiceClient struct {
 	listInvitations     *connect.Client[v1.ListInvitationsRequest, v1.ListInvitationsResponse]
 	revokeInvitation    *connect.Client[v1.RevokeInvitationRequest, v1.RevokeInvitationResponse]
 	acceptInvitation    *connect.Client[v1.AcceptInvitationRequest, v1.AcceptInvitationResponse]
+	getPushConfig       *connect.Client[v1.GetPushConfigRequest, v1.GetPushConfigResponse]
+	subscribeToPush     *connect.Client[v1.SubscribeToPushRequest, v1.SubscribeToPushResponse]
+	unsubscribeFromPush *connect.Client[v1.UnsubscribeFromPushRequest, v1.UnsubscribeFromPushResponse]
 }
 
 // CreateFamily calls chores.v1.ChoresService.CreateFamily.
@@ -391,6 +424,21 @@ func (c *choresServiceClient) AcceptInvitation(ctx context.Context, req *connect
 	return c.acceptInvitation.CallUnary(ctx, req)
 }
 
+// GetPushConfig calls chores.v1.ChoresService.GetPushConfig.
+func (c *choresServiceClient) GetPushConfig(ctx context.Context, req *connect.Request[v1.GetPushConfigRequest]) (*connect.Response[v1.GetPushConfigResponse], error) {
+	return c.getPushConfig.CallUnary(ctx, req)
+}
+
+// SubscribeToPush calls chores.v1.ChoresService.SubscribeToPush.
+func (c *choresServiceClient) SubscribeToPush(ctx context.Context, req *connect.Request[v1.SubscribeToPushRequest]) (*connect.Response[v1.SubscribeToPushResponse], error) {
+	return c.subscribeToPush.CallUnary(ctx, req)
+}
+
+// UnsubscribeFromPush calls chores.v1.ChoresService.UnsubscribeFromPush.
+func (c *choresServiceClient) UnsubscribeFromPush(ctx context.Context, req *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error) {
+	return c.unsubscribeFromPush.CallUnary(ctx, req)
+}
+
 // ChoresServiceHandler is an implementation of the chores.v1.ChoresService service.
 type ChoresServiceHandler interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
@@ -414,6 +462,9 @@ type ChoresServiceHandler interface {
 	ListInvitations(context.Context, *connect.Request[v1.ListInvitationsRequest]) (*connect.Response[v1.ListInvitationsResponse], error)
 	RevokeInvitation(context.Context, *connect.Request[v1.RevokeInvitationRequest]) (*connect.Response[v1.RevokeInvitationResponse], error)
 	AcceptInvitation(context.Context, *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error)
+	GetPushConfig(context.Context, *connect.Request[v1.GetPushConfigRequest]) (*connect.Response[v1.GetPushConfigResponse], error)
+	SubscribeToPush(context.Context, *connect.Request[v1.SubscribeToPushRequest]) (*connect.Response[v1.SubscribeToPushResponse], error)
+	UnsubscribeFromPush(context.Context, *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error)
 }
 
 // NewChoresServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -549,6 +600,24 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(choresServiceMethods.ByName("AcceptInvitation")),
 		connect.WithHandlerOptions(opts...),
 	)
+	choresServiceGetPushConfigHandler := connect.NewUnaryHandler(
+		ChoresServiceGetPushConfigProcedure,
+		svc.GetPushConfig,
+		connect.WithSchema(choresServiceMethods.ByName("GetPushConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceSubscribeToPushHandler := connect.NewUnaryHandler(
+		ChoresServiceSubscribeToPushProcedure,
+		svc.SubscribeToPush,
+		connect.WithSchema(choresServiceMethods.ByName("SubscribeToPush")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceUnsubscribeFromPushHandler := connect.NewUnaryHandler(
+		ChoresServiceUnsubscribeFromPushProcedure,
+		svc.UnsubscribeFromPush,
+		connect.WithSchema(choresServiceMethods.ByName("UnsubscribeFromPush")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/chores.v1.ChoresService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChoresServiceCreateFamilyProcedure:
@@ -593,6 +662,12 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceRevokeInvitationHandler.ServeHTTP(w, r)
 		case ChoresServiceAcceptInvitationProcedure:
 			choresServiceAcceptInvitationHandler.ServeHTTP(w, r)
+		case ChoresServiceGetPushConfigProcedure:
+			choresServiceGetPushConfigHandler.ServeHTTP(w, r)
+		case ChoresServiceSubscribeToPushProcedure:
+			choresServiceSubscribeToPushHandler.ServeHTTP(w, r)
+		case ChoresServiceUnsubscribeFromPushProcedure:
+			choresServiceUnsubscribeFromPushHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -684,4 +759,16 @@ func (UnimplementedChoresServiceHandler) RevokeInvitation(context.Context, *conn
 
 func (UnimplementedChoresServiceHandler) AcceptInvitation(context.Context, *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.AcceptInvitation is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) GetPushConfig(context.Context, *connect.Request[v1.GetPushConfigRequest]) (*connect.Response[v1.GetPushConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.GetPushConfig is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) SubscribeToPush(context.Context, *connect.Request[v1.SubscribeToPushRequest]) (*connect.Response[v1.SubscribeToPushResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.SubscribeToPush is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) UnsubscribeFromPush(context.Context, *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.UnsubscribeFromPush is not implemented"))
 }

@@ -102,6 +102,7 @@ const state = {
   invitations: [],
   lastInviteLink: null,
   editingTaskId: null,
+  pushConfig: null, // { vapidPublicKey }
 };
 
 function setFamilyId(id) {
@@ -194,6 +195,10 @@ async function loadFamilyData() {
   }
 }
 
+async function loadPushConfig() {
+  state.pushConfig = await call("GetPushConfig", {});
+}
+
 async function refreshAll() {
   await loadFamilies();
   if (state.familyId && !state.families.find((f) => f.id === state.familyId)) {
@@ -274,6 +279,11 @@ function render() {
   }
 
   app.appendChild(renderTopbar());
+
+  if (state.tab === "settings") {
+    app.appendChild(renderSettingsTab());
+    return;
+  }
 
   // Parents get a dashboard-style "Home" tab (today's status per child, at
   // a glance) plus separate tabs for managing tasks and for payouts/full
@@ -594,6 +604,7 @@ function renderTopbar() {
   const buttons = [
     canSwitchUser ? `<button class="secondary" id="switch-user">${escapeHtml(t("topbar.switchUser"))}</button>` : "",
     canSwitchHousehold ? `<button class="secondary" id="switch-household">${escapeHtml(t("topbar.switchHousehold"))}</button>` : "",
+    `<button class="secondary" id="open-settings">${escapeHtml(t("topbar.settings"))}</button>`,
   ].join("");
   const bar = el(`
     <div class="topbar">
@@ -619,6 +630,10 @@ function renderTopbar() {
       render();
     });
   }
+  bar.querySelector("#open-settings").addEventListener("click", () => {
+    state.tab = "settings";
+    render();
+  });
   return bar;
 }
 
@@ -1225,6 +1240,173 @@ function renderInvitationsSection() {
   return wrap;
 }
 
+// ---- Settings: auto-refresh -----------------------------------------------------
+
+const AUTO_REFRESH_KEY = "chores.autoRefresh";
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+
+function isAutoRefreshEnabled() {
+  return localStorage.getItem(AUTO_REFRESH_KEY) !== "0"; // on by default
+}
+function setAutoRefreshEnabled(enabled) {
+  localStorage.setItem(AUTO_REFRESH_KEY, enabled ? "1" : "0");
+}
+
+// A background refresh rebuilds the whole DOM via render(), which would
+// wipe out anything the user is mid-typing into a form. Skipping the tick
+// while a text/number/select field has focus avoids that at the cost of
+// simply trying again next tick.
+function isEditingSomething() {
+  const active = document.activeElement;
+  if (!active) return false;
+  return active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT";
+}
+
+let lastAutoRefreshAt = Date.now();
+
+async function autoRefreshTick() {
+  if (!isAutoRefreshEnabled()) return;
+  if (!state.familyId || !state.userId) return;
+  if (document.hidden || isEditingSomething()) return;
+  lastAutoRefreshAt = Date.now();
+  await withError(loadFamilyData);
+}
+
+setInterval(autoRefreshTick, AUTO_REFRESH_MS);
+// Also catch up immediately when the tab regains focus after being hidden
+// long enough that a tick would otherwise have fired while backgrounded
+// (browsers throttle/suspend timers in hidden tabs).
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastAutoRefreshAt >= AUTO_REFRESH_MS) {
+    autoRefreshTick();
+  }
+});
+
+// ---- Settings: push notifications -----------------------------------------------------
+
+function pushSupported() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+
+// VAPID applicationServerKey must be a Uint8Array; the server hands it over
+// as the base64url string PushManager.subscribe() itself can't consume.
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const output = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
+
+async function getCurrentPushSubscription() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+
+// undefined = not checked yet, null = checked and not subscribed, object =
+// subscribed. Module-level (not in `state`) since it's derived from the
+// browser's own PushManager, not server data.
+let cachedPushSubscription;
+let pushSubscriptionCheckInFlight = false;
+
+function refreshPushSubscriptionCache() {
+  if (pushSubscriptionCheckInFlight) return;
+  pushSubscriptionCheckInFlight = true;
+  getCurrentPushSubscription()
+    .then((sub) => {
+      cachedPushSubscription = sub || null;
+    })
+    .catch(() => {
+      cachedPushSubscription = null;
+    })
+    .finally(() => {
+      pushSubscriptionCheckInFlight = false;
+      if (state.tab === "settings") render();
+    });
+}
+
+async function enablePushNotifications() {
+  if (Notification.permission === "denied") throw new Error(t("settings.notificationsDenied"));
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") throw new Error(t("settings.notificationsDenied"));
+  if (!state.pushConfig || !state.pushConfig.vapidPublicKey) throw new Error(t("settings.notificationsUnavailable"));
+
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(state.pushConfig.vapidPublicKey),
+  });
+  const subJson = sub.toJSON();
+  await call("SubscribeToPush", {
+    userId: state.userId,
+    subscription: { endpoint: subJson.endpoint, p256dh: subJson.keys.p256dh, auth: subJson.keys.auth },
+  });
+  cachedPushSubscription = sub;
+}
+
+async function disablePushNotifications() {
+  const sub = await getCurrentPushSubscription();
+  if (sub) {
+    await call("UnsubscribeFromPush", { endpoint: sub.endpoint });
+    await sub.unsubscribe();
+  }
+  cachedPushSubscription = null;
+}
+
+// ---- Settings tab -----------------------------------------------------
+
+function renderSettingsTab() {
+  const wrap = el(`<div></div>`);
+  const backBtn = el(`<button class="secondary" style="margin-bottom:16px;">${escapeHtml(t("settings.back"))}</button>`);
+  backBtn.addEventListener("click", () => {
+    state.tab = isParent() ? "home" : "tasks";
+    render();
+  });
+  wrap.appendChild(backBtn);
+
+  const refreshCard = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("settings.autoRefreshHeading"))}</h2>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;color:var(--text);">
+        <input type="checkbox" id="auto-refresh-toggle" ${isAutoRefreshEnabled() ? "checked" : ""} />
+        ${escapeHtml(t("settings.autoRefreshLabel"))}
+      </label>
+      <p class="hint" style="margin-top:6px;margin-bottom:0;">${escapeHtml(t("settings.autoRefreshHint"))}</p>
+    </div>
+  `);
+  refreshCard.querySelector("#auto-refresh-toggle").addEventListener("change", (e) => {
+    setAutoRefreshEnabled(e.target.checked);
+  });
+  wrap.appendChild(refreshCard);
+
+  const notifCard = el(`<div class="card"><h2>${escapeHtml(t("settings.notificationsHeading"))}</h2></div>`);
+  if (!pushSupported()) {
+    notifCard.appendChild(el(`<p class="empty">${escapeHtml(t("settings.notificationsUnsupported"))}</p>`));
+  } else if (state.pushConfig && !state.pushConfig.vapidPublicKey) {
+    notifCard.appendChild(el(`<p class="empty">${escapeHtml(t("settings.notificationsUnavailable"))}</p>`));
+  } else if (Notification.permission === "denied") {
+    notifCard.appendChild(el(`<p class="empty">${escapeHtml(t("settings.notificationsDenied"))}</p>`));
+  } else if (cachedPushSubscription === undefined) {
+    notifCard.appendChild(el(`<p class="empty">${escapeHtml(t("settings.notificationsChecking"))}</p>`));
+    refreshPushSubscriptionCache();
+  } else if (cachedPushSubscription) {
+    notifCard.appendChild(el(`<p>${escapeHtml(t("settings.notificationsEnabledOnDevice"))}</p>`));
+    const btn = el(`<button class="secondary">${escapeHtml(t("settings.notificationsDisable"))}</button>`);
+    btn.addEventListener("click", () => withError(disablePushNotifications));
+    notifCard.appendChild(btn);
+  } else {
+    notifCard.appendChild(el(`<p class="hint">${escapeHtml(t("settings.notificationsDesc"))}</p>`));
+    const btn = el(`<button>${escapeHtml(t("settings.notificationsEnable"))}</button>`);
+    btn.addEventListener("click", () => withError(enablePushNotifications));
+    notifCard.appendChild(btn);
+  }
+  wrap.appendChild(notifCard);
+
+  return wrap;
+}
+
 // ---- boot -----------------------------------------------------
 
 withError(async () => {
@@ -1256,5 +1438,13 @@ withError(async () => {
     }
   } else {
     await refreshAll();
+  }
+  // Non-fatal: push notifications are an optional extra, so a failure here
+  // (e.g. the server has no VAPID keys yet) shouldn't surface as a
+  // page-wide error banner.
+  try {
+    await loadPushConfig();
+  } catch (e) {
+    console.warn("push config unavailable:", e);
   }
 });

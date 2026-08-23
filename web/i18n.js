@@ -42,6 +42,21 @@ const TRANSLATIONS = {
 
     "topbar.switchUser": "Switch user",
     "topbar.switchHousehold": "Switch household",
+    "topbar.settings": "Settings",
+
+    "settings.back": "← Back",
+    "settings.autoRefreshHeading": "Auto-refresh",
+    "settings.autoRefreshLabel": "Automatically refresh every 5 minutes",
+    "settings.autoRefreshHint": "Keeps task status up to date if someone else marks a task done while you're looking at this page. Paused while you're typing into a form.",
+    "settings.notificationsHeading": "Notifications",
+    "settings.notificationsDesc": "Get a notification on this device whenever someone in the family completes a task.",
+    "settings.notificationsEnable": "Enable notifications",
+    "settings.notificationsDisable": "Disable notifications",
+    "settings.notificationsEnabledOnDevice": "Notifications are enabled on this device.",
+    "settings.notificationsChecking": "Checking notification status…",
+    "settings.notificationsUnsupported": "Notifications aren't supported on this browser or device.",
+    "settings.notificationsUnavailable": "The server doesn't have push notifications configured.",
+    "settings.notificationsDenied": "Notifications are blocked for this site — enable them in your browser's site settings to use this.",
 
     "tabs.home": "Home",
     "tabs.tasks": "Tasks",
@@ -181,6 +196,21 @@ const TRANSLATIONS = {
 
     "topbar.switchUser": "Bytt bruker",
     "topbar.switchHousehold": "Bytt husstand",
+    "topbar.settings": "Innstillinger",
+
+    "settings.back": "← Tilbake",
+    "settings.autoRefreshHeading": "Automatisk oppdatering",
+    "settings.autoRefreshLabel": "Oppdater automatisk hvert 5. minutt",
+    "settings.autoRefreshHint": "Holder oppgavestatusen oppdatert hvis noen andre merker en oppgave som utført mens du ser på denne siden. Settes på pause mens du skriver i et skjema.",
+    "settings.notificationsHeading": "Varsler",
+    "settings.notificationsDesc": "Få et varsel på denne enheten når noen i familien fullfører en oppgave.",
+    "settings.notificationsEnable": "Slå på varsler",
+    "settings.notificationsDisable": "Slå av varsler",
+    "settings.notificationsEnabledOnDevice": "Varsler er slått på for denne enheten.",
+    "settings.notificationsChecking": "Sjekker varselstatus…",
+    "settings.notificationsUnsupported": "Varsler støttes ikke i denne nettleseren eller på denne enheten.",
+    "settings.notificationsUnavailable": "Serveren har ikke satt opp push-varsler.",
+    "settings.notificationsDenied": "Varsler er blokkert for dette nettstedet — slå dem på i nettleserens nettstedsinnstillinger for å bruke dette.",
 
     "tabs.home": "Hjem",
     "tabs.tasks": "Oppgaver",
