@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 
@@ -21,6 +22,13 @@ import (
 )
 
 func main() {
+	// Go's mime package doesn't know the .webmanifest extension out of the
+	// box, which would otherwise get served as text/plain and trip up
+	// browsers' PWA installability checks.
+	if err := mime.AddExtensionType(".webmanifest", "application/manifest+json"); err != nil {
+		log.Fatalf("register .webmanifest mime type: %v", err)
+	}
+
 	addr := flag.String("addr", ":8080", "address to listen on")
 	dbPath := flag.String("db", "ukelonn.db", "path to the sqlite database file")
 	authModeFlag := flag.String("auth", "auto",

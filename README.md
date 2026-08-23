@@ -88,6 +88,18 @@ unclaimed slot it created. Accepting an invite isn't restricted to any
 particular email address — possession of the link is what grants access, so
 only share it with the intended person.
 
+## Installing as an app (PWA)
+
+The web UI is an installable Progressive Web App: `web/manifest.webmanifest`
+declares its name, icons, and standalone display mode, and `web/sw.js`
+precaches the static app shell (HTML/CSS/JS/icons only — never API
+responses or login state, so nothing about family data or sessions is ever
+cached) so the shell keeps loading offline. Both the app and the login page
+register the service worker, so an install prompt can appear before or
+after logging in. On a phone, use the browser's "Add to Home Screen" /
+"Install app" option; on desktop Chrome/Edge, an install icon appears in
+the address bar.
+
 ## Regenerating the Connect/protobuf code
 
 After editing `proto/ukelonn/v1/ukelonn.proto`:
