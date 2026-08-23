@@ -34,7 +34,7 @@ self.addEventListener("activate", (event) => {
 });
 
 function isDynamic(pathname) {
-  return pathname.startsWith("/ukelonn.v1.UkelonnService/") || pathname.startsWith("/auth/") || pathname.startsWith("/invite/");
+  return pathname.startsWith("/chores.v1.ChoresService/") || pathname.startsWith("/auth/") || pathname.startsWith("/invite/");
 }
 
 self.addEventListener("fetch", (event) => {

@@ -3,11 +3,8 @@
 A family allowance and chore tracker. Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
-(The Go module is `github.com/gunnaringe/chores`. The proto package name
-and Connect service name — `ukelonn.v1.UkelonnService` — are unchanged for
-now, along with the `gen/ukelonn/v1` directory; renaming those would change
-the wire API path, which is a separate decision from the module/display
-rename.)
+(The Go module is `github.com/gunnaringe/chores`, and the proto package,
+Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
 - Parents create tasks with a price and a cron-like recurrence (`0 0 * * 1,3,5`
   = every Monday, Wednesday, Friday). The Tasks UI offers day-of-week
@@ -123,7 +120,7 @@ the address bar.
 
 ## Regenerating the Connect/protobuf code
 
-After editing `proto/ukelonn/v1/ukelonn.proto`:
+After editing `proto/chores/v1/chores.proto`:
 
 ```bash
 buf generate

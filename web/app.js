@@ -2,7 +2,7 @@
 // Connect protocol's unary JSON encoding directly (no generated client).
 // Translation strings live in i18n.js (loaded before this file).
 
-const API = "/ukelonn.v1.UkelonnService";
+const API = "/chores.v1.ChoresService";
 
 async function call(method, req) {
   const res = await fetch(`${API}/${method}`, {

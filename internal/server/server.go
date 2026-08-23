@@ -1,4 +1,4 @@
-// Package server implements the UkelonnService Connect API on top of SQLite.
+// Package server implements the ChoresService Connect API on top of SQLite.
 package server
 
 import (
@@ -12,14 +12,14 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
-	"github.com/gunnaringe/chores/gen/ukelonn/v1/ukelonnv1connect"
+	v1 "github.com/gunnaringe/chores/gen/chores/v1"
+	"github.com/gunnaringe/chores/gen/chores/v1/choresv1connect"
 	"github.com/gunnaringe/chores/internal/auth"
 	"github.com/gunnaringe/chores/internal/scheduling"
 )
 
 type Server struct {
-	ukelonnv1connect.UnimplementedUkelonnServiceHandler
+	choresv1connect.UnimplementedChoresServiceHandler
 	db *sql.DB
 }
 

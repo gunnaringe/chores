@@ -7,7 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
+	v1 "github.com/gunnaringe/chores/gen/chores/v1"
 	"github.com/gunnaringe/chores/internal/auth"
 	"github.com/gunnaringe/chores/internal/db"
 )

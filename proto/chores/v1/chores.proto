@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package ukelonn.v1;
+package chores.v1;
 
-option go_package = "github.com/gunnaringe/chores/gen/ukelonn/v1;ukelonnv1";
+option go_package = "github.com/gunnaringe/chores/gen/chores/v1;choresv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -286,7 +286,7 @@ message AcceptInvitationResponse {
   Family family = 2;
 }
 
-service UkelonnService {
+service ChoresService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
 

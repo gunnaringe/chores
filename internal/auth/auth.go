@@ -55,9 +55,9 @@ type session struct {
 }
 
 const (
-	sessionCookieName  = "ukelonn_session"
-	stateCookieName    = "ukelonn_oauth_state"
-	returnToCookieName = "ukelonn_oauth_return_to"
+	sessionCookieName  = "chores_session"
+	stateCookieName    = "chores_oauth_state"
+	returnToCookieName = "chores_oauth_return_to"
 	sessionTTL         = 7 * 24 * time.Hour
 	stateTTL           = 10 * time.Minute
 )

@@ -13,8 +13,8 @@ import (
 
 	"connectrpc.com/connect"
 
-	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
-	"github.com/gunnaringe/chores/gen/ukelonn/v1/ukelonnv1connect"
+	v1 "github.com/gunnaringe/chores/gen/chores/v1"
+	"github.com/gunnaringe/chores/gen/chores/v1/choresv1connect"
 	"github.com/gunnaringe/chores/internal/auth"
 	"github.com/gunnaringe/chores/internal/db"
 	"github.com/gunnaringe/chores/internal/server"
@@ -89,7 +89,7 @@ func main() {
 	mux.HandleFunc("/auth/logout", authMgr.LogoutHandler)
 	mux.HandleFunc("/auth/me", authMgr.MeHandler)
 
-	path, handler := ukelonnv1connect.NewUkelonnServiceHandler(svc)
+	path, handler := choresv1connect.NewChoresServiceHandler(svc)
 	mux.Handle(path, authMgr.RequireAuth(handler))
 
 	mux.Handle("/invite/accept", authMgr.RequirePage(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

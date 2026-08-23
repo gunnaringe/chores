@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: ukelonn/v1/ukelonn.proto
+// source: chores/v1/chores.proto
 
-package ukelonnv1
+package choresv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -55,11 +55,11 @@ func (x UserRole) String() string {
 }
 
 func (UserRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_ukelonn_v1_ukelonn_proto_enumTypes[0].Descriptor()
+	return file_chores_v1_chores_proto_enumTypes[0].Descriptor()
 }
 
 func (UserRole) Type() protoreflect.EnumType {
-	return &file_ukelonn_v1_ukelonn_proto_enumTypes[0]
+	return &file_chores_v1_chores_proto_enumTypes[0]
 }
 
 func (x UserRole) Number() protoreflect.EnumNumber {
@@ -68,7 +68,7 @@ func (x UserRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UserRole.Descriptor instead.
 func (UserRole) EnumDescriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{0}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{0}
 }
 
 type Family struct {
@@ -82,7 +82,7 @@ type Family struct {
 
 func (x *Family) Reset() {
 	*x = Family{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[0]
+	mi := &file_chores_v1_chores_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -94,7 +94,7 @@ func (x *Family) String() string {
 func (*Family) ProtoMessage() {}
 
 func (x *Family) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[0]
+	mi := &file_chores_v1_chores_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -107,7 +107,7 @@ func (x *Family) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Family.ProtoReflect.Descriptor instead.
 func (*Family) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{0}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Family) GetId() string {
@@ -136,7 +136,7 @@ type User struct {
 	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	FamilyId  string                 `protobuf:"bytes,2,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
 	Name      string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Role      UserRole               `protobuf:"varint,4,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
+	Role      UserRole               `protobuf:"varint,4,opt,name=role,proto3,enum=chores.v1.UserRole" json:"role,omitempty"`
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	Email     string                 `protobuf:"bytes,6,opt,name=email,proto3" json:"email,omitempty"`
 	// Whether this user is bound to a login identity (only ever true for
@@ -149,7 +149,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[1]
+	mi := &file_chores_v1_chores_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -161,7 +161,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[1]
+	mi := &file_chores_v1_chores_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -174,7 +174,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{1}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *User) GetId() string {
@@ -244,7 +244,7 @@ type Task struct {
 
 func (x *Task) Reset() {
 	*x = Task{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[2]
+	mi := &file_chores_v1_chores_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -256,7 +256,7 @@ func (x *Task) String() string {
 func (*Task) ProtoMessage() {}
 
 func (x *Task) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[2]
+	mi := &file_chores_v1_chores_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -269,7 +269,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Task.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{2}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Task) GetId() string {
@@ -344,7 +344,7 @@ type TaskCompletion struct {
 
 func (x *TaskCompletion) Reset() {
 	*x = TaskCompletion{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[3]
+	mi := &file_chores_v1_chores_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +356,7 @@ func (x *TaskCompletion) String() string {
 func (*TaskCompletion) ProtoMessage() {}
 
 func (x *TaskCompletion) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[3]
+	mi := &file_chores_v1_chores_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +369,7 @@ func (x *TaskCompletion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskCompletion.ProtoReflect.Descriptor instead.
 func (*TaskCompletion) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{3}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TaskCompletion) GetId() string {
@@ -436,7 +436,7 @@ type Payout struct {
 
 func (x *Payout) Reset() {
 	*x = Payout{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[4]
+	mi := &file_chores_v1_chores_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -448,7 +448,7 @@ func (x *Payout) String() string {
 func (*Payout) ProtoMessage() {}
 
 func (x *Payout) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[4]
+	mi := &file_chores_v1_chores_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -461,7 +461,7 @@ func (x *Payout) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Payout.ProtoReflect.Descriptor instead.
 func (*Payout) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{4}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Payout) GetId() string {
@@ -527,7 +527,7 @@ type ChildSummary struct {
 
 func (x *ChildSummary) Reset() {
 	*x = ChildSummary{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[5]
+	mi := &file_chores_v1_chores_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -539,7 +539,7 @@ func (x *ChildSummary) String() string {
 func (*ChildSummary) ProtoMessage() {}
 
 func (x *ChildSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[5]
+	mi := &file_chores_v1_chores_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -552,7 +552,7 @@ func (x *ChildSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChildSummary.ProtoReflect.Descriptor instead.
 func (*ChildSummary) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{5}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ChildSummary) GetChild() *User {
@@ -611,7 +611,7 @@ type TaskOccurrence struct {
 
 func (x *TaskOccurrence) Reset() {
 	*x = TaskOccurrence{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[6]
+	mi := &file_chores_v1_chores_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -623,7 +623,7 @@ func (x *TaskOccurrence) String() string {
 func (*TaskOccurrence) ProtoMessage() {}
 
 func (x *TaskOccurrence) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[6]
+	mi := &file_chores_v1_chores_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -636,7 +636,7 @@ func (x *TaskOccurrence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskOccurrence.ProtoReflect.Descriptor instead.
 func (*TaskOccurrence) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{6}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TaskOccurrence) GetTask() *Task {
@@ -681,7 +681,7 @@ type CreateFamilyRequest struct {
 
 func (x *CreateFamilyRequest) Reset() {
 	*x = CreateFamilyRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[7]
+	mi := &file_chores_v1_chores_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -693,7 +693,7 @@ func (x *CreateFamilyRequest) String() string {
 func (*CreateFamilyRequest) ProtoMessage() {}
 
 func (x *CreateFamilyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[7]
+	mi := &file_chores_v1_chores_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +706,7 @@ func (x *CreateFamilyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFamilyRequest.ProtoReflect.Descriptor instead.
 func (*CreateFamilyRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{7}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CreateFamilyRequest) GetName() string {
@@ -732,7 +732,7 @@ type CreateFamilyResponse struct {
 
 func (x *CreateFamilyResponse) Reset() {
 	*x = CreateFamilyResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[8]
+	mi := &file_chores_v1_chores_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -744,7 +744,7 @@ func (x *CreateFamilyResponse) String() string {
 func (*CreateFamilyResponse) ProtoMessage() {}
 
 func (x *CreateFamilyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[8]
+	mi := &file_chores_v1_chores_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -757,7 +757,7 @@ func (x *CreateFamilyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFamilyResponse.ProtoReflect.Descriptor instead.
 func (*CreateFamilyResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{8}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CreateFamilyResponse) GetFamily() *Family {
@@ -775,7 +775,7 @@ type ListFamiliesRequest struct {
 
 func (x *ListFamiliesRequest) Reset() {
 	*x = ListFamiliesRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[9]
+	mi := &file_chores_v1_chores_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -787,7 +787,7 @@ func (x *ListFamiliesRequest) String() string {
 func (*ListFamiliesRequest) ProtoMessage() {}
 
 func (x *ListFamiliesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[9]
+	mi := &file_chores_v1_chores_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -800,7 +800,7 @@ func (x *ListFamiliesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFamiliesRequest.ProtoReflect.Descriptor instead.
 func (*ListFamiliesRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{9}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{9}
 }
 
 type ListFamiliesResponse struct {
@@ -812,7 +812,7 @@ type ListFamiliesResponse struct {
 
 func (x *ListFamiliesResponse) Reset() {
 	*x = ListFamiliesResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[10]
+	mi := &file_chores_v1_chores_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -824,7 +824,7 @@ func (x *ListFamiliesResponse) String() string {
 func (*ListFamiliesResponse) ProtoMessage() {}
 
 func (x *ListFamiliesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[10]
+	mi := &file_chores_v1_chores_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -837,7 +837,7 @@ func (x *ListFamiliesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFamiliesResponse.ProtoReflect.Descriptor instead.
 func (*ListFamiliesResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{10}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListFamiliesResponse) GetFamilies() []*Family {
@@ -851,14 +851,14 @@ type CreateUserRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FamilyId      string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Role          UserRole               `protobuf:"varint,3,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
+	Role          UserRole               `protobuf:"varint,3,opt,name=role,proto3,enum=chores.v1.UserRole" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateUserRequest) Reset() {
 	*x = CreateUserRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[11]
+	mi := &file_chores_v1_chores_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -870,7 +870,7 @@ func (x *CreateUserRequest) String() string {
 func (*CreateUserRequest) ProtoMessage() {}
 
 func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[11]
+	mi := &file_chores_v1_chores_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -883,7 +883,7 @@ func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
 func (*CreateUserRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{11}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CreateUserRequest) GetFamilyId() string {
@@ -916,7 +916,7 @@ type CreateUserResponse struct {
 
 func (x *CreateUserResponse) Reset() {
 	*x = CreateUserResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[12]
+	mi := &file_chores_v1_chores_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -928,7 +928,7 @@ func (x *CreateUserResponse) String() string {
 func (*CreateUserResponse) ProtoMessage() {}
 
 func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[12]
+	mi := &file_chores_v1_chores_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -941,7 +941,7 @@ func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
 func (*CreateUserResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{12}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateUserResponse) GetUser() *User {
@@ -960,7 +960,7 @@ type ListUsersRequest struct {
 
 func (x *ListUsersRequest) Reset() {
 	*x = ListUsersRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[13]
+	mi := &file_chores_v1_chores_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -972,7 +972,7 @@ func (x *ListUsersRequest) String() string {
 func (*ListUsersRequest) ProtoMessage() {}
 
 func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[13]
+	mi := &file_chores_v1_chores_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +985,7 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{13}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListUsersRequest) GetFamilyId() string {
@@ -1004,7 +1004,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[14]
+	mi := &file_chores_v1_chores_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1016,7 +1016,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[14]
+	mi := &file_chores_v1_chores_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1029,7 +1029,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{14}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListUsersResponse) GetUsers() []*User {
@@ -1052,7 +1052,7 @@ type CreateTaskRequest struct {
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[15]
+	mi := &file_chores_v1_chores_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1064,7 +1064,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[15]
+	mi := &file_chores_v1_chores_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1077,7 +1077,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{15}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CreateTaskRequest) GetFamilyId() string {
@@ -1124,7 +1124,7 @@ type CreateTaskResponse struct {
 
 func (x *CreateTaskResponse) Reset() {
 	*x = CreateTaskResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[16]
+	mi := &file_chores_v1_chores_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1136,7 +1136,7 @@ func (x *CreateTaskResponse) String() string {
 func (*CreateTaskResponse) ProtoMessage() {}
 
 func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[16]
+	mi := &file_chores_v1_chores_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1149,7 +1149,7 @@ func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{16}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CreateTaskResponse) GetTask() *Task {
@@ -1173,7 +1173,7 @@ type UpdateTaskRequest struct {
 
 func (x *UpdateTaskRequest) Reset() {
 	*x = UpdateTaskRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[17]
+	mi := &file_chores_v1_chores_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1185,7 +1185,7 @@ func (x *UpdateTaskRequest) String() string {
 func (*UpdateTaskRequest) ProtoMessage() {}
 
 func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[17]
+	mi := &file_chores_v1_chores_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1198,7 +1198,7 @@ func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTaskRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{17}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *UpdateTaskRequest) GetTaskId() string {
@@ -1252,7 +1252,7 @@ type UpdateTaskResponse struct {
 
 func (x *UpdateTaskResponse) Reset() {
 	*x = UpdateTaskResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[18]
+	mi := &file_chores_v1_chores_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1264,7 +1264,7 @@ func (x *UpdateTaskResponse) String() string {
 func (*UpdateTaskResponse) ProtoMessage() {}
 
 func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[18]
+	mi := &file_chores_v1_chores_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1277,7 +1277,7 @@ func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTaskResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{18}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UpdateTaskResponse) GetTask() *Task {
@@ -1296,7 +1296,7 @@ type DeleteTaskRequest struct {
 
 func (x *DeleteTaskRequest) Reset() {
 	*x = DeleteTaskRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[19]
+	mi := &file_chores_v1_chores_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1308,7 +1308,7 @@ func (x *DeleteTaskRequest) String() string {
 func (*DeleteTaskRequest) ProtoMessage() {}
 
 func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[19]
+	mi := &file_chores_v1_chores_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1321,7 +1321,7 @@ func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{19}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DeleteTaskRequest) GetTaskId() string {
@@ -1339,7 +1339,7 @@ type DeleteTaskResponse struct {
 
 func (x *DeleteTaskResponse) Reset() {
 	*x = DeleteTaskResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[20]
+	mi := &file_chores_v1_chores_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1351,7 @@ func (x *DeleteTaskResponse) String() string {
 func (*DeleteTaskResponse) ProtoMessage() {}
 
 func (x *DeleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[20]
+	mi := &file_chores_v1_chores_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1364,7 @@ func (x *DeleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{20}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{20}
 }
 
 type ListTasksRequest struct {
@@ -1376,7 +1376,7 @@ type ListTasksRequest struct {
 
 func (x *ListTasksRequest) Reset() {
 	*x = ListTasksRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[21]
+	mi := &file_chores_v1_chores_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1388,7 +1388,7 @@ func (x *ListTasksRequest) String() string {
 func (*ListTasksRequest) ProtoMessage() {}
 
 func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[21]
+	mi := &file_chores_v1_chores_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1401,7 +1401,7 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{21}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListTasksRequest) GetFamilyId() string {
@@ -1420,7 +1420,7 @@ type ListTasksResponse struct {
 
 func (x *ListTasksResponse) Reset() {
 	*x = ListTasksResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[22]
+	mi := &file_chores_v1_chores_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1432,7 +1432,7 @@ func (x *ListTasksResponse) String() string {
 func (*ListTasksResponse) ProtoMessage() {}
 
 func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[22]
+	mi := &file_chores_v1_chores_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1445,7 +1445,7 @@ func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListTasksResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{22}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListTasksResponse) GetTasks() []*Task {
@@ -1468,7 +1468,7 @@ type ListTaskOccurrencesRequest struct {
 
 func (x *ListTaskOccurrencesRequest) Reset() {
 	*x = ListTaskOccurrencesRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[23]
+	mi := &file_chores_v1_chores_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1480,7 +1480,7 @@ func (x *ListTaskOccurrencesRequest) String() string {
 func (*ListTaskOccurrencesRequest) ProtoMessage() {}
 
 func (x *ListTaskOccurrencesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[23]
+	mi := &file_chores_v1_chores_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1493,7 +1493,7 @@ func (x *ListTaskOccurrencesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskOccurrencesRequest.ProtoReflect.Descriptor instead.
 func (*ListTaskOccurrencesRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{23}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListTaskOccurrencesRequest) GetFamilyId() string {
@@ -1526,7 +1526,7 @@ type ListTaskOccurrencesResponse struct {
 
 func (x *ListTaskOccurrencesResponse) Reset() {
 	*x = ListTaskOccurrencesResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[24]
+	mi := &file_chores_v1_chores_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1538,7 +1538,7 @@ func (x *ListTaskOccurrencesResponse) String() string {
 func (*ListTaskOccurrencesResponse) ProtoMessage() {}
 
 func (x *ListTaskOccurrencesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[24]
+	mi := &file_chores_v1_chores_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1551,7 +1551,7 @@ func (x *ListTaskOccurrencesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskOccurrencesResponse.ProtoReflect.Descriptor instead.
 func (*ListTaskOccurrencesResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{24}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListTaskOccurrencesResponse) GetOccurrences() []*TaskOccurrence {
@@ -1572,7 +1572,7 @@ type CompleteTaskRequest struct {
 
 func (x *CompleteTaskRequest) Reset() {
 	*x = CompleteTaskRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[25]
+	mi := &file_chores_v1_chores_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +1584,7 @@ func (x *CompleteTaskRequest) String() string {
 func (*CompleteTaskRequest) ProtoMessage() {}
 
 func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[25]
+	mi := &file_chores_v1_chores_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +1597,7 @@ func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*CompleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{25}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CompleteTaskRequest) GetTaskId() string {
@@ -1630,7 +1630,7 @@ type CompleteTaskResponse struct {
 
 func (x *CompleteTaskResponse) Reset() {
 	*x = CompleteTaskResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[26]
+	mi := &file_chores_v1_chores_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1642,7 +1642,7 @@ func (x *CompleteTaskResponse) String() string {
 func (*CompleteTaskResponse) ProtoMessage() {}
 
 func (x *CompleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[26]
+	mi := &file_chores_v1_chores_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1655,7 +1655,7 @@ func (x *CompleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*CompleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{26}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CompleteTaskResponse) GetCompletion() *TaskCompletion {
@@ -1676,7 +1676,7 @@ type UncompleteTaskRequest struct {
 
 func (x *UncompleteTaskRequest) Reset() {
 	*x = UncompleteTaskRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[27]
+	mi := &file_chores_v1_chores_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1688,7 +1688,7 @@ func (x *UncompleteTaskRequest) String() string {
 func (*UncompleteTaskRequest) ProtoMessage() {}
 
 func (x *UncompleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[27]
+	mi := &file_chores_v1_chores_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1701,7 +1701,7 @@ func (x *UncompleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UncompleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*UncompleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{27}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *UncompleteTaskRequest) GetTaskId() string {
@@ -1733,7 +1733,7 @@ type UncompleteTaskResponse struct {
 
 func (x *UncompleteTaskResponse) Reset() {
 	*x = UncompleteTaskResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[28]
+	mi := &file_chores_v1_chores_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1745,7 +1745,7 @@ func (x *UncompleteTaskResponse) String() string {
 func (*UncompleteTaskResponse) ProtoMessage() {}
 
 func (x *UncompleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[28]
+	mi := &file_chores_v1_chores_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1758,7 +1758,7 @@ func (x *UncompleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UncompleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*UncompleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{28}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{28}
 }
 
 type ListTaskCompletionsRequest struct {
@@ -1771,7 +1771,7 @@ type ListTaskCompletionsRequest struct {
 
 func (x *ListTaskCompletionsRequest) Reset() {
 	*x = ListTaskCompletionsRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[29]
+	mi := &file_chores_v1_chores_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1783,7 +1783,7 @@ func (x *ListTaskCompletionsRequest) String() string {
 func (*ListTaskCompletionsRequest) ProtoMessage() {}
 
 func (x *ListTaskCompletionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[29]
+	mi := &file_chores_v1_chores_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1796,7 +1796,7 @@ func (x *ListTaskCompletionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskCompletionsRequest.ProtoReflect.Descriptor instead.
 func (*ListTaskCompletionsRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{29}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListTaskCompletionsRequest) GetFamilyId() string {
@@ -1822,7 +1822,7 @@ type ListTaskCompletionsResponse struct {
 
 func (x *ListTaskCompletionsResponse) Reset() {
 	*x = ListTaskCompletionsResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[30]
+	mi := &file_chores_v1_chores_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1834,7 +1834,7 @@ func (x *ListTaskCompletionsResponse) String() string {
 func (*ListTaskCompletionsResponse) ProtoMessage() {}
 
 func (x *ListTaskCompletionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[30]
+	mi := &file_chores_v1_chores_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1847,7 +1847,7 @@ func (x *ListTaskCompletionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskCompletionsResponse.ProtoReflect.Descriptor instead.
 func (*ListTaskCompletionsResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{30}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListTaskCompletionsResponse) GetCompletions() []*TaskCompletion {
@@ -1866,7 +1866,7 @@ type GetChildSummaryRequest struct {
 
 func (x *GetChildSummaryRequest) Reset() {
 	*x = GetChildSummaryRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[31]
+	mi := &file_chores_v1_chores_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1878,7 +1878,7 @@ func (x *GetChildSummaryRequest) String() string {
 func (*GetChildSummaryRequest) ProtoMessage() {}
 
 func (x *GetChildSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[31]
+	mi := &file_chores_v1_chores_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1891,7 +1891,7 @@ func (x *GetChildSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetChildSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetChildSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{31}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetChildSummaryRequest) GetChildId() string {
@@ -1910,7 +1910,7 @@ type GetChildSummaryResponse struct {
 
 func (x *GetChildSummaryResponse) Reset() {
 	*x = GetChildSummaryResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[32]
+	mi := &file_chores_v1_chores_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1922,7 +1922,7 @@ func (x *GetChildSummaryResponse) String() string {
 func (*GetChildSummaryResponse) ProtoMessage() {}
 
 func (x *GetChildSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[32]
+	mi := &file_chores_v1_chores_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1935,7 +1935,7 @@ func (x *GetChildSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetChildSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetChildSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{32}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetChildSummaryResponse) GetSummary() *ChildSummary {
@@ -1954,7 +1954,7 @@ type ListChildSummariesRequest struct {
 
 func (x *ListChildSummariesRequest) Reset() {
 	*x = ListChildSummariesRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[33]
+	mi := &file_chores_v1_chores_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1966,7 +1966,7 @@ func (x *ListChildSummariesRequest) String() string {
 func (*ListChildSummariesRequest) ProtoMessage() {}
 
 func (x *ListChildSummariesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[33]
+	mi := &file_chores_v1_chores_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1979,7 +1979,7 @@ func (x *ListChildSummariesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChildSummariesRequest.ProtoReflect.Descriptor instead.
 func (*ListChildSummariesRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{33}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListChildSummariesRequest) GetFamilyId() string {
@@ -1998,7 +1998,7 @@ type ListChildSummariesResponse struct {
 
 func (x *ListChildSummariesResponse) Reset() {
 	*x = ListChildSummariesResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[34]
+	mi := &file_chores_v1_chores_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2010,7 +2010,7 @@ func (x *ListChildSummariesResponse) String() string {
 func (*ListChildSummariesResponse) ProtoMessage() {}
 
 func (x *ListChildSummariesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[34]
+	mi := &file_chores_v1_chores_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2023,7 +2023,7 @@ func (x *ListChildSummariesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChildSummariesResponse.ProtoReflect.Descriptor instead.
 func (*ListChildSummariesResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{34}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListChildSummariesResponse) GetSummaries() []*ChildSummary {
@@ -2047,7 +2047,7 @@ type CreatePayoutRequest struct {
 
 func (x *CreatePayoutRequest) Reset() {
 	*x = CreatePayoutRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[35]
+	mi := &file_chores_v1_chores_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2059,7 +2059,7 @@ func (x *CreatePayoutRequest) String() string {
 func (*CreatePayoutRequest) ProtoMessage() {}
 
 func (x *CreatePayoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[35]
+	mi := &file_chores_v1_chores_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2072,7 +2072,7 @@ func (x *CreatePayoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePayoutRequest.ProtoReflect.Descriptor instead.
 func (*CreatePayoutRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{35}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CreatePayoutRequest) GetChildId() string {
@@ -2112,7 +2112,7 @@ type CreatePayoutResponse struct {
 
 func (x *CreatePayoutResponse) Reset() {
 	*x = CreatePayoutResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[36]
+	mi := &file_chores_v1_chores_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2124,7 +2124,7 @@ func (x *CreatePayoutResponse) String() string {
 func (*CreatePayoutResponse) ProtoMessage() {}
 
 func (x *CreatePayoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[36]
+	mi := &file_chores_v1_chores_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2137,7 +2137,7 @@ func (x *CreatePayoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePayoutResponse.ProtoReflect.Descriptor instead.
 func (*CreatePayoutResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{36}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CreatePayoutResponse) GetPayout() *Payout {
@@ -2157,7 +2157,7 @@ type ListPayoutsRequest struct {
 
 func (x *ListPayoutsRequest) Reset() {
 	*x = ListPayoutsRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[37]
+	mi := &file_chores_v1_chores_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2169,7 +2169,7 @@ func (x *ListPayoutsRequest) String() string {
 func (*ListPayoutsRequest) ProtoMessage() {}
 
 func (x *ListPayoutsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[37]
+	mi := &file_chores_v1_chores_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2182,7 +2182,7 @@ func (x *ListPayoutsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPayoutsRequest.ProtoReflect.Descriptor instead.
 func (*ListPayoutsRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{37}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListPayoutsRequest) GetFamilyId() string {
@@ -2208,7 +2208,7 @@ type ListPayoutsResponse struct {
 
 func (x *ListPayoutsResponse) Reset() {
 	*x = ListPayoutsResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[38]
+	mi := &file_chores_v1_chores_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2220,7 +2220,7 @@ func (x *ListPayoutsResponse) String() string {
 func (*ListPayoutsResponse) ProtoMessage() {}
 
 func (x *ListPayoutsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[38]
+	mi := &file_chores_v1_chores_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2233,7 +2233,7 @@ func (x *ListPayoutsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPayoutsResponse.ProtoReflect.Descriptor instead.
 func (*ListPayoutsResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{38}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListPayoutsResponse) GetPayouts() []*Payout {
@@ -2255,7 +2255,7 @@ type GetMyMembershipRequest struct {
 
 func (x *GetMyMembershipRequest) Reset() {
 	*x = GetMyMembershipRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[39]
+	mi := &file_chores_v1_chores_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2267,7 +2267,7 @@ func (x *GetMyMembershipRequest) String() string {
 func (*GetMyMembershipRequest) ProtoMessage() {}
 
 func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[39]
+	mi := &file_chores_v1_chores_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2280,7 +2280,7 @@ func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyMembershipRequest.ProtoReflect.Descriptor instead.
 func (*GetMyMembershipRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{39}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{39}
 }
 
 type GetMyMembershipResponse struct {
@@ -2294,7 +2294,7 @@ type GetMyMembershipResponse struct {
 
 func (x *GetMyMembershipResponse) Reset() {
 	*x = GetMyMembershipResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[40]
+	mi := &file_chores_v1_chores_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2306,7 +2306,7 @@ func (x *GetMyMembershipResponse) String() string {
 func (*GetMyMembershipResponse) ProtoMessage() {}
 
 func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[40]
+	mi := &file_chores_v1_chores_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2319,7 +2319,7 @@ func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyMembershipResponse.ProtoReflect.Descriptor instead.
 func (*GetMyMembershipResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{40}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetMyMembershipResponse) GetBound() bool {
@@ -2357,14 +2357,14 @@ type Invitation struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	AcceptedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=accepted_at,json=acceptedAt,proto3" json:"accepted_at,omitempty"`
-	Role          UserRole               `protobuf:"varint,9,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
+	Role          UserRole               `protobuf:"varint,9,opt,name=role,proto3,enum=chores.v1.UserRole" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Invitation) Reset() {
 	*x = Invitation{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[41]
+	mi := &file_chores_v1_chores_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2376,7 @@ func (x *Invitation) String() string {
 func (*Invitation) ProtoMessage() {}
 
 func (x *Invitation) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[41]
+	mi := &file_chores_v1_chores_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2389,7 @@ func (x *Invitation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Invitation.ProtoReflect.Descriptor instead.
 func (*Invitation) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{41}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *Invitation) GetId() string {
@@ -2465,14 +2465,14 @@ type CreateInvitationRequest struct {
 	Email string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
 	// Must be PARENT or CHILD. Only parents may create invitations of either
 	// kind.
-	Role          UserRole `protobuf:"varint,4,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
+	Role          UserRole `protobuf:"varint,4,opt,name=role,proto3,enum=chores.v1.UserRole" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateInvitationRequest) Reset() {
 	*x = CreateInvitationRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[42]
+	mi := &file_chores_v1_chores_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2484,7 +2484,7 @@ func (x *CreateInvitationRequest) String() string {
 func (*CreateInvitationRequest) ProtoMessage() {}
 
 func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[42]
+	mi := &file_chores_v1_chores_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2497,7 +2497,7 @@ func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInvitationRequest.ProtoReflect.Descriptor instead.
 func (*CreateInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{42}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CreateInvitationRequest) GetFamilyId() string {
@@ -2541,7 +2541,7 @@ type CreateInvitationResponse struct {
 
 func (x *CreateInvitationResponse) Reset() {
 	*x = CreateInvitationResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[43]
+	mi := &file_chores_v1_chores_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2553,7 +2553,7 @@ func (x *CreateInvitationResponse) String() string {
 func (*CreateInvitationResponse) ProtoMessage() {}
 
 func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[43]
+	mi := &file_chores_v1_chores_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2566,7 +2566,7 @@ func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInvitationResponse.ProtoReflect.Descriptor instead.
 func (*CreateInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{43}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CreateInvitationResponse) GetInvitation() *Invitation {
@@ -2599,7 +2599,7 @@ type ListInvitationsRequest struct {
 
 func (x *ListInvitationsRequest) Reset() {
 	*x = ListInvitationsRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[44]
+	mi := &file_chores_v1_chores_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2611,7 +2611,7 @@ func (x *ListInvitationsRequest) String() string {
 func (*ListInvitationsRequest) ProtoMessage() {}
 
 func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[44]
+	mi := &file_chores_v1_chores_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2624,7 +2624,7 @@ func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsRequest.ProtoReflect.Descriptor instead.
 func (*ListInvitationsRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{44}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListInvitationsRequest) GetFamilyId() string {
@@ -2643,7 +2643,7 @@ type ListInvitationsResponse struct {
 
 func (x *ListInvitationsResponse) Reset() {
 	*x = ListInvitationsResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[45]
+	mi := &file_chores_v1_chores_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2655,7 +2655,7 @@ func (x *ListInvitationsResponse) String() string {
 func (*ListInvitationsResponse) ProtoMessage() {}
 
 func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[45]
+	mi := &file_chores_v1_chores_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2668,7 +2668,7 @@ func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsResponse.ProtoReflect.Descriptor instead.
 func (*ListInvitationsResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{45}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListInvitationsResponse) GetInvitations() []*Invitation {
@@ -2687,7 +2687,7 @@ type RevokeInvitationRequest struct {
 
 func (x *RevokeInvitationRequest) Reset() {
 	*x = RevokeInvitationRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[46]
+	mi := &file_chores_v1_chores_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2699,7 +2699,7 @@ func (x *RevokeInvitationRequest) String() string {
 func (*RevokeInvitationRequest) ProtoMessage() {}
 
 func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[46]
+	mi := &file_chores_v1_chores_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2712,7 +2712,7 @@ func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationRequest.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{46}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *RevokeInvitationRequest) GetInvitationId() string {
@@ -2730,7 +2730,7 @@ type RevokeInvitationResponse struct {
 
 func (x *RevokeInvitationResponse) Reset() {
 	*x = RevokeInvitationResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[47]
+	mi := &file_chores_v1_chores_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2742,7 +2742,7 @@ func (x *RevokeInvitationResponse) String() string {
 func (*RevokeInvitationResponse) ProtoMessage() {}
 
 func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[47]
+	mi := &file_chores_v1_chores_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2755,7 +2755,7 @@ func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationResponse.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{47}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{47}
 }
 
 type AcceptInvitationRequest struct {
@@ -2767,7 +2767,7 @@ type AcceptInvitationRequest struct {
 
 func (x *AcceptInvitationRequest) Reset() {
 	*x = AcceptInvitationRequest{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[48]
+	mi := &file_chores_v1_chores_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2779,7 +2779,7 @@ func (x *AcceptInvitationRequest) String() string {
 func (*AcceptInvitationRequest) ProtoMessage() {}
 
 func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[48]
+	mi := &file_chores_v1_chores_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2792,7 +2792,7 @@ func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationRequest.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{48}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *AcceptInvitationRequest) GetToken() string {
@@ -2812,7 +2812,7 @@ type AcceptInvitationResponse struct {
 
 func (x *AcceptInvitationResponse) Reset() {
 	*x = AcceptInvitationResponse{}
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[49]
+	mi := &file_chores_v1_chores_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2824,7 +2824,7 @@ func (x *AcceptInvitationResponse) String() string {
 func (*AcceptInvitationResponse) ProtoMessage() {}
 
 func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[49]
+	mi := &file_chores_v1_chores_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2837,7 +2837,7 @@ func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationResponse.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{49}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *AcceptInvitationResponse) GetUser() *User {
@@ -2854,22 +2854,21 @@ func (x *AcceptInvitationResponse) GetFamily() *Family {
 	return nil
 }
 
-var File_ukelonn_v1_ukelonn_proto protoreflect.FileDescriptor
+var File_chores_v1_chores_proto protoreflect.FileDescriptor
 
-const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
+const file_chores_v1_chores_proto_rawDesc = "" +
 	"\n" +
-	"\x18ukelonn/v1/ukelonn.proto\x12\n" +
-	"ukelonn.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"g\n" +
+	"\x16chores/v1/chores.proto\x12\tchores.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"g\n" +
 	"\x06Family\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe1\x01\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe0\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12(\n" +
-	"\x04role\x18\x04 \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\x129\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12'\n" +
+	"\x04role\x18\x04 \x01(\x0e2\x13.chores.v1.UserRoleR\x04role\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
 	"\x05email\x18\x06 \x01(\tR\x05email\x12\x1d\n" +
@@ -2903,49 +2902,49 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"fullPayout\x12\x12\n" +
 	"\x04note\x18\x06 \x01(\tR\x04note\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb4\x02\n" +
-	"\fChildSummary\x12&\n" +
-	"\x05child\x18\x01 \x01(\v2\x10.ukelonn.v1.UserR\x05child\x126\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb3\x02\n" +
+	"\fChildSummary\x12%\n" +
+	"\x05child\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x05child\x126\n" +
 	"\x18earned_last_7_days_cents\x18\x02 \x01(\x03R\x14earnedLast7DaysCents\x12#\n" +
 	"\rbalance_cents\x18\x03 \x01(\x03R\fbalanceCents\x12,\n" +
 	"\x12total_earned_cents\x18\x04 \x01(\x03R\x10totalEarnedCents\x12/\n" +
 	"\x14total_paid_out_cents\x18\x05 \x01(\x03R\x11totalPaidOutCents\x12@\n" +
-	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\"\xab\x01\n" +
-	"\x0eTaskOccurrence\x12$\n" +
-	"\x04task\x18\x01 \x01(\v2\x10.ukelonn.v1.TaskR\x04task\x12\x19\n" +
+	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\"\xa9\x01\n" +
+	"\x0eTaskOccurrence\x12#\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\x12\x19\n" +
 	"\bdue_date\x18\x02 \x01(\tR\adueDate\x12\x1c\n" +
-	"\tcompleted\x18\x03 \x01(\bR\tcompleted\x12:\n" +
+	"\tcompleted\x18\x03 \x01(\bR\tcompleted\x129\n" +
 	"\n" +
-	"completion\x18\x04 \x01(\v2\x1a.ukelonn.v1.TaskCompletionR\n" +
+	"completion\x18\x04 \x01(\v2\x19.chores.v1.TaskCompletionR\n" +
 	"completion\"J\n" +
 	"\x13CreateFamilyRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
 	"\vparent_name\x18\x02 \x01(\tR\n" +
-	"parentName\"B\n" +
-	"\x14CreateFamilyResponse\x12*\n" +
-	"\x06family\x18\x01 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family\"\x15\n" +
-	"\x13ListFamiliesRequest\"F\n" +
-	"\x14ListFamiliesResponse\x12.\n" +
-	"\bfamilies\x18\x01 \x03(\v2\x12.ukelonn.v1.FamilyR\bfamilies\"n\n" +
+	"parentName\"A\n" +
+	"\x14CreateFamilyResponse\x12)\n" +
+	"\x06family\x18\x01 \x01(\v2\x11.chores.v1.FamilyR\x06family\"\x15\n" +
+	"\x13ListFamiliesRequest\"E\n" +
+	"\x14ListFamiliesResponse\x12-\n" +
+	"\bfamilies\x18\x01 \x03(\v2\x11.chores.v1.FamilyR\bfamilies\"m\n" +
 	"\x11CreateUserRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
-	"\x04role\x18\x03 \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\":\n" +
-	"\x12CreateUserResponse\x12$\n" +
-	"\x04user\x18\x01 \x01(\v2\x10.ukelonn.v1.UserR\x04user\"/\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
+	"\x04role\x18\x03 \x01(\x0e2\x13.chores.v1.UserRoleR\x04role\"9\n" +
+	"\x12CreateUserResponse\x12#\n" +
+	"\x04user\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x04user\"/\n" +
 	"\x10ListUsersRequest\x12\x1b\n" +
-	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\";\n" +
-	"\x11ListUsersResponse\x12&\n" +
-	"\x05users\x18\x01 \x03(\v2\x10.ukelonn.v1.UserR\x05users\"\xa5\x01\n" +
+	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
+	"\x11ListUsersResponse\x12%\n" +
+	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xa5\x01\n" +
 	"\x11CreateTaskRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1f\n" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x1a\n" +
-	"\bschedule\x18\x05 \x01(\tR\bschedule\":\n" +
-	"\x12CreateTaskResponse\x12$\n" +
-	"\x04task\x18\x01 \x01(\v2\x10.ukelonn.v1.TaskR\x04task\"\xb9\x01\n" +
+	"\bschedule\x18\x05 \x01(\tR\bschedule\"9\n" +
+	"\x12CreateTaskResponse\x12#\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xb9\x01\n" +
 	"\x11UpdateTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -2953,30 +2952,30 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x16\n" +
-	"\x06active\x18\x06 \x01(\bR\x06active\":\n" +
-	"\x12UpdateTaskResponse\x12$\n" +
-	"\x04task\x18\x01 \x01(\v2\x10.ukelonn.v1.TaskR\x04task\",\n" +
+	"\x06active\x18\x06 \x01(\bR\x06active\"9\n" +
+	"\x12UpdateTaskResponse\x12#\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\",\n" +
 	"\x11DeleteTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\x14\n" +
 	"\x12DeleteTaskResponse\"/\n" +
 	"\x10ListTasksRequest\x12\x1b\n" +
-	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\";\n" +
-	"\x11ListTasksResponse\x12&\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x10.ukelonn.v1.TaskR\x05tasks\"s\n" +
+	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
+	"\x11ListTasksResponse\x12%\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x0f.chores.v1.TaskR\x05tasks\"s\n" +
 	"\x1aListTaskOccurrencesRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x1d\n" +
 	"\n" +
 	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
-	"\bend_date\x18\x03 \x01(\tR\aendDate\"[\n" +
-	"\x1bListTaskOccurrencesResponse\x12<\n" +
-	"\voccurrences\x18\x01 \x03(\v2\x1a.ukelonn.v1.TaskOccurrenceR\voccurrences\"d\n" +
+	"\bend_date\x18\x03 \x01(\tR\aendDate\"Z\n" +
+	"\x1bListTaskOccurrencesResponse\x12;\n" +
+	"\voccurrences\x18\x01 \x03(\v2\x19.chores.v1.TaskOccurrenceR\voccurrences\"d\n" +
 	"\x13CompleteTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bchild_id\x18\x02 \x01(\tR\achildId\x12\x19\n" +
-	"\bdue_date\x18\x03 \x01(\tR\adueDate\"R\n" +
-	"\x14CompleteTaskResponse\x12:\n" +
+	"\bdue_date\x18\x03 \x01(\tR\adueDate\"Q\n" +
+	"\x14CompleteTaskResponse\x129\n" +
 	"\n" +
-	"completion\x18\x01 \x01(\v2\x1a.ukelonn.v1.TaskCompletionR\n" +
+	"completion\x18\x01 \x01(\v2\x19.chores.v1.TaskCompletionR\n" +
 	"completion\"f\n" +
 	"\x15UncompleteTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
@@ -2985,35 +2984,35 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\x16UncompleteTaskResponse\"T\n" +
 	"\x1aListTaskCompletionsRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\"[\n" +
-	"\x1bListTaskCompletionsResponse\x12<\n" +
-	"\vcompletions\x18\x01 \x03(\v2\x1a.ukelonn.v1.TaskCompletionR\vcompletions\"3\n" +
+	"\bchild_id\x18\x02 \x01(\tR\achildId\"Z\n" +
+	"\x1bListTaskCompletionsResponse\x12;\n" +
+	"\vcompletions\x18\x01 \x03(\v2\x19.chores.v1.TaskCompletionR\vcompletions\"3\n" +
 	"\x16GetChildSummaryRequest\x12\x19\n" +
-	"\bchild_id\x18\x01 \x01(\tR\achildId\"M\n" +
-	"\x17GetChildSummaryResponse\x122\n" +
-	"\asummary\x18\x01 \x01(\v2\x18.ukelonn.v1.ChildSummaryR\asummary\"8\n" +
+	"\bchild_id\x18\x01 \x01(\tR\achildId\"L\n" +
+	"\x17GetChildSummaryResponse\x121\n" +
+	"\asummary\x18\x01 \x01(\v2\x17.chores.v1.ChildSummaryR\asummary\"8\n" +
 	"\x19ListChildSummariesRequest\x12\x1b\n" +
-	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\"T\n" +
-	"\x1aListChildSummariesResponse\x126\n" +
-	"\tsummaries\x18\x01 \x03(\v2\x18.ukelonn.v1.ChildSummaryR\tsummaries\"\x88\x01\n" +
+	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\"S\n" +
+	"\x1aListChildSummariesResponse\x125\n" +
+	"\tsummaries\x18\x01 \x03(\v2\x17.chores.v1.ChildSummaryR\tsummaries\"\x88\x01\n" +
 	"\x13CreatePayoutRequest\x12\x19\n" +
 	"\bchild_id\x18\x01 \x01(\tR\achildId\x12\x1f\n" +
 	"\vfull_payout\x18\x02 \x01(\bR\n" +
 	"fullPayout\x12!\n" +
 	"\famount_cents\x18\x03 \x01(\x03R\vamountCents\x12\x12\n" +
-	"\x04note\x18\x04 \x01(\tR\x04note\"B\n" +
-	"\x14CreatePayoutResponse\x12*\n" +
-	"\x06payout\x18\x01 \x01(\v2\x12.ukelonn.v1.PayoutR\x06payout\"L\n" +
+	"\x04note\x18\x04 \x01(\tR\x04note\"A\n" +
+	"\x14CreatePayoutResponse\x12)\n" +
+	"\x06payout\x18\x01 \x01(\v2\x11.chores.v1.PayoutR\x06payout\"L\n" +
 	"\x12ListPayoutsRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\"C\n" +
-	"\x13ListPayoutsResponse\x12,\n" +
-	"\apayouts\x18\x01 \x03(\v2\x12.ukelonn.v1.PayoutR\apayouts\"\x18\n" +
-	"\x16GetMyMembershipRequest\"\x81\x01\n" +
+	"\bchild_id\x18\x02 \x01(\tR\achildId\"B\n" +
+	"\x13ListPayoutsResponse\x12+\n" +
+	"\apayouts\x18\x01 \x03(\v2\x11.chores.v1.PayoutR\apayouts\"\x18\n" +
+	"\x16GetMyMembershipRequest\"\x7f\n" +
 	"\x17GetMyMembershipResponse\x12\x14\n" +
-	"\x05bound\x18\x01 \x01(\bR\x05bound\x12$\n" +
-	"\x04user\x18\x02 \x01(\v2\x10.ukelonn.v1.UserR\x04user\x12*\n" +
-	"\x06family\x18\x03 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family\"\xe2\x02\n" +
+	"\x05bound\x18\x01 \x01(\bR\x05bound\x12#\n" +
+	"\x04user\x18\x02 \x01(\v2\x0f.chores.v1.UserR\x04user\x12)\n" +
+	"\x06family\x18\x03 \x01(\v2\x11.chores.v1.FamilyR\x06family\"\xe1\x02\n" +
 	"\n" +
 	"Invitation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -3026,210 +3025,210 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12;\n" +
 	"\vaccepted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"acceptedAt\x12(\n" +
-	"\x04role\x18\t \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\"\x8a\x01\n" +
+	"acceptedAt\x12'\n" +
+	"\x04role\x18\t \x01(\x0e2\x13.chores.v1.UserRoleR\x04role\"\x89\x01\n" +
 	"\x17CreateInvitationRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05email\x18\x03 \x01(\tR\x05email\x12(\n" +
-	"\x04role\x18\x04 \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\"\x89\x01\n" +
-	"\x18CreateInvitationResponse\x126\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12'\n" +
+	"\x04role\x18\x04 \x01(\x0e2\x13.chores.v1.UserRoleR\x04role\"\x88\x01\n" +
+	"\x18CreateInvitationResponse\x125\n" +
 	"\n" +
-	"invitation\x18\x01 \x01(\v2\x16.ukelonn.v1.InvitationR\n" +
+	"invitation\x18\x01 \x01(\v2\x15.chores.v1.InvitationR\n" +
 	"invitation\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x1f\n" +
 	"\vaccept_path\x18\x03 \x01(\tR\n" +
 	"acceptPath\"5\n" +
 	"\x16ListInvitationsRequest\x12\x1b\n" +
-	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\"S\n" +
-	"\x17ListInvitationsResponse\x128\n" +
-	"\vinvitations\x18\x01 \x03(\v2\x16.ukelonn.v1.InvitationR\vinvitations\">\n" +
+	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\"R\n" +
+	"\x17ListInvitationsResponse\x127\n" +
+	"\vinvitations\x18\x01 \x03(\v2\x15.chores.v1.InvitationR\vinvitations\">\n" +
 	"\x17RevokeInvitationRequest\x12#\n" +
 	"\rinvitation_id\x18\x01 \x01(\tR\finvitationId\"\x1a\n" +
 	"\x18RevokeInvitationResponse\"/\n" +
 	"\x17AcceptInvitationRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"l\n" +
-	"\x18AcceptInvitationResponse\x12$\n" +
-	"\x04user\x18\x01 \x01(\v2\x10.ukelonn.v1.UserR\x04user\x12*\n" +
-	"\x06family\x18\x02 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family*P\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"j\n" +
+	"\x18AcceptInvitationResponse\x12#\n" +
+	"\x04user\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x04user\x12)\n" +
+	"\x06family\x18\x02 \x01(\v2\x11.chores.v1.FamilyR\x06family*P\n" +
 	"\bUserRole\x12\x19\n" +
 	"\x15USER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10USER_ROLE_PARENT\x10\x01\x12\x13\n" +
-	"\x0fUSER_ROLE_CHILD\x10\x022\xb3\x0e\n" +
-	"\x0eUkelonnService\x12Q\n" +
-	"\fCreateFamily\x12\x1f.ukelonn.v1.CreateFamilyRequest\x1a .ukelonn.v1.CreateFamilyResponse\x12Q\n" +
-	"\fListFamilies\x12\x1f.ukelonn.v1.ListFamiliesRequest\x1a .ukelonn.v1.ListFamiliesResponse\x12K\n" +
+	"\x0fUSER_ROLE_CHILD\x10\x022\x88\x0e\n" +
+	"\rChoresService\x12O\n" +
+	"\fCreateFamily\x12\x1e.chores.v1.CreateFamilyRequest\x1a\x1f.chores.v1.CreateFamilyResponse\x12O\n" +
+	"\fListFamilies\x12\x1e.chores.v1.ListFamiliesRequest\x1a\x1f.chores.v1.ListFamiliesResponse\x12I\n" +
 	"\n" +
-	"CreateUser\x12\x1d.ukelonn.v1.CreateUserRequest\x1a\x1e.ukelonn.v1.CreateUserResponse\x12H\n" +
-	"\tListUsers\x12\x1c.ukelonn.v1.ListUsersRequest\x1a\x1d.ukelonn.v1.ListUsersResponse\x12K\n" +
+	"CreateUser\x12\x1c.chores.v1.CreateUserRequest\x1a\x1d.chores.v1.CreateUserResponse\x12F\n" +
+	"\tListUsers\x12\x1b.chores.v1.ListUsersRequest\x1a\x1c.chores.v1.ListUsersResponse\x12I\n" +
 	"\n" +
-	"CreateTask\x12\x1d.ukelonn.v1.CreateTaskRequest\x1a\x1e.ukelonn.v1.CreateTaskResponse\x12K\n" +
+	"CreateTask\x12\x1c.chores.v1.CreateTaskRequest\x1a\x1d.chores.v1.CreateTaskResponse\x12I\n" +
 	"\n" +
-	"UpdateTask\x12\x1d.ukelonn.v1.UpdateTaskRequest\x1a\x1e.ukelonn.v1.UpdateTaskResponse\x12K\n" +
+	"UpdateTask\x12\x1c.chores.v1.UpdateTaskRequest\x1a\x1d.chores.v1.UpdateTaskResponse\x12I\n" +
 	"\n" +
-	"DeleteTask\x12\x1d.ukelonn.v1.DeleteTaskRequest\x1a\x1e.ukelonn.v1.DeleteTaskResponse\x12H\n" +
-	"\tListTasks\x12\x1c.ukelonn.v1.ListTasksRequest\x1a\x1d.ukelonn.v1.ListTasksResponse\x12f\n" +
-	"\x13ListTaskOccurrences\x12&.ukelonn.v1.ListTaskOccurrencesRequest\x1a'.ukelonn.v1.ListTaskOccurrencesResponse\x12Q\n" +
-	"\fCompleteTask\x12\x1f.ukelonn.v1.CompleteTaskRequest\x1a .ukelonn.v1.CompleteTaskResponse\x12W\n" +
-	"\x0eUncompleteTask\x12!.ukelonn.v1.UncompleteTaskRequest\x1a\".ukelonn.v1.UncompleteTaskResponse\x12f\n" +
-	"\x13ListTaskCompletions\x12&.ukelonn.v1.ListTaskCompletionsRequest\x1a'.ukelonn.v1.ListTaskCompletionsResponse\x12Z\n" +
-	"\x0fGetChildSummary\x12\".ukelonn.v1.GetChildSummaryRequest\x1a#.ukelonn.v1.GetChildSummaryResponse\x12c\n" +
-	"\x12ListChildSummaries\x12%.ukelonn.v1.ListChildSummariesRequest\x1a&.ukelonn.v1.ListChildSummariesResponse\x12Q\n" +
-	"\fCreatePayout\x12\x1f.ukelonn.v1.CreatePayoutRequest\x1a .ukelonn.v1.CreatePayoutResponse\x12N\n" +
-	"\vListPayouts\x12\x1e.ukelonn.v1.ListPayoutsRequest\x1a\x1f.ukelonn.v1.ListPayoutsResponse\x12Z\n" +
-	"\x0fGetMyMembership\x12\".ukelonn.v1.GetMyMembershipRequest\x1a#.ukelonn.v1.GetMyMembershipResponse\x12]\n" +
-	"\x10CreateInvitation\x12#.ukelonn.v1.CreateInvitationRequest\x1a$.ukelonn.v1.CreateInvitationResponse\x12Z\n" +
-	"\x0fListInvitations\x12\".ukelonn.v1.ListInvitationsRequest\x1a#.ukelonn.v1.ListInvitationsResponse\x12]\n" +
-	"\x10RevokeInvitation\x12#.ukelonn.v1.RevokeInvitationRequest\x1a$.ukelonn.v1.RevokeInvitationResponse\x12]\n" +
-	"\x10AcceptInvitation\x12#.ukelonn.v1.AcceptInvitationRequest\x1a$.ukelonn.v1.AcceptInvitationResponseB7Z5github.com/gunnaringe/chores/gen/ukelonn/v1;ukelonnv1b\x06proto3"
+	"DeleteTask\x12\x1c.chores.v1.DeleteTaskRequest\x1a\x1d.chores.v1.DeleteTaskResponse\x12F\n" +
+	"\tListTasks\x12\x1b.chores.v1.ListTasksRequest\x1a\x1c.chores.v1.ListTasksResponse\x12d\n" +
+	"\x13ListTaskOccurrences\x12%.chores.v1.ListTaskOccurrencesRequest\x1a&.chores.v1.ListTaskOccurrencesResponse\x12O\n" +
+	"\fCompleteTask\x12\x1e.chores.v1.CompleteTaskRequest\x1a\x1f.chores.v1.CompleteTaskResponse\x12U\n" +
+	"\x0eUncompleteTask\x12 .chores.v1.UncompleteTaskRequest\x1a!.chores.v1.UncompleteTaskResponse\x12d\n" +
+	"\x13ListTaskCompletions\x12%.chores.v1.ListTaskCompletionsRequest\x1a&.chores.v1.ListTaskCompletionsResponse\x12X\n" +
+	"\x0fGetChildSummary\x12!.chores.v1.GetChildSummaryRequest\x1a\".chores.v1.GetChildSummaryResponse\x12a\n" +
+	"\x12ListChildSummaries\x12$.chores.v1.ListChildSummariesRequest\x1a%.chores.v1.ListChildSummariesResponse\x12O\n" +
+	"\fCreatePayout\x12\x1e.chores.v1.CreatePayoutRequest\x1a\x1f.chores.v1.CreatePayoutResponse\x12L\n" +
+	"\vListPayouts\x12\x1d.chores.v1.ListPayoutsRequest\x1a\x1e.chores.v1.ListPayoutsResponse\x12X\n" +
+	"\x0fGetMyMembership\x12!.chores.v1.GetMyMembershipRequest\x1a\".chores.v1.GetMyMembershipResponse\x12[\n" +
+	"\x10CreateInvitation\x12\".chores.v1.CreateInvitationRequest\x1a#.chores.v1.CreateInvitationResponse\x12X\n" +
+	"\x0fListInvitations\x12!.chores.v1.ListInvitationsRequest\x1a\".chores.v1.ListInvitationsResponse\x12[\n" +
+	"\x10RevokeInvitation\x12\".chores.v1.RevokeInvitationRequest\x1a#.chores.v1.RevokeInvitationResponse\x12[\n" +
+	"\x10AcceptInvitation\x12\".chores.v1.AcceptInvitationRequest\x1a#.chores.v1.AcceptInvitationResponseB5Z3github.com/gunnaringe/chores/gen/chores/v1;choresv1b\x06proto3"
 
 var (
-	file_ukelonn_v1_ukelonn_proto_rawDescOnce sync.Once
-	file_ukelonn_v1_ukelonn_proto_rawDescData []byte
+	file_chores_v1_chores_proto_rawDescOnce sync.Once
+	file_chores_v1_chores_proto_rawDescData []byte
 )
 
-func file_ukelonn_v1_ukelonn_proto_rawDescGZIP() []byte {
-	file_ukelonn_v1_ukelonn_proto_rawDescOnce.Do(func() {
-		file_ukelonn_v1_ukelonn_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_ukelonn_v1_ukelonn_proto_rawDesc), len(file_ukelonn_v1_ukelonn_proto_rawDesc)))
+func file_chores_v1_chores_proto_rawDescGZIP() []byte {
+	file_chores_v1_chores_proto_rawDescOnce.Do(func() {
+		file_chores_v1_chores_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_chores_v1_chores_proto_rawDesc), len(file_chores_v1_chores_proto_rawDesc)))
 	})
-	return file_ukelonn_v1_ukelonn_proto_rawDescData
+	return file_chores_v1_chores_proto_rawDescData
 }
 
-var file_ukelonn_v1_ukelonn_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_ukelonn_v1_ukelonn_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
-var file_ukelonn_v1_ukelonn_proto_goTypes = []any{
-	(UserRole)(0),                       // 0: ukelonn.v1.UserRole
-	(*Family)(nil),                      // 1: ukelonn.v1.Family
-	(*User)(nil),                        // 2: ukelonn.v1.User
-	(*Task)(nil),                        // 3: ukelonn.v1.Task
-	(*TaskCompletion)(nil),              // 4: ukelonn.v1.TaskCompletion
-	(*Payout)(nil),                      // 5: ukelonn.v1.Payout
-	(*ChildSummary)(nil),                // 6: ukelonn.v1.ChildSummary
-	(*TaskOccurrence)(nil),              // 7: ukelonn.v1.TaskOccurrence
-	(*CreateFamilyRequest)(nil),         // 8: ukelonn.v1.CreateFamilyRequest
-	(*CreateFamilyResponse)(nil),        // 9: ukelonn.v1.CreateFamilyResponse
-	(*ListFamiliesRequest)(nil),         // 10: ukelonn.v1.ListFamiliesRequest
-	(*ListFamiliesResponse)(nil),        // 11: ukelonn.v1.ListFamiliesResponse
-	(*CreateUserRequest)(nil),           // 12: ukelonn.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),          // 13: ukelonn.v1.CreateUserResponse
-	(*ListUsersRequest)(nil),            // 14: ukelonn.v1.ListUsersRequest
-	(*ListUsersResponse)(nil),           // 15: ukelonn.v1.ListUsersResponse
-	(*CreateTaskRequest)(nil),           // 16: ukelonn.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),          // 17: ukelonn.v1.CreateTaskResponse
-	(*UpdateTaskRequest)(nil),           // 18: ukelonn.v1.UpdateTaskRequest
-	(*UpdateTaskResponse)(nil),          // 19: ukelonn.v1.UpdateTaskResponse
-	(*DeleteTaskRequest)(nil),           // 20: ukelonn.v1.DeleteTaskRequest
-	(*DeleteTaskResponse)(nil),          // 21: ukelonn.v1.DeleteTaskResponse
-	(*ListTasksRequest)(nil),            // 22: ukelonn.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),           // 23: ukelonn.v1.ListTasksResponse
-	(*ListTaskOccurrencesRequest)(nil),  // 24: ukelonn.v1.ListTaskOccurrencesRequest
-	(*ListTaskOccurrencesResponse)(nil), // 25: ukelonn.v1.ListTaskOccurrencesResponse
-	(*CompleteTaskRequest)(nil),         // 26: ukelonn.v1.CompleteTaskRequest
-	(*CompleteTaskResponse)(nil),        // 27: ukelonn.v1.CompleteTaskResponse
-	(*UncompleteTaskRequest)(nil),       // 28: ukelonn.v1.UncompleteTaskRequest
-	(*UncompleteTaskResponse)(nil),      // 29: ukelonn.v1.UncompleteTaskResponse
-	(*ListTaskCompletionsRequest)(nil),  // 30: ukelonn.v1.ListTaskCompletionsRequest
-	(*ListTaskCompletionsResponse)(nil), // 31: ukelonn.v1.ListTaskCompletionsResponse
-	(*GetChildSummaryRequest)(nil),      // 32: ukelonn.v1.GetChildSummaryRequest
-	(*GetChildSummaryResponse)(nil),     // 33: ukelonn.v1.GetChildSummaryResponse
-	(*ListChildSummariesRequest)(nil),   // 34: ukelonn.v1.ListChildSummariesRequest
-	(*ListChildSummariesResponse)(nil),  // 35: ukelonn.v1.ListChildSummariesResponse
-	(*CreatePayoutRequest)(nil),         // 36: ukelonn.v1.CreatePayoutRequest
-	(*CreatePayoutResponse)(nil),        // 37: ukelonn.v1.CreatePayoutResponse
-	(*ListPayoutsRequest)(nil),          // 38: ukelonn.v1.ListPayoutsRequest
-	(*ListPayoutsResponse)(nil),         // 39: ukelonn.v1.ListPayoutsResponse
-	(*GetMyMembershipRequest)(nil),      // 40: ukelonn.v1.GetMyMembershipRequest
-	(*GetMyMembershipResponse)(nil),     // 41: ukelonn.v1.GetMyMembershipResponse
-	(*Invitation)(nil),                  // 42: ukelonn.v1.Invitation
-	(*CreateInvitationRequest)(nil),     // 43: ukelonn.v1.CreateInvitationRequest
-	(*CreateInvitationResponse)(nil),    // 44: ukelonn.v1.CreateInvitationResponse
-	(*ListInvitationsRequest)(nil),      // 45: ukelonn.v1.ListInvitationsRequest
-	(*ListInvitationsResponse)(nil),     // 46: ukelonn.v1.ListInvitationsResponse
-	(*RevokeInvitationRequest)(nil),     // 47: ukelonn.v1.RevokeInvitationRequest
-	(*RevokeInvitationResponse)(nil),    // 48: ukelonn.v1.RevokeInvitationResponse
-	(*AcceptInvitationRequest)(nil),     // 49: ukelonn.v1.AcceptInvitationRequest
-	(*AcceptInvitationResponse)(nil),    // 50: ukelonn.v1.AcceptInvitationResponse
+var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
+var file_chores_v1_chores_proto_goTypes = []any{
+	(UserRole)(0),                       // 0: chores.v1.UserRole
+	(*Family)(nil),                      // 1: chores.v1.Family
+	(*User)(nil),                        // 2: chores.v1.User
+	(*Task)(nil),                        // 3: chores.v1.Task
+	(*TaskCompletion)(nil),              // 4: chores.v1.TaskCompletion
+	(*Payout)(nil),                      // 5: chores.v1.Payout
+	(*ChildSummary)(nil),                // 6: chores.v1.ChildSummary
+	(*TaskOccurrence)(nil),              // 7: chores.v1.TaskOccurrence
+	(*CreateFamilyRequest)(nil),         // 8: chores.v1.CreateFamilyRequest
+	(*CreateFamilyResponse)(nil),        // 9: chores.v1.CreateFamilyResponse
+	(*ListFamiliesRequest)(nil),         // 10: chores.v1.ListFamiliesRequest
+	(*ListFamiliesResponse)(nil),        // 11: chores.v1.ListFamiliesResponse
+	(*CreateUserRequest)(nil),           // 12: chores.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),          // 13: chores.v1.CreateUserResponse
+	(*ListUsersRequest)(nil),            // 14: chores.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),           // 15: chores.v1.ListUsersResponse
+	(*CreateTaskRequest)(nil),           // 16: chores.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),          // 17: chores.v1.CreateTaskResponse
+	(*UpdateTaskRequest)(nil),           // 18: chores.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil),          // 19: chores.v1.UpdateTaskResponse
+	(*DeleteTaskRequest)(nil),           // 20: chores.v1.DeleteTaskRequest
+	(*DeleteTaskResponse)(nil),          // 21: chores.v1.DeleteTaskResponse
+	(*ListTasksRequest)(nil),            // 22: chores.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),           // 23: chores.v1.ListTasksResponse
+	(*ListTaskOccurrencesRequest)(nil),  // 24: chores.v1.ListTaskOccurrencesRequest
+	(*ListTaskOccurrencesResponse)(nil), // 25: chores.v1.ListTaskOccurrencesResponse
+	(*CompleteTaskRequest)(nil),         // 26: chores.v1.CompleteTaskRequest
+	(*CompleteTaskResponse)(nil),        // 27: chores.v1.CompleteTaskResponse
+	(*UncompleteTaskRequest)(nil),       // 28: chores.v1.UncompleteTaskRequest
+	(*UncompleteTaskResponse)(nil),      // 29: chores.v1.UncompleteTaskResponse
+	(*ListTaskCompletionsRequest)(nil),  // 30: chores.v1.ListTaskCompletionsRequest
+	(*ListTaskCompletionsResponse)(nil), // 31: chores.v1.ListTaskCompletionsResponse
+	(*GetChildSummaryRequest)(nil),      // 32: chores.v1.GetChildSummaryRequest
+	(*GetChildSummaryResponse)(nil),     // 33: chores.v1.GetChildSummaryResponse
+	(*ListChildSummariesRequest)(nil),   // 34: chores.v1.ListChildSummariesRequest
+	(*ListChildSummariesResponse)(nil),  // 35: chores.v1.ListChildSummariesResponse
+	(*CreatePayoutRequest)(nil),         // 36: chores.v1.CreatePayoutRequest
+	(*CreatePayoutResponse)(nil),        // 37: chores.v1.CreatePayoutResponse
+	(*ListPayoutsRequest)(nil),          // 38: chores.v1.ListPayoutsRequest
+	(*ListPayoutsResponse)(nil),         // 39: chores.v1.ListPayoutsResponse
+	(*GetMyMembershipRequest)(nil),      // 40: chores.v1.GetMyMembershipRequest
+	(*GetMyMembershipResponse)(nil),     // 41: chores.v1.GetMyMembershipResponse
+	(*Invitation)(nil),                  // 42: chores.v1.Invitation
+	(*CreateInvitationRequest)(nil),     // 43: chores.v1.CreateInvitationRequest
+	(*CreateInvitationResponse)(nil),    // 44: chores.v1.CreateInvitationResponse
+	(*ListInvitationsRequest)(nil),      // 45: chores.v1.ListInvitationsRequest
+	(*ListInvitationsResponse)(nil),     // 46: chores.v1.ListInvitationsResponse
+	(*RevokeInvitationRequest)(nil),     // 47: chores.v1.RevokeInvitationRequest
+	(*RevokeInvitationResponse)(nil),    // 48: chores.v1.RevokeInvitationResponse
+	(*AcceptInvitationRequest)(nil),     // 49: chores.v1.AcceptInvitationRequest
+	(*AcceptInvitationResponse)(nil),    // 50: chores.v1.AcceptInvitationResponse
 	(*timestamppb.Timestamp)(nil),       // 51: google.protobuf.Timestamp
 }
-var file_ukelonn_v1_ukelonn_proto_depIdxs = []int32{
-	51, // 0: ukelonn.v1.Family.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 1: ukelonn.v1.User.role:type_name -> ukelonn.v1.UserRole
-	51, // 2: ukelonn.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	51, // 3: ukelonn.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	51, // 4: ukelonn.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	51, // 5: ukelonn.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
-	2,  // 6: ukelonn.v1.ChildSummary.child:type_name -> ukelonn.v1.User
-	51, // 7: ukelonn.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
-	3,  // 8: ukelonn.v1.TaskOccurrence.task:type_name -> ukelonn.v1.Task
-	4,  // 9: ukelonn.v1.TaskOccurrence.completion:type_name -> ukelonn.v1.TaskCompletion
-	1,  // 10: ukelonn.v1.CreateFamilyResponse.family:type_name -> ukelonn.v1.Family
-	1,  // 11: ukelonn.v1.ListFamiliesResponse.families:type_name -> ukelonn.v1.Family
-	0,  // 12: ukelonn.v1.CreateUserRequest.role:type_name -> ukelonn.v1.UserRole
-	2,  // 13: ukelonn.v1.CreateUserResponse.user:type_name -> ukelonn.v1.User
-	2,  // 14: ukelonn.v1.ListUsersResponse.users:type_name -> ukelonn.v1.User
-	3,  // 15: ukelonn.v1.CreateTaskResponse.task:type_name -> ukelonn.v1.Task
-	3,  // 16: ukelonn.v1.UpdateTaskResponse.task:type_name -> ukelonn.v1.Task
-	3,  // 17: ukelonn.v1.ListTasksResponse.tasks:type_name -> ukelonn.v1.Task
-	7,  // 18: ukelonn.v1.ListTaskOccurrencesResponse.occurrences:type_name -> ukelonn.v1.TaskOccurrence
-	4,  // 19: ukelonn.v1.CompleteTaskResponse.completion:type_name -> ukelonn.v1.TaskCompletion
-	4,  // 20: ukelonn.v1.ListTaskCompletionsResponse.completions:type_name -> ukelonn.v1.TaskCompletion
-	6,  // 21: ukelonn.v1.GetChildSummaryResponse.summary:type_name -> ukelonn.v1.ChildSummary
-	6,  // 22: ukelonn.v1.ListChildSummariesResponse.summaries:type_name -> ukelonn.v1.ChildSummary
-	5,  // 23: ukelonn.v1.CreatePayoutResponse.payout:type_name -> ukelonn.v1.Payout
-	5,  // 24: ukelonn.v1.ListPayoutsResponse.payouts:type_name -> ukelonn.v1.Payout
-	2,  // 25: ukelonn.v1.GetMyMembershipResponse.user:type_name -> ukelonn.v1.User
-	1,  // 26: ukelonn.v1.GetMyMembershipResponse.family:type_name -> ukelonn.v1.Family
-	51, // 27: ukelonn.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	51, // 28: ukelonn.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	51, // 29: ukelonn.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
-	0,  // 30: ukelonn.v1.Invitation.role:type_name -> ukelonn.v1.UserRole
-	0,  // 31: ukelonn.v1.CreateInvitationRequest.role:type_name -> ukelonn.v1.UserRole
-	42, // 32: ukelonn.v1.CreateInvitationResponse.invitation:type_name -> ukelonn.v1.Invitation
-	42, // 33: ukelonn.v1.ListInvitationsResponse.invitations:type_name -> ukelonn.v1.Invitation
-	2,  // 34: ukelonn.v1.AcceptInvitationResponse.user:type_name -> ukelonn.v1.User
-	1,  // 35: ukelonn.v1.AcceptInvitationResponse.family:type_name -> ukelonn.v1.Family
-	8,  // 36: ukelonn.v1.UkelonnService.CreateFamily:input_type -> ukelonn.v1.CreateFamilyRequest
-	10, // 37: ukelonn.v1.UkelonnService.ListFamilies:input_type -> ukelonn.v1.ListFamiliesRequest
-	12, // 38: ukelonn.v1.UkelonnService.CreateUser:input_type -> ukelonn.v1.CreateUserRequest
-	14, // 39: ukelonn.v1.UkelonnService.ListUsers:input_type -> ukelonn.v1.ListUsersRequest
-	16, // 40: ukelonn.v1.UkelonnService.CreateTask:input_type -> ukelonn.v1.CreateTaskRequest
-	18, // 41: ukelonn.v1.UkelonnService.UpdateTask:input_type -> ukelonn.v1.UpdateTaskRequest
-	20, // 42: ukelonn.v1.UkelonnService.DeleteTask:input_type -> ukelonn.v1.DeleteTaskRequest
-	22, // 43: ukelonn.v1.UkelonnService.ListTasks:input_type -> ukelonn.v1.ListTasksRequest
-	24, // 44: ukelonn.v1.UkelonnService.ListTaskOccurrences:input_type -> ukelonn.v1.ListTaskOccurrencesRequest
-	26, // 45: ukelonn.v1.UkelonnService.CompleteTask:input_type -> ukelonn.v1.CompleteTaskRequest
-	28, // 46: ukelonn.v1.UkelonnService.UncompleteTask:input_type -> ukelonn.v1.UncompleteTaskRequest
-	30, // 47: ukelonn.v1.UkelonnService.ListTaskCompletions:input_type -> ukelonn.v1.ListTaskCompletionsRequest
-	32, // 48: ukelonn.v1.UkelonnService.GetChildSummary:input_type -> ukelonn.v1.GetChildSummaryRequest
-	34, // 49: ukelonn.v1.UkelonnService.ListChildSummaries:input_type -> ukelonn.v1.ListChildSummariesRequest
-	36, // 50: ukelonn.v1.UkelonnService.CreatePayout:input_type -> ukelonn.v1.CreatePayoutRequest
-	38, // 51: ukelonn.v1.UkelonnService.ListPayouts:input_type -> ukelonn.v1.ListPayoutsRequest
-	40, // 52: ukelonn.v1.UkelonnService.GetMyMembership:input_type -> ukelonn.v1.GetMyMembershipRequest
-	43, // 53: ukelonn.v1.UkelonnService.CreateInvitation:input_type -> ukelonn.v1.CreateInvitationRequest
-	45, // 54: ukelonn.v1.UkelonnService.ListInvitations:input_type -> ukelonn.v1.ListInvitationsRequest
-	47, // 55: ukelonn.v1.UkelonnService.RevokeInvitation:input_type -> ukelonn.v1.RevokeInvitationRequest
-	49, // 56: ukelonn.v1.UkelonnService.AcceptInvitation:input_type -> ukelonn.v1.AcceptInvitationRequest
-	9,  // 57: ukelonn.v1.UkelonnService.CreateFamily:output_type -> ukelonn.v1.CreateFamilyResponse
-	11, // 58: ukelonn.v1.UkelonnService.ListFamilies:output_type -> ukelonn.v1.ListFamiliesResponse
-	13, // 59: ukelonn.v1.UkelonnService.CreateUser:output_type -> ukelonn.v1.CreateUserResponse
-	15, // 60: ukelonn.v1.UkelonnService.ListUsers:output_type -> ukelonn.v1.ListUsersResponse
-	17, // 61: ukelonn.v1.UkelonnService.CreateTask:output_type -> ukelonn.v1.CreateTaskResponse
-	19, // 62: ukelonn.v1.UkelonnService.UpdateTask:output_type -> ukelonn.v1.UpdateTaskResponse
-	21, // 63: ukelonn.v1.UkelonnService.DeleteTask:output_type -> ukelonn.v1.DeleteTaskResponse
-	23, // 64: ukelonn.v1.UkelonnService.ListTasks:output_type -> ukelonn.v1.ListTasksResponse
-	25, // 65: ukelonn.v1.UkelonnService.ListTaskOccurrences:output_type -> ukelonn.v1.ListTaskOccurrencesResponse
-	27, // 66: ukelonn.v1.UkelonnService.CompleteTask:output_type -> ukelonn.v1.CompleteTaskResponse
-	29, // 67: ukelonn.v1.UkelonnService.UncompleteTask:output_type -> ukelonn.v1.UncompleteTaskResponse
-	31, // 68: ukelonn.v1.UkelonnService.ListTaskCompletions:output_type -> ukelonn.v1.ListTaskCompletionsResponse
-	33, // 69: ukelonn.v1.UkelonnService.GetChildSummary:output_type -> ukelonn.v1.GetChildSummaryResponse
-	35, // 70: ukelonn.v1.UkelonnService.ListChildSummaries:output_type -> ukelonn.v1.ListChildSummariesResponse
-	37, // 71: ukelonn.v1.UkelonnService.CreatePayout:output_type -> ukelonn.v1.CreatePayoutResponse
-	39, // 72: ukelonn.v1.UkelonnService.ListPayouts:output_type -> ukelonn.v1.ListPayoutsResponse
-	41, // 73: ukelonn.v1.UkelonnService.GetMyMembership:output_type -> ukelonn.v1.GetMyMembershipResponse
-	44, // 74: ukelonn.v1.UkelonnService.CreateInvitation:output_type -> ukelonn.v1.CreateInvitationResponse
-	46, // 75: ukelonn.v1.UkelonnService.ListInvitations:output_type -> ukelonn.v1.ListInvitationsResponse
-	48, // 76: ukelonn.v1.UkelonnService.RevokeInvitation:output_type -> ukelonn.v1.RevokeInvitationResponse
-	50, // 77: ukelonn.v1.UkelonnService.AcceptInvitation:output_type -> ukelonn.v1.AcceptInvitationResponse
+var file_chores_v1_chores_proto_depIdxs = []int32{
+	51, // 0: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 1: chores.v1.User.role:type_name -> chores.v1.UserRole
+	51, // 2: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	51, // 3: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	51, // 4: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	51, // 5: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
+	2,  // 6: chores.v1.ChildSummary.child:type_name -> chores.v1.User
+	51, // 7: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
+	3,  // 8: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
+	4,  // 9: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
+	1,  // 10: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
+	1,  // 11: chores.v1.ListFamiliesResponse.families:type_name -> chores.v1.Family
+	0,  // 12: chores.v1.CreateUserRequest.role:type_name -> chores.v1.UserRole
+	2,  // 13: chores.v1.CreateUserResponse.user:type_name -> chores.v1.User
+	2,  // 14: chores.v1.ListUsersResponse.users:type_name -> chores.v1.User
+	3,  // 15: chores.v1.CreateTaskResponse.task:type_name -> chores.v1.Task
+	3,  // 16: chores.v1.UpdateTaskResponse.task:type_name -> chores.v1.Task
+	3,  // 17: chores.v1.ListTasksResponse.tasks:type_name -> chores.v1.Task
+	7,  // 18: chores.v1.ListTaskOccurrencesResponse.occurrences:type_name -> chores.v1.TaskOccurrence
+	4,  // 19: chores.v1.CompleteTaskResponse.completion:type_name -> chores.v1.TaskCompletion
+	4,  // 20: chores.v1.ListTaskCompletionsResponse.completions:type_name -> chores.v1.TaskCompletion
+	6,  // 21: chores.v1.GetChildSummaryResponse.summary:type_name -> chores.v1.ChildSummary
+	6,  // 22: chores.v1.ListChildSummariesResponse.summaries:type_name -> chores.v1.ChildSummary
+	5,  // 23: chores.v1.CreatePayoutResponse.payout:type_name -> chores.v1.Payout
+	5,  // 24: chores.v1.ListPayoutsResponse.payouts:type_name -> chores.v1.Payout
+	2,  // 25: chores.v1.GetMyMembershipResponse.user:type_name -> chores.v1.User
+	1,  // 26: chores.v1.GetMyMembershipResponse.family:type_name -> chores.v1.Family
+	51, // 27: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	51, // 28: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	51, // 29: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
+	0,  // 30: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
+	0,  // 31: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
+	42, // 32: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
+	42, // 33: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
+	2,  // 34: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
+	1,  // 35: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
+	8,  // 36: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
+	10, // 37: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
+	12, // 38: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
+	14, // 39: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
+	16, // 40: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
+	18, // 41: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
+	20, // 42: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
+	22, // 43: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
+	24, // 44: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
+	26, // 45: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
+	28, // 46: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
+	30, // 47: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
+	32, // 48: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
+	34, // 49: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
+	36, // 50: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
+	38, // 51: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
+	40, // 52: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
+	43, // 53: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
+	45, // 54: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
+	47, // 55: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
+	49, // 56: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
+	9,  // 57: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
+	11, // 58: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
+	13, // 59: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
+	15, // 60: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
+	17, // 61: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
+	19, // 62: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
+	21, // 63: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
+	23, // 64: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
+	25, // 65: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
+	27, // 66: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
+	29, // 67: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
+	31, // 68: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
+	33, // 69: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
+	35, // 70: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
+	37, // 71: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
+	39, // 72: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
+	41, // 73: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
+	44, // 74: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
+	46, // 75: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
+	48, // 76: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
+	50, // 77: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
 	57, // [57:78] is the sub-list for method output_type
 	36, // [36:57] is the sub-list for method input_type
 	36, // [36:36] is the sub-list for extension type_name
@@ -3237,27 +3236,27 @@ var file_ukelonn_v1_ukelonn_proto_depIdxs = []int32{
 	0,  // [0:36] is the sub-list for field type_name
 }
 
-func init() { file_ukelonn_v1_ukelonn_proto_init() }
-func file_ukelonn_v1_ukelonn_proto_init() {
-	if File_ukelonn_v1_ukelonn_proto != nil {
+func init() { file_chores_v1_chores_proto_init() }
+func file_chores_v1_chores_proto_init() {
+	if File_chores_v1_chores_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ukelonn_v1_ukelonn_proto_rawDesc), len(file_ukelonn_v1_ukelonn_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chores_v1_chores_proto_rawDesc), len(file_chores_v1_chores_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_ukelonn_v1_ukelonn_proto_goTypes,
-		DependencyIndexes: file_ukelonn_v1_ukelonn_proto_depIdxs,
-		EnumInfos:         file_ukelonn_v1_ukelonn_proto_enumTypes,
-		MessageInfos:      file_ukelonn_v1_ukelonn_proto_msgTypes,
+		GoTypes:           file_chores_v1_chores_proto_goTypes,
+		DependencyIndexes: file_chores_v1_chores_proto_depIdxs,
+		EnumInfos:         file_chores_v1_chores_proto_enumTypes,
+		MessageInfos:      file_chores_v1_chores_proto_msgTypes,
 	}.Build()
-	File_ukelonn_v1_ukelonn_proto = out.File
-	file_ukelonn_v1_ukelonn_proto_goTypes = nil
-	file_ukelonn_v1_ukelonn_proto_depIdxs = nil
+	File_chores_v1_chores_proto = out.File
+	file_chores_v1_chores_proto_goTypes = nil
+	file_chores_v1_chores_proto_depIdxs = nil
 }
