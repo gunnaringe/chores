@@ -8,7 +8,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	v1 "github.com/gunnaringe/ukelonn/gen/ukelonn/v1"
+	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
 	http "net/http"
 	strings "strings"
 )

@@ -3,9 +3,11 @@
 A family allowance and chore tracker. Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
-(The Go module path, `github.com/gunnaringe/ukelonn`, and the proto package
-name are unchanged — "Chores" is the app's display name and brand, not a
-repo rename.)
+(The Go module is `github.com/gunnaringe/chores`. The proto package name
+and Connect service name — `ukelonn.v1.UkelonnService` — are unchanged for
+now, along with the `gen/ukelonn/v1` directory; renaming those would change
+the wire API path, which is a separate decision from the module/display
+rename.)
 
 - Parents create tasks with a price and a cron-like recurrence (`0 0 * * 1,3,5`
   = every Monday, Wednesday, Friday). The Tasks UI offers day-of-week
@@ -30,7 +32,7 @@ chore done, for example).
 ## Running
 
 ```bash
-go run ./cmd/ukelonn -addr=:8080 -db=chores.db
+go run ./cmd/chores -addr=:8080 -db=chores.db
 ```
 
 Then open http://localhost:8080. By default (see Authentication below) this
@@ -59,7 +61,7 @@ Auth mode is controlled by `-auth` (or left on its default, `auto`):
   `AUTH0_CLIENT_SECRET` are all set; otherwise falls back to `disabled`.
 - `disabled` — **local testing mode.** No login wall at all — behaves exactly
   like the app did before auth existed. This is the default whenever the
-  Auth0 environment variables aren't set, so `go run ./cmd/ukelonn` keeps
+  Auth0 environment variables aren't set, so `go run ./cmd/chores` keeps
   working unchanged. You can also force it with `-auth=disabled` even if the
   Auth0 env vars happen to be set.
 - `auth0` — requires an Auth0 login before the app or its API can be used.
@@ -81,7 +83,7 @@ Auth mode is controlled by `-auth` (or left on its default, `auto`):
    export AUTH0_CLIENT_SECRET=...
    # optional, defaults to http://localhost<addr>/auth/callback
    export AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback
-   go run ./cmd/ukelonn
+   go run ./cmd/chores
    ```
 
    (or pass the equivalent `-auth0-domain`, `-auth0-client-id`,
@@ -136,4 +138,4 @@ buf generate
 - `internal/server` — Connect service implementation
 - `internal/auth` — Auth0 login (or the local-testing bypass) gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
-- `cmd/ukelonn` — main entrypoint
+- `cmd/chores` — main entrypoint

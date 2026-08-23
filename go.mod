@@ -1,4 +1,4 @@
-module github.com/gunnaringe/ukelonn
+module github.com/gunnaringe/chores
 
 go 1.25.6
 

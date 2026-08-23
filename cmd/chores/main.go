@@ -1,4 +1,4 @@
-// Command ukelonn runs Chores, a family allowance and chore tracker: a
+// Command chores runs Chores, a family allowance and chore tracker: a
 // single binary serving both the embedded web UI and the Connect API,
 // backed by a local SQLite database.
 package main
@@ -13,12 +13,12 @@ import (
 
 	"connectrpc.com/connect"
 
-	v1 "github.com/gunnaringe/ukelonn/gen/ukelonn/v1"
-	"github.com/gunnaringe/ukelonn/gen/ukelonn/v1/ukelonnv1connect"
-	"github.com/gunnaringe/ukelonn/internal/auth"
-	"github.com/gunnaringe/ukelonn/internal/db"
-	"github.com/gunnaringe/ukelonn/internal/server"
-	"github.com/gunnaringe/ukelonn/web"
+	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
+	"github.com/gunnaringe/chores/gen/ukelonn/v1/ukelonnv1connect"
+	"github.com/gunnaringe/chores/internal/auth"
+	"github.com/gunnaringe/chores/internal/db"
+	"github.com/gunnaringe/chores/internal/server"
+	"github.com/gunnaringe/chores/web"
 )
 
 func main() {

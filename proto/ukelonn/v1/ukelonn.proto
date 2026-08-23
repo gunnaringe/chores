@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ukelonn.v1;
 
-option go_package = "github.com/gunnaringe/ukelonn/gen/ukelonn/v1;ukelonnv1";
+option go_package = "github.com/gunnaringe/chores/gen/ukelonn/v1;ukelonnv1";
 
 import "google/protobuf/timestamp.proto";
 

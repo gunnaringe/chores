@@ -7,9 +7,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	v1 "github.com/gunnaringe/ukelonn/gen/ukelonn/v1"
-	"github.com/gunnaringe/ukelonn/internal/auth"
-	"github.com/gunnaringe/ukelonn/internal/db"
+	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
+	"github.com/gunnaringe/chores/internal/auth"
+	"github.com/gunnaringe/chores/internal/db"
 )
 
 func newTestServer(t *testing.T) *Server {

@@ -3081,7 +3081,7 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\x10CreateInvitation\x12#.ukelonn.v1.CreateInvitationRequest\x1a$.ukelonn.v1.CreateInvitationResponse\x12Z\n" +
 	"\x0fListInvitations\x12\".ukelonn.v1.ListInvitationsRequest\x1a#.ukelonn.v1.ListInvitationsResponse\x12]\n" +
 	"\x10RevokeInvitation\x12#.ukelonn.v1.RevokeInvitationRequest\x1a$.ukelonn.v1.RevokeInvitationResponse\x12]\n" +
-	"\x10AcceptInvitation\x12#.ukelonn.v1.AcceptInvitationRequest\x1a$.ukelonn.v1.AcceptInvitationResponseB8Z6github.com/gunnaringe/ukelonn/gen/ukelonn/v1;ukelonnv1b\x06proto3"
+	"\x10AcceptInvitation\x12#.ukelonn.v1.AcceptInvitationRequest\x1a$.ukelonn.v1.AcceptInvitationResponseB7Z5github.com/gunnaringe/chores/gen/ukelonn/v1;ukelonnv1b\x06proto3"
 
 var (
 	file_ukelonn_v1_ukelonn_proto_rawDescOnce sync.Once

@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	v1 "github.com/gunnaringe/ukelonn/gen/ukelonn/v1"
-	"github.com/gunnaringe/ukelonn/gen/ukelonn/v1/ukelonnv1connect"
-	"github.com/gunnaringe/ukelonn/internal/auth"
-	"github.com/gunnaringe/ukelonn/internal/scheduling"
+	v1 "github.com/gunnaringe/chores/gen/ukelonn/v1"
+	"github.com/gunnaringe/chores/gen/ukelonn/v1/ukelonnv1connect"
+	"github.com/gunnaringe/chores/internal/auth"
+	"github.com/gunnaringe/chores/internal/scheduling"
 )
 
 type Server struct {
