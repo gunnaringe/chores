@@ -12,6 +12,21 @@ enum UserRole {
   USER_ROLE_CHILD = 2;
 }
 
+enum IconType {
+  ICON_TYPE_UNSPECIFIED = 0;
+  ICON_TYPE_EMOJI = 1;
+  ICON_TYPE_FONT_AWESOME = 2;
+}
+
+// An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
+// character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
+// Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
+// rendered as the CSS classes "fa-solid fa-broom").
+message Icon {
+  IconType type = 1;
+  string value = 2;
+}
+
 message Family {
   string id = 1;
   string name = 2;
@@ -45,8 +60,8 @@ message Task {
   // The children this task applies to. Always non-empty for a task created
   // through the API.
   repeated string child_ids = 9;
-  // Optional emoji or short icon shown next to the task, e.g. "🧹".
-  string icon = 10;
+  // Optional icon shown next to the task. Absent means no icon.
+  Icon icon = 10;
 }
 
 message TaskCompletion {
@@ -134,8 +149,8 @@ message CreateTaskRequest {
   // Which children this task applies to. Must be non-empty and every id
   // must be a child in family_id.
   repeated string child_ids = 6;
-  // Optional emoji or short icon shown next to the task, e.g. "🧹".
-  string icon = 7;
+  // Optional icon shown next to the task. Omit for no icon.
+  Icon icon = 7;
 }
 message CreateTaskResponse {
   Task task = 1;
@@ -150,8 +165,8 @@ message UpdateTaskRequest {
   bool active = 6;
   // Replaces the task's full set of assigned children. Must be non-empty.
   repeated string child_ids = 7;
-  // Optional emoji or short icon shown next to the task, e.g. "🧹".
-  string icon = 8;
+  // Optional icon shown next to the task. Omit for no icon.
+  Icon icon = 8;
 }
 message UpdateTaskResponse {
   Task task = 1;

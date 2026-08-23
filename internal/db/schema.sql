@@ -33,7 +33,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     schedule TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
-    icon TEXT NOT NULL DEFAULT ''
+    -- icon_type is 'emoji' or 'fontawesome' (empty string alongside an
+    -- empty icon_value means no icon at all).
+    icon_type TEXT NOT NULL DEFAULT '',
+    icon_value TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_family ON tasks(family_id);
 

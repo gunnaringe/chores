@@ -84,3 +84,78 @@ func TestOpen_MigratesPreExistingDatabase(t *testing.T) {
 		t.Fatal("expected a duplicate auth_subject insert to fail the unique index")
 	}
 }
+
+// oldTasksSchema mirrors the tasks table as it existed with a single bare
+// "icon" column, before it was split into icon_type/icon_value to support
+// both emoji and Font Awesome icons.
+const oldTasksSchema = `
+CREATE TABLE families (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE tasks (
+    id TEXT PRIMARY KEY,
+    family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    price_cents INTEGER NOT NULL,
+    schedule TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT ''
+);
+`
+
+func TestOpen_MigratesTaskIconColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old-icon.db")
+
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open seed db: %v", err)
+	}
+	if _, err := seed.Exec(oldTasksSchema); err != nil {
+		t.Fatalf("apply old schema: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO families (id, name, created_at) VALUES ('fam1', 'Old Family', '2024-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO tasks (id, family_id, title, price_cents, schedule, created_at, icon)
+		 VALUES ('t1', 'fam1', 'Dishes', 100, '0 0 * * *', '2024-01-01T00:00:00Z', '🧹')`,
+	); err != nil {
+		t.Fatalf("seed task with icon: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO tasks (id, family_id, title, price_cents, schedule, created_at, icon)
+		 VALUES ('t2', 'fam1', 'No icon task', 100, '0 0 * * *', '2024-01-01T00:00:00Z', '')`,
+	); err != nil {
+		t.Fatalf("seed task without icon: %v", err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatalf("close seed db: %v", err)
+	}
+
+	conn, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open on pre-existing database: %v", err)
+	}
+	defer conn.Close()
+
+	var iconType, iconValue string
+	if err := conn.QueryRow(`SELECT icon_type, icon_value FROM tasks WHERE id = 't1'`).Scan(&iconType, &iconValue); err != nil {
+		t.Fatalf("query migrated task: %v", err)
+	}
+	if iconType != "emoji" || iconValue != "🧹" {
+		t.Fatalf("expected the old icon to migrate to (emoji, 🧹), got (%q, %q)", iconType, iconValue)
+	}
+
+	if err := conn.QueryRow(`SELECT icon_type, icon_value FROM tasks WHERE id = 't2'`).Scan(&iconType, &iconValue); err != nil {
+		t.Fatalf("query migrated task without icon: %v", err)
+	}
+	if iconType != "" || iconValue != "" {
+		t.Fatalf("expected a task with no icon to stay empty, got (%q, %q)", iconType, iconValue)
+	}
+}

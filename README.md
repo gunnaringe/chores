@@ -6,12 +6,21 @@ SQLite storage, Buf-generated Connect API.
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
+The Font Awesome icon set is the one external dependency the app pulls in
+at runtime, from cdnjs (with a Subresource Integrity hash pinned in
+`web/index.html`) — everything else is embedded in the binary. That's an
+acceptable tradeoff here since the app already needs a live connection to
+its own backend for essentially everything; there's no offline mode to
+preserve.
+
 - Parents create tasks with a price, a cron-like recurrence (`0 0 * * 1,3,5`
   = every Monday, Wednesday, Friday — the UI offers day-of-week checkboxes
   that build this expression for you), an assignment to one or more children
-  (with a "select all" shortcut), and an optional emoji/icon (with a row of
-  quick-pick suggestions) shown next to the title everywhere the task
-  appears. A task only shows up for the children it's assigned to.
+  (with a "select all" shortcut), and an optional icon shown next to the
+  title everywhere the task appears — either any emoji, or a
+  [Font Awesome](https://fontawesome.com) Free Solid icon (loaded from its
+  CDN), each with a row of quick-pick suggestions plus a free-text field. A
+  task only shows up for the children it's assigned to.
 - A parent's Home page is a single consolidated view: the task list (with a
   per-child, per-day toggle to mark a chore done directly, without switching
   identity), the add-task form, and accounting/payout for every child — all

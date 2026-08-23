@@ -289,6 +289,48 @@ func roleFromDB(role string) v1.UserRole {
 	}
 }
 
+func iconTypeToDB(t v1.IconType) (string, error) {
+	switch t {
+	case v1.IconType_ICON_TYPE_EMOJI:
+		return "emoji", nil
+	case v1.IconType_ICON_TYPE_FONT_AWESOME:
+		return "fontawesome", nil
+	default:
+		return "", fmt.Errorf("invalid icon type %v", t)
+	}
+}
+
+func iconTypeFromDB(t string) v1.IconType {
+	switch t {
+	case "emoji":
+		return v1.IconType_ICON_TYPE_EMOJI
+	case "fontawesome":
+		return v1.IconType_ICON_TYPE_FONT_AWESOME
+	default:
+		return v1.IconType_ICON_TYPE_UNSPECIFIED
+	}
+}
+
+// taskIconToDB validates icon (which may be nil, meaning "no icon") and
+// returns the (icon_type, icon_value) pair to store.
+func taskIconToDB(icon *v1.Icon) (string, string, error) {
+	if icon.GetValue() == "" {
+		return "", "", nil
+	}
+	dbType, err := iconTypeToDB(icon.GetType())
+	if err != nil {
+		return "", "", fmt.Errorf("icon: %w", err)
+	}
+	return dbType, icon.GetValue(), nil
+}
+
+func taskIconFromDB(iconType, iconValue string) *v1.Icon {
+	if iconValue == "" {
+		return nil
+	}
+	return &v1.Icon{Type: iconTypeFromDB(iconType), Value: iconValue}
+}
+
 func (s *Server) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
 	familyID := req.Msg.GetFamilyId()
 	name := req.Msg.GetName()
@@ -467,13 +509,17 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if err := s.validateChildIDs(ctx, familyID, childIDs); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	iconType, iconValue, err := taskIconToDB(req.Msg.GetIcon())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	id := newID()
 	now := nowUTC()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon)
-		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-		id, familyID, title, req.Msg.GetDescription(), req.Msg.GetPriceCents(), schedule, formatTime(now), req.Msg.GetIcon(),
+		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value)
+		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+		id, familyID, title, req.Msg.GetDescription(), req.Msg.GetPriceCents(), schedule, formatTime(now), iconType, iconValue,
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create task: %w", err))
 	}
@@ -484,7 +530,7 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 		Task: &v1.Task{
 			Id: id, FamilyId: familyID, Title: title, Description: req.Msg.GetDescription(),
 			PriceCents: req.Msg.GetPriceCents(), Schedule: schedule, Active: true, CreatedAt: timestampPB(now),
-			ChildIds: childIDs, Icon: req.Msg.GetIcon(),
+			ChildIds: childIDs, Icon: taskIconFromDB(iconType, iconValue),
 		},
 	}), nil
 }
@@ -511,10 +557,14 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err := s.validateChildIDs(ctx, existing.FamilyId, childIDs); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	iconType, iconValue, err := taskIconToDB(req.Msg.GetIcon())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon = ? WHERE id = ?`,
-		req.Msg.GetTitle(), req.Msg.GetDescription(), req.Msg.GetPriceCents(), req.Msg.GetSchedule(), req.Msg.GetActive(), req.Msg.GetIcon(), taskID,
+		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ? WHERE id = ?`,
+		req.Msg.GetTitle(), req.Msg.GetDescription(), req.Msg.GetPriceCents(), req.Msg.GetSchedule(), req.Msg.GetActive(), iconType, iconValue, taskID,
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
@@ -553,9 +603,9 @@ func (s *Server) DeleteTask(ctx context.Context, req *connect.Request[v1.DeleteT
 
 func scanTask(row rowScanner) (*v1.Task, error) {
 	var t v1.Task
-	var createdAt string
+	var createdAt, iconType, iconValue string
 	var active bool
-	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &t.PriceCents, &t.Schedule, &active, &createdAt, &t.Icon); err != nil {
+	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &t.PriceCents, &t.Schedule, &active, &createdAt, &iconType, &iconValue); err != nil {
 		return nil, err
 	}
 	ts, err := parseTime(createdAt)
@@ -564,12 +614,13 @@ func scanTask(row rowScanner) (*v1.Task, error) {
 	}
 	t.Active = active
 	t.CreatedAt = timestampPB(ts)
+	t.Icon = taskIconFromDB(iconType, iconValue)
 	return &t, nil
 }
 
 func (s *Server) getTask(ctx context.Context, taskID string) (*v1.Task, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, family_id, title, description, price_cents, schedule, active, created_at, icon FROM tasks WHERE id = ?`,
+		`SELECT id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value FROM tasks WHERE id = ?`,
 		taskID,
 	)
 	t, err := scanTask(row)
@@ -596,7 +647,7 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 		return nil, err
 	}
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, family_id, title, description, price_cents, schedule, active, created_at, icon
+		`SELECT id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value
 		 FROM tasks WHERE family_id = ? ORDER BY created_at`,
 		familyID,
 	)

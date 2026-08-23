@@ -292,12 +292,33 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
-function taskLabel(task) {
-  const icon = task.icon ? escapeHtml(task.icon) + " " : "";
-  return icon + escapeHtml(task.title);
+// Font Awesome icon names only ever legitimately contain lowercase
+// letters, digits and hyphens. Whitelisting down to that (after stripping
+// common paste artifacts like a leading "fa-") is what actually makes it
+// safe to drop this user-supplied value straight into a class="..."
+// attribute — HTML-escaping alone isn't enough there, since escapeHtml
+// only guards text-node content, not attribute-breaking characters.
+function faIconClass(value) {
+  let cleaned = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^fa-solid\s+/, "")
+    .replace(/^fas\s+/, "")
+    .replace(/^fa-/, "")
+    .replace(/[^a-z0-9-]/g, "");
+  return cleaned || "star";
 }
 
-const ICON_CHOICES = ["🧹", "🧺", "🍽️", "🛏️", "🐶", "🗑️", "📚", "🧽", "🚗", "🌱", "🪥", "🧸"];
+function taskLabel(task) {
+  if (!task.icon || !task.icon.value) return escapeHtml(task.title);
+  if (task.icon.type === "ICON_TYPE_FONT_AWESOME") {
+    return `<i class="fa-solid fa-${faIconClass(task.icon.value)}"></i> ${escapeHtml(task.title)}`;
+  }
+  return escapeHtml(task.icon.value) + " " + escapeHtml(task.title);
+}
+
+const EMOJI_CHOICES = ["🧹", "🧺", "🍽️", "🛏️", "🐶", "🗑️", "📚", "🧽", "🚗", "🌱", "🪥", "🧸"];
+const FA_CHOICES = ["broom", "shirt", "utensils", "bed", "dog", "trash", "book", "soap", "car", "seedling", "tooth", "paw"];
 
 function renderOnboarding() {
   const wrap = el(`<div></div>`);
@@ -657,8 +678,12 @@ function renderAddTaskForm() {
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.iconLabel"))}</label>
-        <input type="text" id="task-icon" maxlength="8" style="width:4em;" placeholder="🧹" />
-        <div id="task-icon-choices" style="margin-top:6px;"></div>
+        <div class="icon-type-toggle">
+          <button type="button" class="secondary active" data-icon-type="EMOJI">${escapeHtml(t("addTask.iconTypeEmoji"))}</button>
+          <button type="button" class="secondary" data-icon-type="FONT_AWESOME">${escapeHtml(t("addTask.iconTypeFontAwesome"))}</button>
+        </div>
+        <input type="text" id="task-icon" maxlength="32" style="width:8em;" placeholder="🧹" />
+        <div id="task-icon-choices" class="icon-choices" style="margin-top:6px;"></div>
       </div>
       <div class="grid-2">
         <div class="field">
@@ -679,16 +704,40 @@ function renderAddTaskForm() {
   `);
   const iconInput = form.querySelector("#task-icon");
   const iconChoicesWrap = form.querySelector("#task-icon-choices");
-  iconChoicesWrap.style.display = "flex";
-  iconChoicesWrap.style.flexWrap = "wrap";
-  iconChoicesWrap.style.gap = "4px";
-  ICON_CHOICES.forEach((icon) => {
-    const btn = el(`<button type="button" class="secondary" style="padding:4px 8px;">${icon}</button>`);
-    btn.addEventListener("click", () => {
-      iconInput.value = icon;
+  const iconTypeButtons = [...form.querySelectorAll(".icon-type-toggle button")];
+  let selectedIconType = "EMOJI";
+
+  function renderIconChoices() {
+    iconChoicesWrap.innerHTML = "";
+    const choices = selectedIconType === "EMOJI" ? EMOJI_CHOICES : FA_CHOICES;
+    choices.forEach((value) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary";
+      if (selectedIconType === "EMOJI") {
+        btn.textContent = value;
+      } else {
+        const i = document.createElement("i");
+        i.className = `fa-solid fa-${faIconClass(value)}`;
+        btn.appendChild(i);
+      }
+      btn.addEventListener("click", () => {
+        iconInput.value = value;
+      });
+      iconChoicesWrap.appendChild(btn);
     });
-    iconChoicesWrap.appendChild(btn);
+  }
+
+  iconTypeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedIconType = btn.dataset.iconType;
+      iconTypeButtons.forEach((b) => b.classList.toggle("active", b === btn));
+      iconInput.placeholder = selectedIconType === "EMOJI" ? "🧹" : "broom";
+      iconInput.value = "";
+      renderIconChoices();
+    });
   });
+  renderIconChoices();
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
@@ -723,7 +772,13 @@ function renderAddTaskForm() {
     withError(async () => {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
-      const icon = iconInput.value.trim();
+      const iconValueRaw = iconInput.value.trim();
+      const icon = iconValueRaw
+        ? {
+            type: selectedIconType === "FONT_AWESOME" ? "ICON_TYPE_FONT_AWESOME" : "ICON_TYPE_EMOJI",
+            value: selectedIconType === "FONT_AWESOME" ? faIconClass(iconValueRaw) : iconValueRaw,
+          }
+        : undefined;
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
       const days = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
       const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);

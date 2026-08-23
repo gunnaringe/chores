@@ -479,26 +479,28 @@ func TestTaskIcon(t *testing.T) {
 
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id}, Icon: "🧹",
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_EMOJI, Value: "🧹"},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
-	if task.Msg.Task.Icon != "🧹" {
-		t.Fatalf("expected icon 🧹 on create, got %q", task.Msg.Task.Icon)
+	if got := task.Msg.Task.Icon; got.GetType() != v1.IconType_ICON_TYPE_EMOJI || got.GetValue() != "🧹" {
+		t.Fatalf("expected emoji icon 🧹 on create, got %+v", got)
 	}
 
 	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
 	if err != nil {
 		t.Fatalf("ListTasks: %v", err)
 	}
-	if len(fetched.Msg.Tasks) != 1 || fetched.Msg.Tasks[0].Icon != "🧹" {
+	if got := fetched.Msg.Tasks[0].Icon; len(fetched.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_EMOJI || got.GetValue() != "🧹" {
 		t.Fatalf("expected icon 🧹 to persist, got %+v", fetched.Msg.Tasks[0])
 	}
 
+	// Reassigning to a Font Awesome icon must round-trip the type too, not
+	// just the value.
 	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
 		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100, Active: true,
-		ChildIds: []string{child.Msg.User.Id}, Icon: "🍽️",
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_FONT_AWESOME, Value: "broom"},
 	})); err != nil {
 		t.Fatalf("UpdateTask: %v", err)
 	}
@@ -506,7 +508,27 @@ func TestTaskIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTasks after update: %v", err)
 	}
-	if len(updated.Msg.Tasks) != 1 || updated.Msg.Tasks[0].Icon != "🍽️" {
-		t.Fatalf("expected icon updated to 🍽️, got %+v", updated.Msg.Tasks[0])
+	if got := updated.Msg.Tasks[0].Icon; len(updated.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_FONT_AWESOME || got.GetValue() != "broom" {
+		t.Fatalf("expected icon updated to font-awesome:broom, got %+v", updated.Msg.Tasks[0])
+	}
+
+	// A value with no (valid) type is rejected rather than silently guessed at.
+	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Ambiguous", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Value: "broom"},
+	})); codeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("expected InvalidArgument for a value with no icon type, got %v", err)
+	}
+
+	// No icon at all is fine and comes back as nil, not a zero-value Icon.
+	noIcon, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "No icon", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask with no icon: %v", err)
+	}
+	if noIcon.Msg.Task.Icon != nil {
+		t.Fatalf("expected no icon, got %+v", noIcon.Msg.Task.Icon)
 	}
 }

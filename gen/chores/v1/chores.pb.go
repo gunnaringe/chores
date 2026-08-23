@@ -71,6 +71,111 @@ func (UserRole) EnumDescriptor() ([]byte, []int) {
 	return file_chores_v1_chores_proto_rawDescGZIP(), []int{0}
 }
 
+type IconType int32
+
+const (
+	IconType_ICON_TYPE_UNSPECIFIED  IconType = 0
+	IconType_ICON_TYPE_EMOJI        IconType = 1
+	IconType_ICON_TYPE_FONT_AWESOME IconType = 2
+)
+
+// Enum value maps for IconType.
+var (
+	IconType_name = map[int32]string{
+		0: "ICON_TYPE_UNSPECIFIED",
+		1: "ICON_TYPE_EMOJI",
+		2: "ICON_TYPE_FONT_AWESOME",
+	}
+	IconType_value = map[string]int32{
+		"ICON_TYPE_UNSPECIFIED":  0,
+		"ICON_TYPE_EMOJI":        1,
+		"ICON_TYPE_FONT_AWESOME": 2,
+	}
+)
+
+func (x IconType) Enum() *IconType {
+	p := new(IconType)
+	*p = x
+	return p
+}
+
+func (x IconType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (IconType) Descriptor() protoreflect.EnumDescriptor {
+	return file_chores_v1_chores_proto_enumTypes[1].Descriptor()
+}
+
+func (IconType) Type() protoreflect.EnumType {
+	return &file_chores_v1_chores_proto_enumTypes[1]
+}
+
+func (x IconType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use IconType.Descriptor instead.
+func (IconType) EnumDescriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{1}
+}
+
+// An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
+// character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
+// Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
+// rendered as the CSS classes "fa-solid fa-broom").
+type Icon struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          IconType               `protobuf:"varint,1,opt,name=type,proto3,enum=chores.v1.IconType" json:"type,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Icon) Reset() {
+	*x = Icon{}
+	mi := &file_chores_v1_chores_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Icon) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Icon) ProtoMessage() {}
+
+func (x *Icon) ProtoReflect() protoreflect.Message {
+	mi := &file_chores_v1_chores_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Icon.ProtoReflect.Descriptor instead.
+func (*Icon) Descriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Icon) GetType() IconType {
+	if x != nil {
+		return x.Type
+	}
+	return IconType_ICON_TYPE_UNSPECIFIED
+}
+
+func (x *Icon) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
 type Family struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -82,7 +187,7 @@ type Family struct {
 
 func (x *Family) Reset() {
 	*x = Family{}
-	mi := &file_chores_v1_chores_proto_msgTypes[0]
+	mi := &file_chores_v1_chores_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -94,7 +199,7 @@ func (x *Family) String() string {
 func (*Family) ProtoMessage() {}
 
 func (x *Family) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[0]
+	mi := &file_chores_v1_chores_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -107,7 +212,7 @@ func (x *Family) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Family.ProtoReflect.Descriptor instead.
 func (*Family) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{0}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Family) GetId() string {
@@ -149,7 +254,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_chores_v1_chores_proto_msgTypes[1]
+	mi := &file_chores_v1_chores_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -161,7 +266,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[1]
+	mi := &file_chores_v1_chores_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -174,7 +279,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{1}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *User) GetId() string {
@@ -241,15 +346,15 @@ type Task struct {
 	// The children this task applies to. Always non-empty for a task created
 	// through the API.
 	ChildIds []string `protobuf:"bytes,9,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
-	// Optional emoji or short icon shown next to the task, e.g. "🧹".
-	Icon          string `protobuf:"bytes,10,opt,name=icon,proto3" json:"icon,omitempty"`
+	// Optional icon shown next to the task. Absent means no icon.
+	Icon          *Icon `protobuf:"bytes,10,opt,name=icon,proto3" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Task) Reset() {
 	*x = Task{}
-	mi := &file_chores_v1_chores_proto_msgTypes[2]
+	mi := &file_chores_v1_chores_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -261,7 +366,7 @@ func (x *Task) String() string {
 func (*Task) ProtoMessage() {}
 
 func (x *Task) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[2]
+	mi := &file_chores_v1_chores_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -274,7 +379,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Task.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{2}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Task) GetId() string {
@@ -340,11 +445,11 @@ func (x *Task) GetChildIds() []string {
 	return nil
 }
 
-func (x *Task) GetIcon() string {
+func (x *Task) GetIcon() *Icon {
 	if x != nil {
 		return x.Icon
 	}
-	return ""
+	return nil
 }
 
 type TaskCompletion struct {
@@ -363,7 +468,7 @@ type TaskCompletion struct {
 
 func (x *TaskCompletion) Reset() {
 	*x = TaskCompletion{}
-	mi := &file_chores_v1_chores_proto_msgTypes[3]
+	mi := &file_chores_v1_chores_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -375,7 +480,7 @@ func (x *TaskCompletion) String() string {
 func (*TaskCompletion) ProtoMessage() {}
 
 func (x *TaskCompletion) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[3]
+	mi := &file_chores_v1_chores_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -388,7 +493,7 @@ func (x *TaskCompletion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskCompletion.ProtoReflect.Descriptor instead.
 func (*TaskCompletion) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{3}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TaskCompletion) GetId() string {
@@ -455,7 +560,7 @@ type Payout struct {
 
 func (x *Payout) Reset() {
 	*x = Payout{}
-	mi := &file_chores_v1_chores_proto_msgTypes[4]
+	mi := &file_chores_v1_chores_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -467,7 +572,7 @@ func (x *Payout) String() string {
 func (*Payout) ProtoMessage() {}
 
 func (x *Payout) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[4]
+	mi := &file_chores_v1_chores_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -480,7 +585,7 @@ func (x *Payout) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Payout.ProtoReflect.Descriptor instead.
 func (*Payout) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{4}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Payout) GetId() string {
@@ -546,7 +651,7 @@ type ChildSummary struct {
 
 func (x *ChildSummary) Reset() {
 	*x = ChildSummary{}
-	mi := &file_chores_v1_chores_proto_msgTypes[5]
+	mi := &file_chores_v1_chores_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +663,7 @@ func (x *ChildSummary) String() string {
 func (*ChildSummary) ProtoMessage() {}
 
 func (x *ChildSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[5]
+	mi := &file_chores_v1_chores_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +676,7 @@ func (x *ChildSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChildSummary.ProtoReflect.Descriptor instead.
 func (*ChildSummary) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{5}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ChildSummary) GetChild() *User {
@@ -634,7 +739,7 @@ type TaskOccurrence struct {
 
 func (x *TaskOccurrence) Reset() {
 	*x = TaskOccurrence{}
-	mi := &file_chores_v1_chores_proto_msgTypes[6]
+	mi := &file_chores_v1_chores_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +751,7 @@ func (x *TaskOccurrence) String() string {
 func (*TaskOccurrence) ProtoMessage() {}
 
 func (x *TaskOccurrence) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[6]
+	mi := &file_chores_v1_chores_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +764,7 @@ func (x *TaskOccurrence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskOccurrence.ProtoReflect.Descriptor instead.
 func (*TaskOccurrence) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{6}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TaskOccurrence) GetTask() *Task {
@@ -718,7 +823,7 @@ type CreateFamilyRequest struct {
 
 func (x *CreateFamilyRequest) Reset() {
 	*x = CreateFamilyRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[7]
+	mi := &file_chores_v1_chores_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -730,7 +835,7 @@ func (x *CreateFamilyRequest) String() string {
 func (*CreateFamilyRequest) ProtoMessage() {}
 
 func (x *CreateFamilyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[7]
+	mi := &file_chores_v1_chores_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -743,7 +848,7 @@ func (x *CreateFamilyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFamilyRequest.ProtoReflect.Descriptor instead.
 func (*CreateFamilyRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{7}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CreateFamilyRequest) GetName() string {
@@ -769,7 +874,7 @@ type CreateFamilyResponse struct {
 
 func (x *CreateFamilyResponse) Reset() {
 	*x = CreateFamilyResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[8]
+	mi := &file_chores_v1_chores_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -781,7 +886,7 @@ func (x *CreateFamilyResponse) String() string {
 func (*CreateFamilyResponse) ProtoMessage() {}
 
 func (x *CreateFamilyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[8]
+	mi := &file_chores_v1_chores_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -794,7 +899,7 @@ func (x *CreateFamilyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFamilyResponse.ProtoReflect.Descriptor instead.
 func (*CreateFamilyResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{8}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CreateFamilyResponse) GetFamily() *Family {
@@ -812,7 +917,7 @@ type ListFamiliesRequest struct {
 
 func (x *ListFamiliesRequest) Reset() {
 	*x = ListFamiliesRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[9]
+	mi := &file_chores_v1_chores_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -824,7 +929,7 @@ func (x *ListFamiliesRequest) String() string {
 func (*ListFamiliesRequest) ProtoMessage() {}
 
 func (x *ListFamiliesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[9]
+	mi := &file_chores_v1_chores_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -837,7 +942,7 @@ func (x *ListFamiliesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFamiliesRequest.ProtoReflect.Descriptor instead.
 func (*ListFamiliesRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{9}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{10}
 }
 
 type ListFamiliesResponse struct {
@@ -849,7 +954,7 @@ type ListFamiliesResponse struct {
 
 func (x *ListFamiliesResponse) Reset() {
 	*x = ListFamiliesResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[10]
+	mi := &file_chores_v1_chores_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -861,7 +966,7 @@ func (x *ListFamiliesResponse) String() string {
 func (*ListFamiliesResponse) ProtoMessage() {}
 
 func (x *ListFamiliesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[10]
+	mi := &file_chores_v1_chores_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +979,7 @@ func (x *ListFamiliesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFamiliesResponse.ProtoReflect.Descriptor instead.
 func (*ListFamiliesResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{10}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListFamiliesResponse) GetFamilies() []*Family {
@@ -895,7 +1000,7 @@ type CreateUserRequest struct {
 
 func (x *CreateUserRequest) Reset() {
 	*x = CreateUserRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[11]
+	mi := &file_chores_v1_chores_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -907,7 +1012,7 @@ func (x *CreateUserRequest) String() string {
 func (*CreateUserRequest) ProtoMessage() {}
 
 func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[11]
+	mi := &file_chores_v1_chores_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -920,7 +1025,7 @@ func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
 func (*CreateUserRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{11}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateUserRequest) GetFamilyId() string {
@@ -953,7 +1058,7 @@ type CreateUserResponse struct {
 
 func (x *CreateUserResponse) Reset() {
 	*x = CreateUserResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[12]
+	mi := &file_chores_v1_chores_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -965,7 +1070,7 @@ func (x *CreateUserResponse) String() string {
 func (*CreateUserResponse) ProtoMessage() {}
 
 func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[12]
+	mi := &file_chores_v1_chores_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -978,7 +1083,7 @@ func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
 func (*CreateUserResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{12}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateUserResponse) GetUser() *User {
@@ -997,7 +1102,7 @@ type ListUsersRequest struct {
 
 func (x *ListUsersRequest) Reset() {
 	*x = ListUsersRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[13]
+	mi := &file_chores_v1_chores_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +1114,7 @@ func (x *ListUsersRequest) String() string {
 func (*ListUsersRequest) ProtoMessage() {}
 
 func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[13]
+	mi := &file_chores_v1_chores_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1127,7 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{13}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListUsersRequest) GetFamilyId() string {
@@ -1041,7 +1146,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[14]
+	mi := &file_chores_v1_chores_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1053,7 +1158,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[14]
+	mi := &file_chores_v1_chores_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1066,7 +1171,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{14}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListUsersResponse) GetUsers() []*User {
@@ -1086,15 +1191,15 @@ type CreateTaskRequest struct {
 	// Which children this task applies to. Must be non-empty and every id
 	// must be a child in family_id.
 	ChildIds []string `protobuf:"bytes,6,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
-	// Optional emoji or short icon shown next to the task, e.g. "🧹".
-	Icon          string `protobuf:"bytes,7,opt,name=icon,proto3" json:"icon,omitempty"`
+	// Optional icon shown next to the task. Omit for no icon.
+	Icon          *Icon `protobuf:"bytes,7,opt,name=icon,proto3" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[15]
+	mi := &file_chores_v1_chores_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1106,7 +1211,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[15]
+	mi := &file_chores_v1_chores_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1119,7 +1224,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{15}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CreateTaskRequest) GetFamilyId() string {
@@ -1164,11 +1269,11 @@ func (x *CreateTaskRequest) GetChildIds() []string {
 	return nil
 }
 
-func (x *CreateTaskRequest) GetIcon() string {
+func (x *CreateTaskRequest) GetIcon() *Icon {
 	if x != nil {
 		return x.Icon
 	}
-	return ""
+	return nil
 }
 
 type CreateTaskResponse struct {
@@ -1180,7 +1285,7 @@ type CreateTaskResponse struct {
 
 func (x *CreateTaskResponse) Reset() {
 	*x = CreateTaskResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[16]
+	mi := &file_chores_v1_chores_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1192,7 +1297,7 @@ func (x *CreateTaskResponse) String() string {
 func (*CreateTaskResponse) ProtoMessage() {}
 
 func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[16]
+	mi := &file_chores_v1_chores_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1205,7 +1310,7 @@ func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{16}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateTaskResponse) GetTask() *Task {
@@ -1225,15 +1330,15 @@ type UpdateTaskRequest struct {
 	Active      bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
 	// Replaces the task's full set of assigned children. Must be non-empty.
 	ChildIds []string `protobuf:"bytes,7,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
-	// Optional emoji or short icon shown next to the task, e.g. "🧹".
-	Icon          string `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
+	// Optional icon shown next to the task. Omit for no icon.
+	Icon          *Icon `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateTaskRequest) Reset() {
 	*x = UpdateTaskRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[17]
+	mi := &file_chores_v1_chores_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1245,7 +1350,7 @@ func (x *UpdateTaskRequest) String() string {
 func (*UpdateTaskRequest) ProtoMessage() {}
 
 func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[17]
+	mi := &file_chores_v1_chores_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1258,7 +1363,7 @@ func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTaskRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{17}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *UpdateTaskRequest) GetTaskId() string {
@@ -1310,11 +1415,11 @@ func (x *UpdateTaskRequest) GetChildIds() []string {
 	return nil
 }
 
-func (x *UpdateTaskRequest) GetIcon() string {
+func (x *UpdateTaskRequest) GetIcon() *Icon {
 	if x != nil {
 		return x.Icon
 	}
-	return ""
+	return nil
 }
 
 type UpdateTaskResponse struct {
@@ -1326,7 +1431,7 @@ type UpdateTaskResponse struct {
 
 func (x *UpdateTaskResponse) Reset() {
 	*x = UpdateTaskResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[18]
+	mi := &file_chores_v1_chores_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1338,7 +1443,7 @@ func (x *UpdateTaskResponse) String() string {
 func (*UpdateTaskResponse) ProtoMessage() {}
 
 func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[18]
+	mi := &file_chores_v1_chores_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1351,7 +1456,7 @@ func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTaskResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{18}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateTaskResponse) GetTask() *Task {
@@ -1370,7 +1475,7 @@ type DeleteTaskRequest struct {
 
 func (x *DeleteTaskRequest) Reset() {
 	*x = DeleteTaskRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[19]
+	mi := &file_chores_v1_chores_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1382,7 +1487,7 @@ func (x *DeleteTaskRequest) String() string {
 func (*DeleteTaskRequest) ProtoMessage() {}
 
 func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[19]
+	mi := &file_chores_v1_chores_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1395,7 +1500,7 @@ func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{19}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DeleteTaskRequest) GetTaskId() string {
@@ -1413,7 +1518,7 @@ type DeleteTaskResponse struct {
 
 func (x *DeleteTaskResponse) Reset() {
 	*x = DeleteTaskResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[20]
+	mi := &file_chores_v1_chores_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1425,7 +1530,7 @@ func (x *DeleteTaskResponse) String() string {
 func (*DeleteTaskResponse) ProtoMessage() {}
 
 func (x *DeleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[20]
+	mi := &file_chores_v1_chores_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1438,7 +1543,7 @@ func (x *DeleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{20}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{21}
 }
 
 type ListTasksRequest struct {
@@ -1450,7 +1555,7 @@ type ListTasksRequest struct {
 
 func (x *ListTasksRequest) Reset() {
 	*x = ListTasksRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[21]
+	mi := &file_chores_v1_chores_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1462,7 +1567,7 @@ func (x *ListTasksRequest) String() string {
 func (*ListTasksRequest) ProtoMessage() {}
 
 func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[21]
+	mi := &file_chores_v1_chores_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1475,7 +1580,7 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{21}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListTasksRequest) GetFamilyId() string {
@@ -1494,7 +1599,7 @@ type ListTasksResponse struct {
 
 func (x *ListTasksResponse) Reset() {
 	*x = ListTasksResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[22]
+	mi := &file_chores_v1_chores_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1506,7 +1611,7 @@ func (x *ListTasksResponse) String() string {
 func (*ListTasksResponse) ProtoMessage() {}
 
 func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[22]
+	mi := &file_chores_v1_chores_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1519,7 +1624,7 @@ func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListTasksResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{22}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListTasksResponse) GetTasks() []*Task {
@@ -1545,7 +1650,7 @@ type ListTaskOccurrencesRequest struct {
 
 func (x *ListTaskOccurrencesRequest) Reset() {
 	*x = ListTaskOccurrencesRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[23]
+	mi := &file_chores_v1_chores_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1557,7 +1662,7 @@ func (x *ListTaskOccurrencesRequest) String() string {
 func (*ListTaskOccurrencesRequest) ProtoMessage() {}
 
 func (x *ListTaskOccurrencesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[23]
+	mi := &file_chores_v1_chores_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1570,7 +1675,7 @@ func (x *ListTaskOccurrencesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskOccurrencesRequest.ProtoReflect.Descriptor instead.
 func (*ListTaskOccurrencesRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{23}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListTaskOccurrencesRequest) GetFamilyId() string {
@@ -1610,7 +1715,7 @@ type ListTaskOccurrencesResponse struct {
 
 func (x *ListTaskOccurrencesResponse) Reset() {
 	*x = ListTaskOccurrencesResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[24]
+	mi := &file_chores_v1_chores_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1622,7 +1727,7 @@ func (x *ListTaskOccurrencesResponse) String() string {
 func (*ListTaskOccurrencesResponse) ProtoMessage() {}
 
 func (x *ListTaskOccurrencesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[24]
+	mi := &file_chores_v1_chores_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1635,7 +1740,7 @@ func (x *ListTaskOccurrencesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskOccurrencesResponse.ProtoReflect.Descriptor instead.
 func (*ListTaskOccurrencesResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{24}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListTaskOccurrencesResponse) GetOccurrences() []*TaskOccurrence {
@@ -1656,7 +1761,7 @@ type CompleteTaskRequest struct {
 
 func (x *CompleteTaskRequest) Reset() {
 	*x = CompleteTaskRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[25]
+	mi := &file_chores_v1_chores_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1668,7 +1773,7 @@ func (x *CompleteTaskRequest) String() string {
 func (*CompleteTaskRequest) ProtoMessage() {}
 
 func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[25]
+	mi := &file_chores_v1_chores_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1681,7 +1786,7 @@ func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*CompleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{25}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CompleteTaskRequest) GetTaskId() string {
@@ -1714,7 +1819,7 @@ type CompleteTaskResponse struct {
 
 func (x *CompleteTaskResponse) Reset() {
 	*x = CompleteTaskResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[26]
+	mi := &file_chores_v1_chores_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1726,7 +1831,7 @@ func (x *CompleteTaskResponse) String() string {
 func (*CompleteTaskResponse) ProtoMessage() {}
 
 func (x *CompleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[26]
+	mi := &file_chores_v1_chores_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1739,7 +1844,7 @@ func (x *CompleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*CompleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{26}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CompleteTaskResponse) GetCompletion() *TaskCompletion {
@@ -1760,7 +1865,7 @@ type UncompleteTaskRequest struct {
 
 func (x *UncompleteTaskRequest) Reset() {
 	*x = UncompleteTaskRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[27]
+	mi := &file_chores_v1_chores_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1772,7 +1877,7 @@ func (x *UncompleteTaskRequest) String() string {
 func (*UncompleteTaskRequest) ProtoMessage() {}
 
 func (x *UncompleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[27]
+	mi := &file_chores_v1_chores_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1785,7 +1890,7 @@ func (x *UncompleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UncompleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*UncompleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{27}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *UncompleteTaskRequest) GetTaskId() string {
@@ -1817,7 +1922,7 @@ type UncompleteTaskResponse struct {
 
 func (x *UncompleteTaskResponse) Reset() {
 	*x = UncompleteTaskResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[28]
+	mi := &file_chores_v1_chores_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1829,7 +1934,7 @@ func (x *UncompleteTaskResponse) String() string {
 func (*UncompleteTaskResponse) ProtoMessage() {}
 
 func (x *UncompleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[28]
+	mi := &file_chores_v1_chores_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1842,7 +1947,7 @@ func (x *UncompleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UncompleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*UncompleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{28}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{29}
 }
 
 type ListTaskCompletionsRequest struct {
@@ -1855,7 +1960,7 @@ type ListTaskCompletionsRequest struct {
 
 func (x *ListTaskCompletionsRequest) Reset() {
 	*x = ListTaskCompletionsRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[29]
+	mi := &file_chores_v1_chores_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1867,7 +1972,7 @@ func (x *ListTaskCompletionsRequest) String() string {
 func (*ListTaskCompletionsRequest) ProtoMessage() {}
 
 func (x *ListTaskCompletionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[29]
+	mi := &file_chores_v1_chores_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1880,7 +1985,7 @@ func (x *ListTaskCompletionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskCompletionsRequest.ProtoReflect.Descriptor instead.
 func (*ListTaskCompletionsRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{29}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListTaskCompletionsRequest) GetFamilyId() string {
@@ -1906,7 +2011,7 @@ type ListTaskCompletionsResponse struct {
 
 func (x *ListTaskCompletionsResponse) Reset() {
 	*x = ListTaskCompletionsResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[30]
+	mi := &file_chores_v1_chores_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1918,7 +2023,7 @@ func (x *ListTaskCompletionsResponse) String() string {
 func (*ListTaskCompletionsResponse) ProtoMessage() {}
 
 func (x *ListTaskCompletionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[30]
+	mi := &file_chores_v1_chores_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1931,7 +2036,7 @@ func (x *ListTaskCompletionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTaskCompletionsResponse.ProtoReflect.Descriptor instead.
 func (*ListTaskCompletionsResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{30}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListTaskCompletionsResponse) GetCompletions() []*TaskCompletion {
@@ -1950,7 +2055,7 @@ type GetChildSummaryRequest struct {
 
 func (x *GetChildSummaryRequest) Reset() {
 	*x = GetChildSummaryRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[31]
+	mi := &file_chores_v1_chores_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1962,7 +2067,7 @@ func (x *GetChildSummaryRequest) String() string {
 func (*GetChildSummaryRequest) ProtoMessage() {}
 
 func (x *GetChildSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[31]
+	mi := &file_chores_v1_chores_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1975,7 +2080,7 @@ func (x *GetChildSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetChildSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetChildSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{31}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetChildSummaryRequest) GetChildId() string {
@@ -1994,7 +2099,7 @@ type GetChildSummaryResponse struct {
 
 func (x *GetChildSummaryResponse) Reset() {
 	*x = GetChildSummaryResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[32]
+	mi := &file_chores_v1_chores_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2006,7 +2111,7 @@ func (x *GetChildSummaryResponse) String() string {
 func (*GetChildSummaryResponse) ProtoMessage() {}
 
 func (x *GetChildSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[32]
+	mi := &file_chores_v1_chores_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2019,7 +2124,7 @@ func (x *GetChildSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetChildSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetChildSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{32}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetChildSummaryResponse) GetSummary() *ChildSummary {
@@ -2038,7 +2143,7 @@ type ListChildSummariesRequest struct {
 
 func (x *ListChildSummariesRequest) Reset() {
 	*x = ListChildSummariesRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[33]
+	mi := &file_chores_v1_chores_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2050,7 +2155,7 @@ func (x *ListChildSummariesRequest) String() string {
 func (*ListChildSummariesRequest) ProtoMessage() {}
 
 func (x *ListChildSummariesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[33]
+	mi := &file_chores_v1_chores_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2063,7 +2168,7 @@ func (x *ListChildSummariesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChildSummariesRequest.ProtoReflect.Descriptor instead.
 func (*ListChildSummariesRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{33}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListChildSummariesRequest) GetFamilyId() string {
@@ -2082,7 +2187,7 @@ type ListChildSummariesResponse struct {
 
 func (x *ListChildSummariesResponse) Reset() {
 	*x = ListChildSummariesResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[34]
+	mi := &file_chores_v1_chores_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2094,7 +2199,7 @@ func (x *ListChildSummariesResponse) String() string {
 func (*ListChildSummariesResponse) ProtoMessage() {}
 
 func (x *ListChildSummariesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[34]
+	mi := &file_chores_v1_chores_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2107,7 +2212,7 @@ func (x *ListChildSummariesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChildSummariesResponse.ProtoReflect.Descriptor instead.
 func (*ListChildSummariesResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{34}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListChildSummariesResponse) GetSummaries() []*ChildSummary {
@@ -2131,7 +2236,7 @@ type CreatePayoutRequest struct {
 
 func (x *CreatePayoutRequest) Reset() {
 	*x = CreatePayoutRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[35]
+	mi := &file_chores_v1_chores_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2143,7 +2248,7 @@ func (x *CreatePayoutRequest) String() string {
 func (*CreatePayoutRequest) ProtoMessage() {}
 
 func (x *CreatePayoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[35]
+	mi := &file_chores_v1_chores_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2156,7 +2261,7 @@ func (x *CreatePayoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePayoutRequest.ProtoReflect.Descriptor instead.
 func (*CreatePayoutRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{35}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CreatePayoutRequest) GetChildId() string {
@@ -2196,7 +2301,7 @@ type CreatePayoutResponse struct {
 
 func (x *CreatePayoutResponse) Reset() {
 	*x = CreatePayoutResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[36]
+	mi := &file_chores_v1_chores_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2208,7 +2313,7 @@ func (x *CreatePayoutResponse) String() string {
 func (*CreatePayoutResponse) ProtoMessage() {}
 
 func (x *CreatePayoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[36]
+	mi := &file_chores_v1_chores_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2221,7 +2326,7 @@ func (x *CreatePayoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePayoutResponse.ProtoReflect.Descriptor instead.
 func (*CreatePayoutResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{36}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CreatePayoutResponse) GetPayout() *Payout {
@@ -2241,7 +2346,7 @@ type ListPayoutsRequest struct {
 
 func (x *ListPayoutsRequest) Reset() {
 	*x = ListPayoutsRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[37]
+	mi := &file_chores_v1_chores_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2253,7 +2358,7 @@ func (x *ListPayoutsRequest) String() string {
 func (*ListPayoutsRequest) ProtoMessage() {}
 
 func (x *ListPayoutsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[37]
+	mi := &file_chores_v1_chores_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2266,7 +2371,7 @@ func (x *ListPayoutsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPayoutsRequest.ProtoReflect.Descriptor instead.
 func (*ListPayoutsRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{37}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListPayoutsRequest) GetFamilyId() string {
@@ -2292,7 +2397,7 @@ type ListPayoutsResponse struct {
 
 func (x *ListPayoutsResponse) Reset() {
 	*x = ListPayoutsResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[38]
+	mi := &file_chores_v1_chores_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2304,7 +2409,7 @@ func (x *ListPayoutsResponse) String() string {
 func (*ListPayoutsResponse) ProtoMessage() {}
 
 func (x *ListPayoutsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[38]
+	mi := &file_chores_v1_chores_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2317,7 +2422,7 @@ func (x *ListPayoutsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPayoutsResponse.ProtoReflect.Descriptor instead.
 func (*ListPayoutsResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{38}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListPayoutsResponse) GetPayouts() []*Payout {
@@ -2339,7 +2444,7 @@ type GetMyMembershipRequest struct {
 
 func (x *GetMyMembershipRequest) Reset() {
 	*x = GetMyMembershipRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[39]
+	mi := &file_chores_v1_chores_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2351,7 +2456,7 @@ func (x *GetMyMembershipRequest) String() string {
 func (*GetMyMembershipRequest) ProtoMessage() {}
 
 func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[39]
+	mi := &file_chores_v1_chores_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2364,7 +2469,7 @@ func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyMembershipRequest.ProtoReflect.Descriptor instead.
 func (*GetMyMembershipRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{39}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{40}
 }
 
 type GetMyMembershipResponse struct {
@@ -2378,7 +2483,7 @@ type GetMyMembershipResponse struct {
 
 func (x *GetMyMembershipResponse) Reset() {
 	*x = GetMyMembershipResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[40]
+	mi := &file_chores_v1_chores_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2390,7 +2495,7 @@ func (x *GetMyMembershipResponse) String() string {
 func (*GetMyMembershipResponse) ProtoMessage() {}
 
 func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[40]
+	mi := &file_chores_v1_chores_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2403,7 +2508,7 @@ func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyMembershipResponse.ProtoReflect.Descriptor instead.
 func (*GetMyMembershipResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{40}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetMyMembershipResponse) GetBound() bool {
@@ -2448,7 +2553,7 @@ type Invitation struct {
 
 func (x *Invitation) Reset() {
 	*x = Invitation{}
-	mi := &file_chores_v1_chores_proto_msgTypes[41]
+	mi := &file_chores_v1_chores_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2460,7 +2565,7 @@ func (x *Invitation) String() string {
 func (*Invitation) ProtoMessage() {}
 
 func (x *Invitation) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[41]
+	mi := &file_chores_v1_chores_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2473,7 +2578,7 @@ func (x *Invitation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Invitation.ProtoReflect.Descriptor instead.
 func (*Invitation) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{41}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *Invitation) GetId() string {
@@ -2556,7 +2661,7 @@ type CreateInvitationRequest struct {
 
 func (x *CreateInvitationRequest) Reset() {
 	*x = CreateInvitationRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[42]
+	mi := &file_chores_v1_chores_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2568,7 +2673,7 @@ func (x *CreateInvitationRequest) String() string {
 func (*CreateInvitationRequest) ProtoMessage() {}
 
 func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[42]
+	mi := &file_chores_v1_chores_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2581,7 +2686,7 @@ func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInvitationRequest.ProtoReflect.Descriptor instead.
 func (*CreateInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{42}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CreateInvitationRequest) GetFamilyId() string {
@@ -2625,7 +2730,7 @@ type CreateInvitationResponse struct {
 
 func (x *CreateInvitationResponse) Reset() {
 	*x = CreateInvitationResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[43]
+	mi := &file_chores_v1_chores_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2637,7 +2742,7 @@ func (x *CreateInvitationResponse) String() string {
 func (*CreateInvitationResponse) ProtoMessage() {}
 
 func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[43]
+	mi := &file_chores_v1_chores_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2650,7 +2755,7 @@ func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInvitationResponse.ProtoReflect.Descriptor instead.
 func (*CreateInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{43}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateInvitationResponse) GetInvitation() *Invitation {
@@ -2683,7 +2788,7 @@ type ListInvitationsRequest struct {
 
 func (x *ListInvitationsRequest) Reset() {
 	*x = ListInvitationsRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[44]
+	mi := &file_chores_v1_chores_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2695,7 +2800,7 @@ func (x *ListInvitationsRequest) String() string {
 func (*ListInvitationsRequest) ProtoMessage() {}
 
 func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[44]
+	mi := &file_chores_v1_chores_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2708,7 +2813,7 @@ func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsRequest.ProtoReflect.Descriptor instead.
 func (*ListInvitationsRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{44}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListInvitationsRequest) GetFamilyId() string {
@@ -2727,7 +2832,7 @@ type ListInvitationsResponse struct {
 
 func (x *ListInvitationsResponse) Reset() {
 	*x = ListInvitationsResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[45]
+	mi := &file_chores_v1_chores_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2739,7 +2844,7 @@ func (x *ListInvitationsResponse) String() string {
 func (*ListInvitationsResponse) ProtoMessage() {}
 
 func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[45]
+	mi := &file_chores_v1_chores_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2752,7 +2857,7 @@ func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsResponse.ProtoReflect.Descriptor instead.
 func (*ListInvitationsResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{45}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListInvitationsResponse) GetInvitations() []*Invitation {
@@ -2771,7 +2876,7 @@ type RevokeInvitationRequest struct {
 
 func (x *RevokeInvitationRequest) Reset() {
 	*x = RevokeInvitationRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[46]
+	mi := &file_chores_v1_chores_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2783,7 +2888,7 @@ func (x *RevokeInvitationRequest) String() string {
 func (*RevokeInvitationRequest) ProtoMessage() {}
 
 func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[46]
+	mi := &file_chores_v1_chores_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2796,7 +2901,7 @@ func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationRequest.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{46}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *RevokeInvitationRequest) GetInvitationId() string {
@@ -2814,7 +2919,7 @@ type RevokeInvitationResponse struct {
 
 func (x *RevokeInvitationResponse) Reset() {
 	*x = RevokeInvitationResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[47]
+	mi := &file_chores_v1_chores_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2826,7 +2931,7 @@ func (x *RevokeInvitationResponse) String() string {
 func (*RevokeInvitationResponse) ProtoMessage() {}
 
 func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[47]
+	mi := &file_chores_v1_chores_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2839,7 +2944,7 @@ func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationResponse.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{47}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{48}
 }
 
 type AcceptInvitationRequest struct {
@@ -2851,7 +2956,7 @@ type AcceptInvitationRequest struct {
 
 func (x *AcceptInvitationRequest) Reset() {
 	*x = AcceptInvitationRequest{}
-	mi := &file_chores_v1_chores_proto_msgTypes[48]
+	mi := &file_chores_v1_chores_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2863,7 +2968,7 @@ func (x *AcceptInvitationRequest) String() string {
 func (*AcceptInvitationRequest) ProtoMessage() {}
 
 func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[48]
+	mi := &file_chores_v1_chores_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2876,7 +2981,7 @@ func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationRequest.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{48}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *AcceptInvitationRequest) GetToken() string {
@@ -2896,7 +3001,7 @@ type AcceptInvitationResponse struct {
 
 func (x *AcceptInvitationResponse) Reset() {
 	*x = AcceptInvitationResponse{}
-	mi := &file_chores_v1_chores_proto_msgTypes[49]
+	mi := &file_chores_v1_chores_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2908,7 +3013,7 @@ func (x *AcceptInvitationResponse) String() string {
 func (*AcceptInvitationResponse) ProtoMessage() {}
 
 func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chores_v1_chores_proto_msgTypes[49]
+	mi := &file_chores_v1_chores_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2921,7 +3026,7 @@ func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationResponse.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_chores_v1_chores_proto_rawDescGZIP(), []int{49}
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *AcceptInvitationResponse) GetUser() *User {
@@ -2942,7 +3047,10 @@ var File_chores_v1_chores_proto protoreflect.FileDescriptor
 
 const file_chores_v1_chores_proto_rawDesc = "" +
 	"\n" +
-	"\x16chores/v1/chores.proto\x12\tchores.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"g\n" +
+	"\x16chores/v1/chores.proto\x12\tchores.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"E\n" +
+	"\x04Icon\x12'\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x13.chores.v1.IconTypeR\x04type\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"g\n" +
 	"\x06Family\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
@@ -2957,7 +3065,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
 	"\x05email\x18\x06 \x01(\tR\x05email\x12\x1d\n" +
 	"\n" +
-	"auth_bound\x18\a \x01(\bR\tauthBound\"\xac\x02\n" +
+	"auth_bound\x18\a \x01(\bR\tauthBound\"\xbd\x02\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x14\n" +
@@ -2969,9 +3077,9 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x06active\x18\a \x01(\bR\x06active\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1b\n" +
-	"\tchild_ids\x18\t \x03(\tR\bchildIds\x12\x12\n" +
+	"\tchild_ids\x18\t \x03(\tR\bchildIds\x12#\n" +
 	"\x04icon\x18\n" +
-	" \x01(\tR\x04icon\"\xee\x01\n" +
+	" \x01(\v2\x0f.chores.v1.IconR\x04icon\"\xee\x01\n" +
 	"\x0eTaskCompletion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
@@ -3025,7 +3133,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10ListUsersRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
 	"\x11ListUsersResponse\x12%\n" +
-	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xd6\x01\n" +
+	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xe7\x01\n" +
 	"\x11CreateTaskRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3033,10 +3141,10 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x1b\n" +
-	"\tchild_ids\x18\x06 \x03(\tR\bchildIds\x12\x12\n" +
-	"\x04icon\x18\a \x01(\tR\x04icon\"9\n" +
+	"\tchild_ids\x18\x06 \x03(\tR\bchildIds\x12#\n" +
+	"\x04icon\x18\a \x01(\v2\x0f.chores.v1.IconR\x04icon\"9\n" +
 	"\x12CreateTaskResponse\x12#\n" +
-	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xea\x01\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xfb\x01\n" +
 	"\x11UpdateTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3045,8 +3153,8 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x16\n" +
 	"\x06active\x18\x06 \x01(\bR\x06active\x12\x1b\n" +
-	"\tchild_ids\x18\a \x03(\tR\bchildIds\x12\x12\n" +
-	"\x04icon\x18\b \x01(\tR\x04icon\"9\n" +
+	"\tchild_ids\x18\a \x03(\tR\bchildIds\x12#\n" +
+	"\x04icon\x18\b \x01(\v2\x0f.chores.v1.IconR\x04icon\"9\n" +
 	"\x12UpdateTaskResponse\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\",\n" +
 	"\x11DeleteTaskRequest\x12\x17\n" +
@@ -3149,7 +3257,11 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\bUserRole\x12\x19\n" +
 	"\x15USER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10USER_ROLE_PARENT\x10\x01\x12\x13\n" +
-	"\x0fUSER_ROLE_CHILD\x10\x022\x88\x0e\n" +
+	"\x0fUSER_ROLE_CHILD\x10\x02*V\n" +
+	"\bIconType\x12\x19\n" +
+	"\x15ICON_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fICON_TYPE_EMOJI\x10\x01\x12\x1a\n" +
+	"\x16ICON_TYPE_FONT_AWESOME\x10\x022\x88\x0e\n" +
 	"\rChoresService\x12O\n" +
 	"\fCreateFamily\x12\x1e.chores.v1.CreateFamilyRequest\x1a\x1f.chores.v1.CreateFamilyResponse\x12O\n" +
 	"\fListFamilies\x12\x1e.chores.v1.ListFamiliesRequest\x1a\x1f.chores.v1.ListFamiliesResponse\x12I\n" +
@@ -3189,146 +3301,152 @@ func file_chores_v1_chores_proto_rawDescGZIP() []byte {
 	return file_chores_v1_chores_proto_rawDescData
 }
 
-var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
+var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_chores_v1_chores_proto_goTypes = []any{
 	(UserRole)(0),                       // 0: chores.v1.UserRole
-	(*Family)(nil),                      // 1: chores.v1.Family
-	(*User)(nil),                        // 2: chores.v1.User
-	(*Task)(nil),                        // 3: chores.v1.Task
-	(*TaskCompletion)(nil),              // 4: chores.v1.TaskCompletion
-	(*Payout)(nil),                      // 5: chores.v1.Payout
-	(*ChildSummary)(nil),                // 6: chores.v1.ChildSummary
-	(*TaskOccurrence)(nil),              // 7: chores.v1.TaskOccurrence
-	(*CreateFamilyRequest)(nil),         // 8: chores.v1.CreateFamilyRequest
-	(*CreateFamilyResponse)(nil),        // 9: chores.v1.CreateFamilyResponse
-	(*ListFamiliesRequest)(nil),         // 10: chores.v1.ListFamiliesRequest
-	(*ListFamiliesResponse)(nil),        // 11: chores.v1.ListFamiliesResponse
-	(*CreateUserRequest)(nil),           // 12: chores.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),          // 13: chores.v1.CreateUserResponse
-	(*ListUsersRequest)(nil),            // 14: chores.v1.ListUsersRequest
-	(*ListUsersResponse)(nil),           // 15: chores.v1.ListUsersResponse
-	(*CreateTaskRequest)(nil),           // 16: chores.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),          // 17: chores.v1.CreateTaskResponse
-	(*UpdateTaskRequest)(nil),           // 18: chores.v1.UpdateTaskRequest
-	(*UpdateTaskResponse)(nil),          // 19: chores.v1.UpdateTaskResponse
-	(*DeleteTaskRequest)(nil),           // 20: chores.v1.DeleteTaskRequest
-	(*DeleteTaskResponse)(nil),          // 21: chores.v1.DeleteTaskResponse
-	(*ListTasksRequest)(nil),            // 22: chores.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),           // 23: chores.v1.ListTasksResponse
-	(*ListTaskOccurrencesRequest)(nil),  // 24: chores.v1.ListTaskOccurrencesRequest
-	(*ListTaskOccurrencesResponse)(nil), // 25: chores.v1.ListTaskOccurrencesResponse
-	(*CompleteTaskRequest)(nil),         // 26: chores.v1.CompleteTaskRequest
-	(*CompleteTaskResponse)(nil),        // 27: chores.v1.CompleteTaskResponse
-	(*UncompleteTaskRequest)(nil),       // 28: chores.v1.UncompleteTaskRequest
-	(*UncompleteTaskResponse)(nil),      // 29: chores.v1.UncompleteTaskResponse
-	(*ListTaskCompletionsRequest)(nil),  // 30: chores.v1.ListTaskCompletionsRequest
-	(*ListTaskCompletionsResponse)(nil), // 31: chores.v1.ListTaskCompletionsResponse
-	(*GetChildSummaryRequest)(nil),      // 32: chores.v1.GetChildSummaryRequest
-	(*GetChildSummaryResponse)(nil),     // 33: chores.v1.GetChildSummaryResponse
-	(*ListChildSummariesRequest)(nil),   // 34: chores.v1.ListChildSummariesRequest
-	(*ListChildSummariesResponse)(nil),  // 35: chores.v1.ListChildSummariesResponse
-	(*CreatePayoutRequest)(nil),         // 36: chores.v1.CreatePayoutRequest
-	(*CreatePayoutResponse)(nil),        // 37: chores.v1.CreatePayoutResponse
-	(*ListPayoutsRequest)(nil),          // 38: chores.v1.ListPayoutsRequest
-	(*ListPayoutsResponse)(nil),         // 39: chores.v1.ListPayoutsResponse
-	(*GetMyMembershipRequest)(nil),      // 40: chores.v1.GetMyMembershipRequest
-	(*GetMyMembershipResponse)(nil),     // 41: chores.v1.GetMyMembershipResponse
-	(*Invitation)(nil),                  // 42: chores.v1.Invitation
-	(*CreateInvitationRequest)(nil),     // 43: chores.v1.CreateInvitationRequest
-	(*CreateInvitationResponse)(nil),    // 44: chores.v1.CreateInvitationResponse
-	(*ListInvitationsRequest)(nil),      // 45: chores.v1.ListInvitationsRequest
-	(*ListInvitationsResponse)(nil),     // 46: chores.v1.ListInvitationsResponse
-	(*RevokeInvitationRequest)(nil),     // 47: chores.v1.RevokeInvitationRequest
-	(*RevokeInvitationResponse)(nil),    // 48: chores.v1.RevokeInvitationResponse
-	(*AcceptInvitationRequest)(nil),     // 49: chores.v1.AcceptInvitationRequest
-	(*AcceptInvitationResponse)(nil),    // 50: chores.v1.AcceptInvitationResponse
-	(*timestamppb.Timestamp)(nil),       // 51: google.protobuf.Timestamp
+	(IconType)(0),                       // 1: chores.v1.IconType
+	(*Icon)(nil),                        // 2: chores.v1.Icon
+	(*Family)(nil),                      // 3: chores.v1.Family
+	(*User)(nil),                        // 4: chores.v1.User
+	(*Task)(nil),                        // 5: chores.v1.Task
+	(*TaskCompletion)(nil),              // 6: chores.v1.TaskCompletion
+	(*Payout)(nil),                      // 7: chores.v1.Payout
+	(*ChildSummary)(nil),                // 8: chores.v1.ChildSummary
+	(*TaskOccurrence)(nil),              // 9: chores.v1.TaskOccurrence
+	(*CreateFamilyRequest)(nil),         // 10: chores.v1.CreateFamilyRequest
+	(*CreateFamilyResponse)(nil),        // 11: chores.v1.CreateFamilyResponse
+	(*ListFamiliesRequest)(nil),         // 12: chores.v1.ListFamiliesRequest
+	(*ListFamiliesResponse)(nil),        // 13: chores.v1.ListFamiliesResponse
+	(*CreateUserRequest)(nil),           // 14: chores.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),          // 15: chores.v1.CreateUserResponse
+	(*ListUsersRequest)(nil),            // 16: chores.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),           // 17: chores.v1.ListUsersResponse
+	(*CreateTaskRequest)(nil),           // 18: chores.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),          // 19: chores.v1.CreateTaskResponse
+	(*UpdateTaskRequest)(nil),           // 20: chores.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil),          // 21: chores.v1.UpdateTaskResponse
+	(*DeleteTaskRequest)(nil),           // 22: chores.v1.DeleteTaskRequest
+	(*DeleteTaskResponse)(nil),          // 23: chores.v1.DeleteTaskResponse
+	(*ListTasksRequest)(nil),            // 24: chores.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),           // 25: chores.v1.ListTasksResponse
+	(*ListTaskOccurrencesRequest)(nil),  // 26: chores.v1.ListTaskOccurrencesRequest
+	(*ListTaskOccurrencesResponse)(nil), // 27: chores.v1.ListTaskOccurrencesResponse
+	(*CompleteTaskRequest)(nil),         // 28: chores.v1.CompleteTaskRequest
+	(*CompleteTaskResponse)(nil),        // 29: chores.v1.CompleteTaskResponse
+	(*UncompleteTaskRequest)(nil),       // 30: chores.v1.UncompleteTaskRequest
+	(*UncompleteTaskResponse)(nil),      // 31: chores.v1.UncompleteTaskResponse
+	(*ListTaskCompletionsRequest)(nil),  // 32: chores.v1.ListTaskCompletionsRequest
+	(*ListTaskCompletionsResponse)(nil), // 33: chores.v1.ListTaskCompletionsResponse
+	(*GetChildSummaryRequest)(nil),      // 34: chores.v1.GetChildSummaryRequest
+	(*GetChildSummaryResponse)(nil),     // 35: chores.v1.GetChildSummaryResponse
+	(*ListChildSummariesRequest)(nil),   // 36: chores.v1.ListChildSummariesRequest
+	(*ListChildSummariesResponse)(nil),  // 37: chores.v1.ListChildSummariesResponse
+	(*CreatePayoutRequest)(nil),         // 38: chores.v1.CreatePayoutRequest
+	(*CreatePayoutResponse)(nil),        // 39: chores.v1.CreatePayoutResponse
+	(*ListPayoutsRequest)(nil),          // 40: chores.v1.ListPayoutsRequest
+	(*ListPayoutsResponse)(nil),         // 41: chores.v1.ListPayoutsResponse
+	(*GetMyMembershipRequest)(nil),      // 42: chores.v1.GetMyMembershipRequest
+	(*GetMyMembershipResponse)(nil),     // 43: chores.v1.GetMyMembershipResponse
+	(*Invitation)(nil),                  // 44: chores.v1.Invitation
+	(*CreateInvitationRequest)(nil),     // 45: chores.v1.CreateInvitationRequest
+	(*CreateInvitationResponse)(nil),    // 46: chores.v1.CreateInvitationResponse
+	(*ListInvitationsRequest)(nil),      // 47: chores.v1.ListInvitationsRequest
+	(*ListInvitationsResponse)(nil),     // 48: chores.v1.ListInvitationsResponse
+	(*RevokeInvitationRequest)(nil),     // 49: chores.v1.RevokeInvitationRequest
+	(*RevokeInvitationResponse)(nil),    // 50: chores.v1.RevokeInvitationResponse
+	(*AcceptInvitationRequest)(nil),     // 51: chores.v1.AcceptInvitationRequest
+	(*AcceptInvitationResponse)(nil),    // 52: chores.v1.AcceptInvitationResponse
+	(*timestamppb.Timestamp)(nil),       // 53: google.protobuf.Timestamp
 }
 var file_chores_v1_chores_proto_depIdxs = []int32{
-	51, // 0: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 1: chores.v1.User.role:type_name -> chores.v1.UserRole
-	51, // 2: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	51, // 3: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	51, // 4: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	51, // 5: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
-	2,  // 6: chores.v1.ChildSummary.child:type_name -> chores.v1.User
-	51, // 7: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
-	3,  // 8: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
-	4,  // 9: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
-	1,  // 10: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
-	1,  // 11: chores.v1.ListFamiliesResponse.families:type_name -> chores.v1.Family
-	0,  // 12: chores.v1.CreateUserRequest.role:type_name -> chores.v1.UserRole
-	2,  // 13: chores.v1.CreateUserResponse.user:type_name -> chores.v1.User
-	2,  // 14: chores.v1.ListUsersResponse.users:type_name -> chores.v1.User
-	3,  // 15: chores.v1.CreateTaskResponse.task:type_name -> chores.v1.Task
-	3,  // 16: chores.v1.UpdateTaskResponse.task:type_name -> chores.v1.Task
-	3,  // 17: chores.v1.ListTasksResponse.tasks:type_name -> chores.v1.Task
-	7,  // 18: chores.v1.ListTaskOccurrencesResponse.occurrences:type_name -> chores.v1.TaskOccurrence
-	4,  // 19: chores.v1.CompleteTaskResponse.completion:type_name -> chores.v1.TaskCompletion
-	4,  // 20: chores.v1.ListTaskCompletionsResponse.completions:type_name -> chores.v1.TaskCompletion
-	6,  // 21: chores.v1.GetChildSummaryResponse.summary:type_name -> chores.v1.ChildSummary
-	6,  // 22: chores.v1.ListChildSummariesResponse.summaries:type_name -> chores.v1.ChildSummary
-	5,  // 23: chores.v1.CreatePayoutResponse.payout:type_name -> chores.v1.Payout
-	5,  // 24: chores.v1.ListPayoutsResponse.payouts:type_name -> chores.v1.Payout
-	2,  // 25: chores.v1.GetMyMembershipResponse.user:type_name -> chores.v1.User
-	1,  // 26: chores.v1.GetMyMembershipResponse.family:type_name -> chores.v1.Family
-	51, // 27: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	51, // 28: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	51, // 29: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
-	0,  // 30: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
-	0,  // 31: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
-	42, // 32: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
-	42, // 33: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
-	2,  // 34: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
-	1,  // 35: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
-	8,  // 36: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
-	10, // 37: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
-	12, // 38: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
-	14, // 39: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
-	16, // 40: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
-	18, // 41: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
-	20, // 42: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
-	22, // 43: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
-	24, // 44: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
-	26, // 45: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
-	28, // 46: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
-	30, // 47: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
-	32, // 48: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
-	34, // 49: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
-	36, // 50: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
-	38, // 51: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
-	40, // 52: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
-	43, // 53: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
-	45, // 54: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
-	47, // 55: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
-	49, // 56: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
-	9,  // 57: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
-	11, // 58: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
-	13, // 59: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
-	15, // 60: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
-	17, // 61: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
-	19, // 62: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
-	21, // 63: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
-	23, // 64: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
-	25, // 65: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
-	27, // 66: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
-	29, // 67: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
-	31, // 68: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
-	33, // 69: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
-	35, // 70: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
-	37, // 71: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
-	39, // 72: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
-	41, // 73: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
-	44, // 74: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
-	46, // 75: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
-	48, // 76: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
-	50, // 77: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
-	57, // [57:78] is the sub-list for method output_type
-	36, // [36:57] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	1,  // 0: chores.v1.Icon.type:type_name -> chores.v1.IconType
+	53, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 2: chores.v1.User.role:type_name -> chores.v1.UserRole
+	53, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	53, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	2,  // 5: chores.v1.Task.icon:type_name -> chores.v1.Icon
+	53, // 6: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	53, // 7: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
+	4,  // 8: chores.v1.ChildSummary.child:type_name -> chores.v1.User
+	53, // 9: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
+	5,  // 10: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
+	6,  // 11: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
+	3,  // 12: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
+	3,  // 13: chores.v1.ListFamiliesResponse.families:type_name -> chores.v1.Family
+	0,  // 14: chores.v1.CreateUserRequest.role:type_name -> chores.v1.UserRole
+	4,  // 15: chores.v1.CreateUserResponse.user:type_name -> chores.v1.User
+	4,  // 16: chores.v1.ListUsersResponse.users:type_name -> chores.v1.User
+	2,  // 17: chores.v1.CreateTaskRequest.icon:type_name -> chores.v1.Icon
+	5,  // 18: chores.v1.CreateTaskResponse.task:type_name -> chores.v1.Task
+	2,  // 19: chores.v1.UpdateTaskRequest.icon:type_name -> chores.v1.Icon
+	5,  // 20: chores.v1.UpdateTaskResponse.task:type_name -> chores.v1.Task
+	5,  // 21: chores.v1.ListTasksResponse.tasks:type_name -> chores.v1.Task
+	9,  // 22: chores.v1.ListTaskOccurrencesResponse.occurrences:type_name -> chores.v1.TaskOccurrence
+	6,  // 23: chores.v1.CompleteTaskResponse.completion:type_name -> chores.v1.TaskCompletion
+	6,  // 24: chores.v1.ListTaskCompletionsResponse.completions:type_name -> chores.v1.TaskCompletion
+	8,  // 25: chores.v1.GetChildSummaryResponse.summary:type_name -> chores.v1.ChildSummary
+	8,  // 26: chores.v1.ListChildSummariesResponse.summaries:type_name -> chores.v1.ChildSummary
+	7,  // 27: chores.v1.CreatePayoutResponse.payout:type_name -> chores.v1.Payout
+	7,  // 28: chores.v1.ListPayoutsResponse.payouts:type_name -> chores.v1.Payout
+	4,  // 29: chores.v1.GetMyMembershipResponse.user:type_name -> chores.v1.User
+	3,  // 30: chores.v1.GetMyMembershipResponse.family:type_name -> chores.v1.Family
+	53, // 31: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	53, // 32: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	53, // 33: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
+	0,  // 34: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
+	0,  // 35: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
+	44, // 36: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
+	44, // 37: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
+	4,  // 38: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
+	3,  // 39: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
+	10, // 40: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
+	12, // 41: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
+	14, // 42: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
+	16, // 43: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
+	18, // 44: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
+	20, // 45: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
+	22, // 46: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
+	24, // 47: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
+	26, // 48: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
+	28, // 49: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
+	30, // 50: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
+	32, // 51: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
+	34, // 52: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
+	36, // 53: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
+	38, // 54: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
+	40, // 55: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
+	42, // 56: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
+	45, // 57: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
+	47, // 58: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
+	49, // 59: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
+	51, // 60: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
+	11, // 61: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
+	13, // 62: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
+	15, // 63: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
+	17, // 64: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
+	19, // 65: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
+	21, // 66: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
+	23, // 67: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
+	25, // 68: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
+	27, // 69: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
+	29, // 70: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
+	31, // 71: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
+	33, // 72: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
+	35, // 73: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
+	37, // 74: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
+	39, // 75: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
+	41, // 76: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
+	43, // 77: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
+	46, // 78: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
+	48, // 79: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
+	50, // 80: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
+	52, // 81: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
+	61, // [61:82] is the sub-list for method output_type
+	40, // [40:61] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_chores_v1_chores_proto_init() }
@@ -3341,8 +3459,8 @@ func file_chores_v1_chores_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chores_v1_chores_proto_rawDesc), len(file_chores_v1_chores_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   50,
+			NumEnums:      2,
+			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

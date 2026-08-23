@@ -58,9 +58,26 @@ func migrate(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	if !taskCols["icon"] {
-		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN icon TEXT NOT NULL DEFAULT ''`); err != nil {
-			return fmt.Errorf("add tasks.icon: %w", err)
+	if !taskCols["icon_type"] {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN icon_type TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add tasks.icon_type: %w", err)
+		}
+	}
+	if !taskCols["icon_value"] {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN icon_value TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add tasks.icon_value: %w", err)
+		}
+	}
+	// Superseded by icon_type/icon_value (which distinguish emoji from
+	// Font Awesome icons), but a database from that brief window has an
+	// "icon" column holding a bare emoji string. Bring it forward once;
+	// harmless to leave the old column in place afterwards.
+	if taskCols["icon"] {
+		if _, err := db.Exec(`
+			UPDATE tasks SET icon_type = 'emoji', icon_value = icon
+			WHERE icon_type = '' AND icon != ''
+		`); err != nil {
+			return fmt.Errorf("backfill tasks.icon_type/icon_value: %w", err)
 		}
 	}
 

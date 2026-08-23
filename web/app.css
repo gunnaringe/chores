@@ -117,6 +117,10 @@ label {
 }
 .tabs button { background: transparent; color: var(--muted); border-color: var(--border); }
 .tabs button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.icon-type-toggle { display: flex; gap: 6px; margin: 6px 0; }
+.icon-type-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.icon-choices { display: flex; flex-wrap: wrap; gap: 4px; }
+.icon-choices button { padding: 4px 8px; }
 .stat {
   text-align: center;
 }
