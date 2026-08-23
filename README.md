@@ -11,13 +11,17 @@ Buf-generated Connect API.
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
 
-When Auth0 is enabled, each parent's login is bound to a specific parent
-record: the first parent to log in creates the family and is bound to it
-automatically, and any other parent joins via a one-time invite link. Once
-bound, a login only ever sees its own family — every API call is checked
-server-side. Children still don't log in themselves; a bound parent's
-session can act as any child in their family via the in-app picker (handing
-the device to a kid to mark a chore done, for example).
+When Auth0 is enabled, a login is bound to a specific family member: the
+first parent to log in creates the family and is bound to it automatically,
+and anyone else — another parent, or a child old enough to have their own
+account — joins via a one-time invite link. Once bound, a login only ever
+sees its own family, and the server enforces role restrictions regardless
+of what the UI shows: only parents can manage tasks, family members, and
+payouts, and a bound child's login can only ever act on their own tasks and
+accounting, never a sibling's. Children don't have to log in individually,
+though — a bound parent's session can still act as any unbound child in
+their family via the in-app picker (handing the device to a kid to mark a
+chore done, for example).
 
 ## Running
 
@@ -71,16 +75,18 @@ profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
 don't survive a server restart. `/auth/logout` clears the session and signs
 out of Auth0 too.
 
-### Inviting another parent
+### Inviting a family member
 
-From the Family tab, a parent can create an invite link for a second parent
-(e.g. the other guardian). The link is a one-time, unguessable token
+From the Family tab, a parent can create an invite link for another parent
+(e.g. the other guardian) or for a child old enough to have their own Auth0
+account. The link is a one-time, unguessable token
 (`/invite/accept?token=...`) — whoever opens it, after logging into their
-own Auth0 account, is bound to that parent slot in the same family. The
-token is shown once at creation time; a parent can revoke an invite before
-it's accepted, which also removes the unclaimed slot it created. Accepting
-an invite isn't restricted to any particular email address — possession of
-the link is what grants access, so only share it with the intended person.
+own Auth0 account, is bound to that slot in the same family, with the role
+the invite was created for. The token is shown once at creation time; a
+parent can revoke an invite before it's accepted, which also removes the
+unclaimed slot it created. Accepting an invite isn't restricted to any
+particular email address — possession of the link is what grants access, so
+only share it with the intended person.
 
 ## Regenerating the Connect/protobuf code
 

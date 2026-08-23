@@ -2345,8 +2345,8 @@ func (x *GetMyMembershipResponse) GetFamily() *Family {
 
 // An invitation grants whoever holds its (unguessable, single-use) token
 // the ability to bind their login identity to user_id — an unclaimed
-// parent slot in family_id. The token itself is only ever returned once,
-// from CreateInvitation.
+// parent or child slot in family_id. The token itself is only ever
+// returned once, from CreateInvitation.
 type Invitation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -2357,6 +2357,7 @@ type Invitation struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	AcceptedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=accepted_at,json=acceptedAt,proto3" json:"accepted_at,omitempty"`
+	Role          UserRole               `protobuf:"varint,9,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2447,14 +2448,24 @@ func (x *Invitation) GetAcceptedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Invitation) GetRole() UserRole {
+	if x != nil {
+		return x.Role
+	}
+	return UserRole_USER_ROLE_UNSPECIFIED
+}
+
 type CreateInvitationRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	FamilyId string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
-	// Display name for the new parent slot this invitation grants access to.
+	// Display name for the new slot this invitation grants access to.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Informational only (shown in the pending-invites list) — accepting an
 	// invitation is not restricted to any particular login's email address.
-	Email         string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	Email string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	// Must be PARENT or CHILD. Only parents may create invitations of either
+	// kind.
+	Role          UserRole `protobuf:"varint,4,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2508,6 +2519,13 @@ func (x *CreateInvitationRequest) GetEmail() string {
 		return x.Email
 	}
 	return ""
+}
+
+func (x *CreateInvitationRequest) GetRole() UserRole {
+	if x != nil {
+		return x.Role
+	}
+	return UserRole_USER_ROLE_UNSPECIFIED
 }
 
 type CreateInvitationResponse struct {
@@ -2995,7 +3013,7 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\x17GetMyMembershipResponse\x12\x14\n" +
 	"\x05bound\x18\x01 \x01(\bR\x05bound\x12$\n" +
 	"\x04user\x18\x02 \x01(\v2\x10.ukelonn.v1.UserR\x04user\x12*\n" +
-	"\x06family\x18\x03 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family\"\xb8\x02\n" +
+	"\x06family\x18\x03 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family\"\xe2\x02\n" +
 	"\n" +
 	"Invitation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -3008,11 +3026,13 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12;\n" +
 	"\vaccepted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"acceptedAt\"`\n" +
+	"acceptedAt\x12(\n" +
+	"\x04role\x18\t \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\"\x8a\x01\n" +
 	"\x17CreateInvitationRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05email\x18\x03 \x01(\tR\x05email\"\x89\x01\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12(\n" +
+	"\x04role\x18\x04 \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\"\x89\x01\n" +
 	"\x18CreateInvitationResponse\x126\n" +
 	"\n" +
 	"invitation\x18\x01 \x01(\v2\x16.ukelonn.v1.InvitationR\n" +
@@ -3162,57 +3182,59 @@ var file_ukelonn_v1_ukelonn_proto_depIdxs = []int32{
 	51, // 27: ukelonn.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
 	51, // 28: ukelonn.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
 	51, // 29: ukelonn.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
-	42, // 30: ukelonn.v1.CreateInvitationResponse.invitation:type_name -> ukelonn.v1.Invitation
-	42, // 31: ukelonn.v1.ListInvitationsResponse.invitations:type_name -> ukelonn.v1.Invitation
-	2,  // 32: ukelonn.v1.AcceptInvitationResponse.user:type_name -> ukelonn.v1.User
-	1,  // 33: ukelonn.v1.AcceptInvitationResponse.family:type_name -> ukelonn.v1.Family
-	8,  // 34: ukelonn.v1.UkelonnService.CreateFamily:input_type -> ukelonn.v1.CreateFamilyRequest
-	10, // 35: ukelonn.v1.UkelonnService.ListFamilies:input_type -> ukelonn.v1.ListFamiliesRequest
-	12, // 36: ukelonn.v1.UkelonnService.CreateUser:input_type -> ukelonn.v1.CreateUserRequest
-	14, // 37: ukelonn.v1.UkelonnService.ListUsers:input_type -> ukelonn.v1.ListUsersRequest
-	16, // 38: ukelonn.v1.UkelonnService.CreateTask:input_type -> ukelonn.v1.CreateTaskRequest
-	18, // 39: ukelonn.v1.UkelonnService.UpdateTask:input_type -> ukelonn.v1.UpdateTaskRequest
-	20, // 40: ukelonn.v1.UkelonnService.DeleteTask:input_type -> ukelonn.v1.DeleteTaskRequest
-	22, // 41: ukelonn.v1.UkelonnService.ListTasks:input_type -> ukelonn.v1.ListTasksRequest
-	24, // 42: ukelonn.v1.UkelonnService.ListTaskOccurrences:input_type -> ukelonn.v1.ListTaskOccurrencesRequest
-	26, // 43: ukelonn.v1.UkelonnService.CompleteTask:input_type -> ukelonn.v1.CompleteTaskRequest
-	28, // 44: ukelonn.v1.UkelonnService.UncompleteTask:input_type -> ukelonn.v1.UncompleteTaskRequest
-	30, // 45: ukelonn.v1.UkelonnService.ListTaskCompletions:input_type -> ukelonn.v1.ListTaskCompletionsRequest
-	32, // 46: ukelonn.v1.UkelonnService.GetChildSummary:input_type -> ukelonn.v1.GetChildSummaryRequest
-	34, // 47: ukelonn.v1.UkelonnService.ListChildSummaries:input_type -> ukelonn.v1.ListChildSummariesRequest
-	36, // 48: ukelonn.v1.UkelonnService.CreatePayout:input_type -> ukelonn.v1.CreatePayoutRequest
-	38, // 49: ukelonn.v1.UkelonnService.ListPayouts:input_type -> ukelonn.v1.ListPayoutsRequest
-	40, // 50: ukelonn.v1.UkelonnService.GetMyMembership:input_type -> ukelonn.v1.GetMyMembershipRequest
-	43, // 51: ukelonn.v1.UkelonnService.CreateInvitation:input_type -> ukelonn.v1.CreateInvitationRequest
-	45, // 52: ukelonn.v1.UkelonnService.ListInvitations:input_type -> ukelonn.v1.ListInvitationsRequest
-	47, // 53: ukelonn.v1.UkelonnService.RevokeInvitation:input_type -> ukelonn.v1.RevokeInvitationRequest
-	49, // 54: ukelonn.v1.UkelonnService.AcceptInvitation:input_type -> ukelonn.v1.AcceptInvitationRequest
-	9,  // 55: ukelonn.v1.UkelonnService.CreateFamily:output_type -> ukelonn.v1.CreateFamilyResponse
-	11, // 56: ukelonn.v1.UkelonnService.ListFamilies:output_type -> ukelonn.v1.ListFamiliesResponse
-	13, // 57: ukelonn.v1.UkelonnService.CreateUser:output_type -> ukelonn.v1.CreateUserResponse
-	15, // 58: ukelonn.v1.UkelonnService.ListUsers:output_type -> ukelonn.v1.ListUsersResponse
-	17, // 59: ukelonn.v1.UkelonnService.CreateTask:output_type -> ukelonn.v1.CreateTaskResponse
-	19, // 60: ukelonn.v1.UkelonnService.UpdateTask:output_type -> ukelonn.v1.UpdateTaskResponse
-	21, // 61: ukelonn.v1.UkelonnService.DeleteTask:output_type -> ukelonn.v1.DeleteTaskResponse
-	23, // 62: ukelonn.v1.UkelonnService.ListTasks:output_type -> ukelonn.v1.ListTasksResponse
-	25, // 63: ukelonn.v1.UkelonnService.ListTaskOccurrences:output_type -> ukelonn.v1.ListTaskOccurrencesResponse
-	27, // 64: ukelonn.v1.UkelonnService.CompleteTask:output_type -> ukelonn.v1.CompleteTaskResponse
-	29, // 65: ukelonn.v1.UkelonnService.UncompleteTask:output_type -> ukelonn.v1.UncompleteTaskResponse
-	31, // 66: ukelonn.v1.UkelonnService.ListTaskCompletions:output_type -> ukelonn.v1.ListTaskCompletionsResponse
-	33, // 67: ukelonn.v1.UkelonnService.GetChildSummary:output_type -> ukelonn.v1.GetChildSummaryResponse
-	35, // 68: ukelonn.v1.UkelonnService.ListChildSummaries:output_type -> ukelonn.v1.ListChildSummariesResponse
-	37, // 69: ukelonn.v1.UkelonnService.CreatePayout:output_type -> ukelonn.v1.CreatePayoutResponse
-	39, // 70: ukelonn.v1.UkelonnService.ListPayouts:output_type -> ukelonn.v1.ListPayoutsResponse
-	41, // 71: ukelonn.v1.UkelonnService.GetMyMembership:output_type -> ukelonn.v1.GetMyMembershipResponse
-	44, // 72: ukelonn.v1.UkelonnService.CreateInvitation:output_type -> ukelonn.v1.CreateInvitationResponse
-	46, // 73: ukelonn.v1.UkelonnService.ListInvitations:output_type -> ukelonn.v1.ListInvitationsResponse
-	48, // 74: ukelonn.v1.UkelonnService.RevokeInvitation:output_type -> ukelonn.v1.RevokeInvitationResponse
-	50, // 75: ukelonn.v1.UkelonnService.AcceptInvitation:output_type -> ukelonn.v1.AcceptInvitationResponse
-	55, // [55:76] is the sub-list for method output_type
-	34, // [34:55] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	0,  // 30: ukelonn.v1.Invitation.role:type_name -> ukelonn.v1.UserRole
+	0,  // 31: ukelonn.v1.CreateInvitationRequest.role:type_name -> ukelonn.v1.UserRole
+	42, // 32: ukelonn.v1.CreateInvitationResponse.invitation:type_name -> ukelonn.v1.Invitation
+	42, // 33: ukelonn.v1.ListInvitationsResponse.invitations:type_name -> ukelonn.v1.Invitation
+	2,  // 34: ukelonn.v1.AcceptInvitationResponse.user:type_name -> ukelonn.v1.User
+	1,  // 35: ukelonn.v1.AcceptInvitationResponse.family:type_name -> ukelonn.v1.Family
+	8,  // 36: ukelonn.v1.UkelonnService.CreateFamily:input_type -> ukelonn.v1.CreateFamilyRequest
+	10, // 37: ukelonn.v1.UkelonnService.ListFamilies:input_type -> ukelonn.v1.ListFamiliesRequest
+	12, // 38: ukelonn.v1.UkelonnService.CreateUser:input_type -> ukelonn.v1.CreateUserRequest
+	14, // 39: ukelonn.v1.UkelonnService.ListUsers:input_type -> ukelonn.v1.ListUsersRequest
+	16, // 40: ukelonn.v1.UkelonnService.CreateTask:input_type -> ukelonn.v1.CreateTaskRequest
+	18, // 41: ukelonn.v1.UkelonnService.UpdateTask:input_type -> ukelonn.v1.UpdateTaskRequest
+	20, // 42: ukelonn.v1.UkelonnService.DeleteTask:input_type -> ukelonn.v1.DeleteTaskRequest
+	22, // 43: ukelonn.v1.UkelonnService.ListTasks:input_type -> ukelonn.v1.ListTasksRequest
+	24, // 44: ukelonn.v1.UkelonnService.ListTaskOccurrences:input_type -> ukelonn.v1.ListTaskOccurrencesRequest
+	26, // 45: ukelonn.v1.UkelonnService.CompleteTask:input_type -> ukelonn.v1.CompleteTaskRequest
+	28, // 46: ukelonn.v1.UkelonnService.UncompleteTask:input_type -> ukelonn.v1.UncompleteTaskRequest
+	30, // 47: ukelonn.v1.UkelonnService.ListTaskCompletions:input_type -> ukelonn.v1.ListTaskCompletionsRequest
+	32, // 48: ukelonn.v1.UkelonnService.GetChildSummary:input_type -> ukelonn.v1.GetChildSummaryRequest
+	34, // 49: ukelonn.v1.UkelonnService.ListChildSummaries:input_type -> ukelonn.v1.ListChildSummariesRequest
+	36, // 50: ukelonn.v1.UkelonnService.CreatePayout:input_type -> ukelonn.v1.CreatePayoutRequest
+	38, // 51: ukelonn.v1.UkelonnService.ListPayouts:input_type -> ukelonn.v1.ListPayoutsRequest
+	40, // 52: ukelonn.v1.UkelonnService.GetMyMembership:input_type -> ukelonn.v1.GetMyMembershipRequest
+	43, // 53: ukelonn.v1.UkelonnService.CreateInvitation:input_type -> ukelonn.v1.CreateInvitationRequest
+	45, // 54: ukelonn.v1.UkelonnService.ListInvitations:input_type -> ukelonn.v1.ListInvitationsRequest
+	47, // 55: ukelonn.v1.UkelonnService.RevokeInvitation:input_type -> ukelonn.v1.RevokeInvitationRequest
+	49, // 56: ukelonn.v1.UkelonnService.AcceptInvitation:input_type -> ukelonn.v1.AcceptInvitationRequest
+	9,  // 57: ukelonn.v1.UkelonnService.CreateFamily:output_type -> ukelonn.v1.CreateFamilyResponse
+	11, // 58: ukelonn.v1.UkelonnService.ListFamilies:output_type -> ukelonn.v1.ListFamiliesResponse
+	13, // 59: ukelonn.v1.UkelonnService.CreateUser:output_type -> ukelonn.v1.CreateUserResponse
+	15, // 60: ukelonn.v1.UkelonnService.ListUsers:output_type -> ukelonn.v1.ListUsersResponse
+	17, // 61: ukelonn.v1.UkelonnService.CreateTask:output_type -> ukelonn.v1.CreateTaskResponse
+	19, // 62: ukelonn.v1.UkelonnService.UpdateTask:output_type -> ukelonn.v1.UpdateTaskResponse
+	21, // 63: ukelonn.v1.UkelonnService.DeleteTask:output_type -> ukelonn.v1.DeleteTaskResponse
+	23, // 64: ukelonn.v1.UkelonnService.ListTasks:output_type -> ukelonn.v1.ListTasksResponse
+	25, // 65: ukelonn.v1.UkelonnService.ListTaskOccurrences:output_type -> ukelonn.v1.ListTaskOccurrencesResponse
+	27, // 66: ukelonn.v1.UkelonnService.CompleteTask:output_type -> ukelonn.v1.CompleteTaskResponse
+	29, // 67: ukelonn.v1.UkelonnService.UncompleteTask:output_type -> ukelonn.v1.UncompleteTaskResponse
+	31, // 68: ukelonn.v1.UkelonnService.ListTaskCompletions:output_type -> ukelonn.v1.ListTaskCompletionsResponse
+	33, // 69: ukelonn.v1.UkelonnService.GetChildSummary:output_type -> ukelonn.v1.GetChildSummaryResponse
+	35, // 70: ukelonn.v1.UkelonnService.ListChildSummaries:output_type -> ukelonn.v1.ListChildSummariesResponse
+	37, // 71: ukelonn.v1.UkelonnService.CreatePayout:output_type -> ukelonn.v1.CreatePayoutResponse
+	39, // 72: ukelonn.v1.UkelonnService.ListPayouts:output_type -> ukelonn.v1.ListPayoutsResponse
+	41, // 73: ukelonn.v1.UkelonnService.GetMyMembership:output_type -> ukelonn.v1.GetMyMembershipResponse
+	44, // 74: ukelonn.v1.UkelonnService.CreateInvitation:output_type -> ukelonn.v1.CreateInvitationResponse
+	46, // 75: ukelonn.v1.UkelonnService.ListInvitations:output_type -> ukelonn.v1.ListInvitationsResponse
+	48, // 76: ukelonn.v1.UkelonnService.RevokeInvitation:output_type -> ukelonn.v1.RevokeInvitationResponse
+	50, // 77: ukelonn.v1.UkelonnService.AcceptInvitation:output_type -> ukelonn.v1.AcceptInvitationResponse
+	57, // [57:78] is the sub-list for method output_type
+	36, // [36:57] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_ukelonn_v1_ukelonn_proto_init() }

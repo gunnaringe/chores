@@ -233,8 +233,8 @@ message GetMyMembershipResponse {
 
 // An invitation grants whoever holds its (unguessable, single-use) token
 // the ability to bind their login identity to user_id — an unclaimed
-// parent slot in family_id. The token itself is only ever returned once,
-// from CreateInvitation.
+// parent or child slot in family_id. The token itself is only ever
+// returned once, from CreateInvitation.
 message Invitation {
   string id = 1;
   string family_id = 2;
@@ -244,15 +244,19 @@ message Invitation {
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp expires_at = 7;
   google.protobuf.Timestamp accepted_at = 8;
+  UserRole role = 9;
 }
 
 message CreateInvitationRequest {
   string family_id = 1;
-  // Display name for the new parent slot this invitation grants access to.
+  // Display name for the new slot this invitation grants access to.
   string name = 2;
   // Informational only (shown in the pending-invites list) — accepting an
   // invitation is not restricted to any particular login's email address.
   string email = 3;
+  // Must be PARENT or CHILD. Only parents may create invitations of either
+  // kind.
+  UserRole role = 4;
 }
 message CreateInvitationResponse {
   Invitation invitation = 1;

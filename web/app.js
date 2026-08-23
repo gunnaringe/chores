@@ -416,21 +416,28 @@ function renderAddUserForm() {
 function renderTopbar() {
   const family = state.families.find((f) => f.id === state.familyId);
   const user = currentUser();
+  // A bound child's login can only ever act as themselves — the switcher
+  // is only useful (and only allowed server-side) for a bound parent
+  // acting on behalf of a child who doesn't have their own login, or in
+  // local-testing mode where there's no login binding at all.
+  const canSwitch = !isAuth0Mode() || isParent();
+  const switchBtn = canSwitch ? `<button class="secondary" id="switch-user">Switch user</button>` : "";
   const bar = el(`
     <div class="topbar">
       <div>
         <h1>${escapeHtml(family ? family.name : "Ukelønn")}</h1>
         <p style="margin:0">${escapeHtml(user ? user.name : "")} <span class="pill ${isParent() ? "parent" : "child"}">${isParent() ? "Parent" : "Child"}</span></p>
       </div>
-      <div class="actions">
-        <button class="secondary" id="switch-user">Switch user</button>
-      </div>
+      <div class="actions">${switchBtn}</div>
     </div>
   `);
-  bar.querySelector("#switch-user").addEventListener("click", () => {
-    setUserId(null);
-    render();
-  });
+  const switchBtnEl = bar.querySelector("#switch-user");
+  if (switchBtnEl) {
+    switchBtnEl.addEventListener("click", () => {
+      setUserId(null);
+      render();
+    });
+  }
   return bar;
 }
 
@@ -684,9 +691,10 @@ function renderAccountingTab() {
 
 function renderFamilyTab() {
   const wrap = el(`<div></div>`);
+  const pendingUserIds = new Set(state.invitations.filter((i) => !i.acceptedAt).map((i) => i.userId));
   const card = el(`<div class="card"><h2>Family members</h2></div>`);
   state.users.forEach((u) => {
-    const pendingTag = u.role === "USER_ROLE_PARENT" && !u.authBound && isAuth0Mode() ? ' <span class="pill">invite pending</span>' : "";
+    const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ' <span class="pill">invite pending</span>' : "";
     card.appendChild(
       el(`
         <div class="row">
@@ -714,9 +722,10 @@ function renderInvitationsSection() {
     listCard.appendChild(el(`<p class="empty">No pending invitations.</p>`));
   } else {
     pending.forEach((inv) => {
+      const roleLabel = inv.role === "USER_ROLE_CHILD" ? "Child" : "Parent";
       const row = el(`
         <div class="row">
-          <span>${escapeHtml(inv.userName)}${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
+          <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${roleLabel}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
           <button class="danger" data-id="${inv.id}">Revoke</button>
         </div>
       `);
@@ -733,15 +742,24 @@ function renderInvitationsSection() {
 
   const form = el(`
     <div class="card">
-      <h2>Invite another parent</h2>
-      <p style="margin-top:-4px;">Creates a one-time link. Whoever opens it (after logging in with their own Auth0 account) joins this family as a parent.</p>
+      <h2>Invite a family member</h2>
+      <p style="margin-top:-4px;">Creates a one-time link. Whoever opens it (after logging in with their own Auth0 account) joins this family as the role you pick below.</p>
       <div class="field">
         <label>Their name</label>
-        <input type="text" id="invite-name" placeholder="e.g. Dad" />
+        <input type="text" id="invite-name" placeholder="e.g. Dad, or Kid" />
       </div>
-      <div class="field">
-        <label>Their email (optional, just for your reference)</label>
-        <input type="text" id="invite-email" />
+      <div class="grid-2">
+        <div class="field">
+          <label>Role</label>
+          <select id="invite-role">
+            <option value="USER_ROLE_PARENT">Parent</option>
+            <option value="USER_ROLE_CHILD">Child</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Their email (optional, just for your reference)</label>
+          <input type="text" id="invite-email" />
+        </div>
       </div>
       <button id="invite-create-btn">Create invite link</button>
     </div>
@@ -749,9 +767,10 @@ function renderInvitationsSection() {
   form.querySelector("#invite-create-btn").addEventListener("click", () =>
     withError(async () => {
       const name = form.querySelector("#invite-name").value.trim();
+      const role = form.querySelector("#invite-role").value;
       const email = form.querySelector("#invite-email").value.trim();
       if (!name) throw new Error("Name is required");
-      const resp = await call("CreateInvitation", { familyId: state.familyId, name, email });
+      const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
       state.lastInviteLink = window.location.origin + resp.acceptPath;
       await loadFamilyData();
     })

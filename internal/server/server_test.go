@@ -152,7 +152,7 @@ func TestInvitationFlow(t *testing.T) {
 	}
 
 	invResp, err := s.CreateInvitation(ctxParent, connect.NewRequest(&v1.CreateInvitationRequest{
-		FamilyId: fam.Msg.Family.Id, Name: "Parent Two", Email: "p2@example.com",
+		FamilyId: fam.Msg.Family.Id, Name: "Parent Two", Email: "p2@example.com", Role: v1.UserRole_USER_ROLE_PARENT,
 	}))
 	if err != nil {
 		t.Fatalf("CreateInvitation: %v", err)
@@ -200,7 +200,7 @@ func TestInvitationFlow_RevokeRemovesUnclaimedSlot(t *testing.T) {
 		t.Fatalf("CreateFamily: %v", err)
 	}
 	invResp, err := s.CreateInvitation(ctxParent, connect.NewRequest(&v1.CreateInvitationRequest{
-		FamilyId: fam.Msg.Family.Id, Name: "Parent Two",
+		FamilyId: fam.Msg.Family.Id, Name: "Parent Two", Role: v1.UserRole_USER_ROLE_PARENT,
 	}))
 	if err != nil {
 		t.Fatalf("CreateInvitation: %v", err)
@@ -224,5 +224,157 @@ func TestInvitationFlow_RevokeRemovesUnclaimedSlot(t *testing.T) {
 	ctxOther := withIdentity("auth0|someone-else")
 	if _, err := s.AcceptInvitation(ctxOther, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invResp.Msg.Token})); codeOf(err) != connect.CodeNotFound {
 		t.Fatalf("expected CodeNotFound accepting a revoked invitation, got %v", err)
+	}
+}
+
+func TestChildInvitation_BindsAndRestrictsToSelf(t *testing.T) {
+	s := newTestServer(t)
+	ctxParent := withIdentity("auth0|parent1")
+
+	fam, err := s.CreateFamily(ctxParent, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Parent One"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+
+	invResp, err := s.CreateInvitation(ctxParent, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation: %v", err)
+	}
+	if invResp.Msg.Invitation.Role != v1.UserRole_USER_ROLE_CHILD {
+		t.Fatalf("expected invitation role CHILD, got %v", invResp.Msg.Invitation.Role)
+	}
+
+	ctxChild := withIdentity("auth0|kid")
+	acceptResp, err := s.AcceptInvitation(ctxChild, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invResp.Msg.Token}))
+	if err != nil {
+		t.Fatalf("AcceptInvitation: %v", err)
+	}
+	if acceptResp.Msg.User.Role != v1.UserRole_USER_ROLE_CHILD {
+		t.Fatalf("expected bound role CHILD, got %v", acceptResp.Msg.User.Role)
+	}
+	childID := acceptResp.Msg.User.Id
+
+	// A logged-in child cannot perform parent-only actions.
+	for name, err := range map[string]error{
+		"CreateTask": func() error {
+			_, err := s.CreateTask(ctxChild, connect.NewRequest(&v1.CreateTaskRequest{
+				FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+			}))
+			return err
+		}(),
+		"CreateUser": func() error {
+			_, err := s.CreateUser(ctxChild, connect.NewRequest(&v1.CreateUserRequest{
+				FamilyId: fam.Msg.Family.Id, Name: "Sibling", Role: v1.UserRole_USER_ROLE_CHILD,
+			}))
+			return err
+		}(),
+		"CreateInvitation": func() error {
+			_, err := s.CreateInvitation(ctxChild, connect.NewRequest(&v1.CreateInvitationRequest{
+				FamilyId: fam.Msg.Family.Id, Name: "Sneaky Parent", Role: v1.UserRole_USER_ROLE_PARENT,
+			}))
+			return err
+		}(),
+		"CreatePayout": func() error {
+			_, err := s.CreatePayout(ctxChild, connect.NewRequest(&v1.CreatePayoutRequest{
+				ChildId: childID, FullPayout: true,
+			}))
+			return err
+		}(),
+	} {
+		if codeOf(err) != connect.CodePermissionDenied {
+			t.Errorf("%s: expected PermissionDenied for a child identity, got %v", name, err)
+		}
+	}
+
+	// But a child can complete their own task and view their own summary.
+	task, err := s.CreateTask(ctxParent, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask (parent): %v", err)
+	}
+	if _, err := s.CompleteTask(ctxChild, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: childID, DueDate: "2024-01-01",
+	})); err != nil {
+		t.Fatalf("CompleteTask as self: %v", err)
+	}
+	if _, err := s.GetChildSummary(ctxChild, connect.NewRequest(&v1.GetChildSummaryRequest{ChildId: childID})); err != nil {
+		t.Fatalf("GetChildSummary as self: %v", err)
+	}
+}
+
+func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
+	s := newTestServer(t)
+	ctxParent := withIdentity("auth0|parent1")
+
+	fam, err := s.CreateFamily(ctxParent, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Parent One"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+
+	invA, err := s.CreateInvitation(ctxParent, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Kid A", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation A: %v", err)
+	}
+	ctxChildA := withIdentity("auth0|kidA")
+	acceptA, err := s.AcceptInvitation(ctxChildA, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invA.Msg.Token}))
+	if err != nil {
+		t.Fatalf("AcceptInvitation A: %v", err)
+	}
+	childAID := acceptA.Msg.User.Id
+
+	childB, err := s.CreateUser(ctxParent, connect.NewRequest(&v1.CreateUserRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Kid B", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateUser B: %v", err)
+	}
+	childBID := childB.Msg.User.Id
+
+	task, err := s.CreateTask(ctxParent, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	// Child A cannot complete Child B's task, nor view Child B's summary.
+	if _, err := s.CompleteTask(ctxChildA, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: childBID, DueDate: "2024-01-01",
+	})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied completing a sibling's task, got %v", err)
+	}
+	if _, err := s.GetChildSummary(ctxChildA, connect.NewRequest(&v1.GetChildSummaryRequest{ChildId: childBID})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied viewing a sibling's summary, got %v", err)
+	}
+
+	// ListChildSummaries and ListPayouts must be silently scoped to self for
+	// a bound child, regardless of what's asked for.
+	summaries, err := s.ListChildSummaries(ctxChildA, connect.NewRequest(&v1.ListChildSummariesRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListChildSummaries as child: %v", err)
+	}
+	if len(summaries.Msg.Summaries) != 1 || summaries.Msg.Summaries[0].Child.Id != childAID {
+		t.Fatalf("expected ListChildSummaries to only return the caller's own summary, got %+v", summaries.Msg.Summaries)
+	}
+
+	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childAID, AmountCents: 100})); err != nil {
+		t.Fatalf("CreatePayout to A: %v", err)
+	}
+	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childBID, AmountCents: 200})); err != nil {
+		t.Fatalf("CreatePayout to B: %v", err)
+	}
+	payouts, err := s.ListPayouts(ctxChildA, connect.NewRequest(&v1.ListPayoutsRequest{FamilyId: fam.Msg.Family.Id, ChildId: childBID}))
+	if err != nil {
+		t.Fatalf("ListPayouts as child: %v", err)
+	}
+	for _, p := range payouts.Msg.Payouts {
+		if p.ChildId != childAID {
+			t.Fatalf("expected ListPayouts to only ever return the caller's own payouts even when a different child_id was requested, got %+v", p)
+		}
 	}
 }
