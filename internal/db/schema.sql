@@ -36,13 +36,26 @@ CREATE TABLE IF NOT EXISTS tasks (
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     price_cents INTEGER NOT NULL,
+    -- Raw cron expression; only populated (and only meaningful) when
+    -- repeat_mode = 'cron'.
     schedule TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     -- icon_type is 'emoji' or 'fontawesome' (empty string alongside an
     -- empty icon_value means no icon at all).
     icon_type TEXT NOT NULL DEFAULT '',
-    icon_value TEXT NOT NULL DEFAULT ''
+    icon_value TEXT NOT NULL DEFAULT '',
+    -- 'once' (due once on start_date), 'weekly' (due on days_of_week every
+    -- repeat_interval_weeks weeks, counted from start_date), or 'cron' (due
+    -- whenever `schedule` matches).
+    repeat_mode TEXT NOT NULL DEFAULT 'cron',
+    -- Comma-separated 0=Sunday..6=Saturday, e.g. "1,3,5". Only meaningful
+    -- for repeat_mode = 'weekly'.
+    days_of_week TEXT NOT NULL DEFAULT '',
+    repeat_interval_weeks INTEGER NOT NULL DEFAULT 1,
+    -- YYYY-MM-DD. See the Task.start_date proto comment for what this means
+    -- per repeat_mode.
+    start_date TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_family ON tasks(family_id);
 

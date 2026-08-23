@@ -166,3 +166,59 @@ func TestOpen_MigratesTaskIconColumn(t *testing.T) {
 		t.Fatalf("expected a task with no icon to stay empty, got (%q, %q)", iconType, iconValue)
 	}
 }
+
+// TestOpen_MigratesTaskRepeatColumns verifies that a task created before
+// repeat_mode/days_of_week/repeat_interval_weeks/start_date existed keeps
+// working exactly as before: it lands in 'cron' mode using its existing
+// schedule string, rather than losing its schedule or needing reinterpretation.
+func TestOpen_MigratesTaskRepeatColumns(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old-repeat.db")
+
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open seed db: %v", err)
+	}
+	if _, err := seed.Exec(oldTasksSchema); err != nil {
+		t.Fatalf("apply old schema: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO families (id, name, created_at) VALUES ('fam1', 'Old Family', '2024-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO tasks (id, family_id, title, price_cents, schedule, created_at, icon)
+		 VALUES ('t1', 'fam1', 'Dishes', 100, '0 0 * * 1,3,5', '2024-01-01T00:00:00Z', '')`,
+	); err != nil {
+		t.Fatalf("seed task: %v", err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatalf("close seed db: %v", err)
+	}
+
+	conn, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open on pre-existing database: %v", err)
+	}
+	defer conn.Close()
+
+	var repeatMode, schedule, daysOfWeek, startDate string
+	var intervalWeeks int
+	if err := conn.QueryRow(
+		`SELECT repeat_mode, schedule, days_of_week, repeat_interval_weeks, start_date FROM tasks WHERE id = 't1'`,
+	).Scan(&repeatMode, &schedule, &daysOfWeek, &intervalWeeks, &startDate); err != nil {
+		t.Fatalf("query migrated task: %v", err)
+	}
+	if repeatMode != "cron" {
+		t.Fatalf("expected a pre-existing task to migrate to repeat_mode 'cron', got %q", repeatMode)
+	}
+	if schedule != "0 0 * * 1,3,5" {
+		t.Fatalf("expected the original schedule to survive migration untouched, got %q", schedule)
+	}
+	if daysOfWeek != "" || startDate != "" {
+		t.Fatalf("expected days_of_week and start_date to stay empty for a cron task, got (%q, %q)", daysOfWeek, startDate)
+	}
+	if intervalWeeks != 1 {
+		t.Fatalf("expected repeat_interval_weeks to default to 1, got %d", intervalWeeks)
+	}
+}

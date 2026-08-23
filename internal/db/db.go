@@ -86,6 +86,30 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	if !taskCols["repeat_mode"] {
+		// Existing tasks keep working exactly as before: 'cron' mode
+		// interprets the existing `schedule` column the same way IsDue/
+		// DatesBetween always have, with no data loss or reinterpretation.
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN repeat_mode TEXT NOT NULL DEFAULT 'cron'`); err != nil {
+			return fmt.Errorf("add tasks.repeat_mode: %w", err)
+		}
+	}
+	if !taskCols["days_of_week"] {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN days_of_week TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add tasks.days_of_week: %w", err)
+		}
+	}
+	if !taskCols["repeat_interval_weeks"] {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN repeat_interval_weeks INTEGER NOT NULL DEFAULT 1`); err != nil {
+			return fmt.Errorf("add tasks.repeat_interval_weeks: %w", err)
+		}
+	}
+	if !taskCols["start_date"] {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN start_date TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add tasks.start_date: %w", err)
+		}
+	}
+
 	// Tasks created before per-child assignment existed have no rows in
 	// task_assignments; treat them as assigned to every child in their
 	// family so they don't silently disappear from everyone's view. Once a

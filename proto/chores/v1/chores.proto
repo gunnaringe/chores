@@ -51,6 +51,19 @@ message User {
   bool auth_bound = 7;
 }
 
+enum RepeatMode {
+  REPEAT_MODE_UNSPECIFIED = 0;
+  // Due exactly once, on start_date. Never recurs.
+  REPEAT_MODE_ONCE = 1;
+  // Due on each of days_of_week, every repeat_interval_weeks weeks, counted
+  // from start_date.
+  REPEAT_MODE_WEEKLY = 2;
+  // Due whenever the raw cron expression in `schedule` matches — the
+  // general-purpose escape hatch for schedules WEEKLY can't express (e.g.
+  // "the 1st of every month").
+  REPEAT_MODE_CRON = 3;
+}
+
 message Task {
   string id = 1;
   string family_id = 2;
@@ -58,7 +71,8 @@ message Task {
   string description = 4;
   int64 price_cents = 5;
   // Standard 5-field cron expression (minute hour day-of-month month day-of-week),
-  // e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday.
+  // e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday. Only
+  // meaningful (and only ever populated) when repeat_mode is CRON.
   string schedule = 6;
   bool active = 7;
   google.protobuf.Timestamp created_at = 8;
@@ -67,6 +81,18 @@ message Task {
   repeated string child_ids = 9;
   // Optional icon shown next to the task. Absent means no icon.
   Icon icon = 10;
+  RepeatMode repeat_mode = 11;
+  // Days this task is due on, 0=Sunday..6=Saturday. Only meaningful when
+  // repeat_mode is WEEKLY.
+  repeated int32 days_of_week = 12;
+  // How many weeks between due weeks; 1 means every week. Only meaningful
+  // when repeat_mode is WEEKLY.
+  int32 repeat_interval_weeks = 13;
+  // YYYY-MM-DD. For ONCE, the one-off due date. For WEEKLY, the reference
+  // week repeat_interval_weeks is counted from (irrelevant when it's 1, but
+  // always populated so changing the interval later stays well-defined).
+  // Unused for CRON.
+  string start_date = 14;
 }
 
 message TaskCompletion {
@@ -151,12 +177,22 @@ message CreateTaskRequest {
   string title = 2;
   string description = 3;
   int64 price_cents = 4;
+  // Raw cron expression; required and validated only when repeat_mode is
+  // CRON.
   string schedule = 5;
   // Which children this task applies to. Must be non-empty and every id
   // must be a child in family_id.
   repeated string child_ids = 6;
   // Optional icon shown next to the task. Omit for no icon.
   Icon icon = 7;
+  RepeatMode repeat_mode = 8;
+  // Required (non-empty) when repeat_mode is WEEKLY.
+  repeated int32 days_of_week = 9;
+  // WEEKLY only; defaults to 1 (every week) if unset or less than 1.
+  int32 repeat_interval_weeks = 10;
+  // Required when repeat_mode is ONCE. Optional for WEEKLY (defaults to
+  // today); ignored for CRON.
+  string start_date = 11;
 }
 message CreateTaskResponse {
   Task task = 1;
@@ -173,6 +209,10 @@ message UpdateTaskRequest {
   repeated string child_ids = 7;
   // Optional icon shown next to the task. Omit for no icon.
   Icon icon = 8;
+  RepeatMode repeat_mode = 9;
+  repeated int32 days_of_week = 10;
+  int32 repeat_interval_weeks = 11;
+  string start_date = 12;
 }
 message UpdateTaskResponse {
   Task task = 1;

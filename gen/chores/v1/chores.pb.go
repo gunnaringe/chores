@@ -125,6 +125,64 @@ func (IconType) EnumDescriptor() ([]byte, []int) {
 	return file_chores_v1_chores_proto_rawDescGZIP(), []int{1}
 }
 
+type RepeatMode int32
+
+const (
+	RepeatMode_REPEAT_MODE_UNSPECIFIED RepeatMode = 0
+	// Due exactly once, on start_date. Never recurs.
+	RepeatMode_REPEAT_MODE_ONCE RepeatMode = 1
+	// Due on each of days_of_week, every repeat_interval_weeks weeks, counted
+	// from start_date.
+	RepeatMode_REPEAT_MODE_WEEKLY RepeatMode = 2
+	// Due whenever the raw cron expression in `schedule` matches — the
+	// general-purpose escape hatch for schedules WEEKLY can't express (e.g.
+	// "the 1st of every month").
+	RepeatMode_REPEAT_MODE_CRON RepeatMode = 3
+)
+
+// Enum value maps for RepeatMode.
+var (
+	RepeatMode_name = map[int32]string{
+		0: "REPEAT_MODE_UNSPECIFIED",
+		1: "REPEAT_MODE_ONCE",
+		2: "REPEAT_MODE_WEEKLY",
+		3: "REPEAT_MODE_CRON",
+	}
+	RepeatMode_value = map[string]int32{
+		"REPEAT_MODE_UNSPECIFIED": 0,
+		"REPEAT_MODE_ONCE":        1,
+		"REPEAT_MODE_WEEKLY":      2,
+		"REPEAT_MODE_CRON":        3,
+	}
+)
+
+func (x RepeatMode) Enum() *RepeatMode {
+	p := new(RepeatMode)
+	*p = x
+	return p
+}
+
+func (x RepeatMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RepeatMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_chores_v1_chores_proto_enumTypes[2].Descriptor()
+}
+
+func (RepeatMode) Type() protoreflect.EnumType {
+	return &file_chores_v1_chores_proto_enumTypes[2]
+}
+
+func (x RepeatMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RepeatMode.Descriptor instead.
+func (RepeatMode) EnumDescriptor() ([]byte, []int) {
+	return file_chores_v1_chores_proto_rawDescGZIP(), []int{2}
+}
+
 // An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
 // character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
 // Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
@@ -346,7 +404,8 @@ type Task struct {
 	Description string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
 	PriceCents  int64                  `protobuf:"varint,5,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
 	// Standard 5-field cron expression (minute hour day-of-month month day-of-week),
-	// e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday.
+	// e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday. Only
+	// meaningful (and only ever populated) when repeat_mode is CRON.
 	Schedule  string                 `protobuf:"bytes,6,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	Active    bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -354,7 +413,19 @@ type Task struct {
 	// through the API.
 	ChildIds []string `protobuf:"bytes,9,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	// Optional icon shown next to the task. Absent means no icon.
-	Icon          *Icon `protobuf:"bytes,10,opt,name=icon,proto3" json:"icon,omitempty"`
+	Icon       *Icon      `protobuf:"bytes,10,opt,name=icon,proto3" json:"icon,omitempty"`
+	RepeatMode RepeatMode `protobuf:"varint,11,opt,name=repeat_mode,json=repeatMode,proto3,enum=chores.v1.RepeatMode" json:"repeat_mode,omitempty"`
+	// Days this task is due on, 0=Sunday..6=Saturday. Only meaningful when
+	// repeat_mode is WEEKLY.
+	DaysOfWeek []int32 `protobuf:"varint,12,rep,packed,name=days_of_week,json=daysOfWeek,proto3" json:"days_of_week,omitempty"`
+	// How many weeks between due weeks; 1 means every week. Only meaningful
+	// when repeat_mode is WEEKLY.
+	RepeatIntervalWeeks int32 `protobuf:"varint,13,opt,name=repeat_interval_weeks,json=repeatIntervalWeeks,proto3" json:"repeat_interval_weeks,omitempty"`
+	// YYYY-MM-DD. For ONCE, the one-off due date. For WEEKLY, the reference
+	// week repeat_interval_weeks is counted from (irrelevant when it's 1, but
+	// always populated so changing the interval later stays well-defined).
+	// Unused for CRON.
+	StartDate     string `protobuf:"bytes,14,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -457,6 +528,34 @@ func (x *Task) GetIcon() *Icon {
 		return x.Icon
 	}
 	return nil
+}
+
+func (x *Task) GetRepeatMode() RepeatMode {
+	if x != nil {
+		return x.RepeatMode
+	}
+	return RepeatMode_REPEAT_MODE_UNSPECIFIED
+}
+
+func (x *Task) GetDaysOfWeek() []int32 {
+	if x != nil {
+		return x.DaysOfWeek
+	}
+	return nil
+}
+
+func (x *Task) GetRepeatIntervalWeeks() int32 {
+	if x != nil {
+		return x.RepeatIntervalWeeks
+	}
+	return 0
+}
+
+func (x *Task) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
 }
 
 type TaskCompletion struct {
@@ -1202,12 +1301,22 @@ type CreateTaskRequest struct {
 	Title       string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	PriceCents  int64                  `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
-	Schedule    string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	// Raw cron expression; required and validated only when repeat_mode is
+	// CRON.
+	Schedule string `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	// Which children this task applies to. Must be non-empty and every id
 	// must be a child in family_id.
 	ChildIds []string `protobuf:"bytes,6,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	// Optional icon shown next to the task. Omit for no icon.
-	Icon          *Icon `protobuf:"bytes,7,opt,name=icon,proto3" json:"icon,omitempty"`
+	Icon       *Icon      `protobuf:"bytes,7,opt,name=icon,proto3" json:"icon,omitempty"`
+	RepeatMode RepeatMode `protobuf:"varint,8,opt,name=repeat_mode,json=repeatMode,proto3,enum=chores.v1.RepeatMode" json:"repeat_mode,omitempty"`
+	// Required (non-empty) when repeat_mode is WEEKLY.
+	DaysOfWeek []int32 `protobuf:"varint,9,rep,packed,name=days_of_week,json=daysOfWeek,proto3" json:"days_of_week,omitempty"`
+	// WEEKLY only; defaults to 1 (every week) if unset or less than 1.
+	RepeatIntervalWeeks int32 `protobuf:"varint,10,opt,name=repeat_interval_weeks,json=repeatIntervalWeeks,proto3" json:"repeat_interval_weeks,omitempty"`
+	// Required when repeat_mode is ONCE. Optional for WEEKLY (defaults to
+	// today); ignored for CRON.
+	StartDate     string `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1291,6 +1400,34 @@ func (x *CreateTaskRequest) GetIcon() *Icon {
 	return nil
 }
 
+func (x *CreateTaskRequest) GetRepeatMode() RepeatMode {
+	if x != nil {
+		return x.RepeatMode
+	}
+	return RepeatMode_REPEAT_MODE_UNSPECIFIED
+}
+
+func (x *CreateTaskRequest) GetDaysOfWeek() []int32 {
+	if x != nil {
+		return x.DaysOfWeek
+	}
+	return nil
+}
+
+func (x *CreateTaskRequest) GetRepeatIntervalWeeks() int32 {
+	if x != nil {
+		return x.RepeatIntervalWeeks
+	}
+	return 0
+}
+
+func (x *CreateTaskRequest) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
 type CreateTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
@@ -1346,9 +1483,13 @@ type UpdateTaskRequest struct {
 	// Replaces the task's full set of assigned children. Must be non-empty.
 	ChildIds []string `protobuf:"bytes,7,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	// Optional icon shown next to the task. Omit for no icon.
-	Icon          *Icon `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Icon                *Icon      `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
+	RepeatMode          RepeatMode `protobuf:"varint,9,opt,name=repeat_mode,json=repeatMode,proto3,enum=chores.v1.RepeatMode" json:"repeat_mode,omitempty"`
+	DaysOfWeek          []int32    `protobuf:"varint,10,rep,packed,name=days_of_week,json=daysOfWeek,proto3" json:"days_of_week,omitempty"`
+	RepeatIntervalWeeks int32      `protobuf:"varint,11,opt,name=repeat_interval_weeks,json=repeatIntervalWeeks,proto3" json:"repeat_interval_weeks,omitempty"`
+	StartDate           string     `protobuf:"bytes,12,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *UpdateTaskRequest) Reset() {
@@ -1435,6 +1576,34 @@ func (x *UpdateTaskRequest) GetIcon() *Icon {
 		return x.Icon
 	}
 	return nil
+}
+
+func (x *UpdateTaskRequest) GetRepeatMode() RepeatMode {
+	if x != nil {
+		return x.RepeatMode
+	}
+	return RepeatMode_REPEAT_MODE_UNSPECIFIED
+}
+
+func (x *UpdateTaskRequest) GetDaysOfWeek() []int32 {
+	if x != nil {
+		return x.DaysOfWeek
+	}
+	return nil
+}
+
+func (x *UpdateTaskRequest) GetRepeatIntervalWeeks() int32 {
+	if x != nil {
+		return x.RepeatIntervalWeeks
+	}
+	return 0
+}
+
+func (x *UpdateTaskRequest) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
 }
 
 type UpdateTaskResponse struct {
@@ -3128,7 +3297,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
 	"\x05email\x18\x06 \x01(\tR\x05email\x12\x1d\n" +
 	"\n" +
-	"auth_bound\x18\a \x01(\bR\tauthBound\"\xbd\x02\n" +
+	"auth_bound\x18\a \x01(\bR\tauthBound\"\xea\x03\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x14\n" +
@@ -3142,7 +3311,14 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1b\n" +
 	"\tchild_ids\x18\t \x03(\tR\bchildIds\x12#\n" +
 	"\x04icon\x18\n" +
-	" \x01(\v2\x0f.chores.v1.IconR\x04icon\"\xee\x01\n" +
+	" \x01(\v2\x0f.chores.v1.IconR\x04icon\x126\n" +
+	"\vrepeat_mode\x18\v \x01(\x0e2\x15.chores.v1.RepeatModeR\n" +
+	"repeatMode\x12 \n" +
+	"\fdays_of_week\x18\f \x03(\x05R\n" +
+	"daysOfWeek\x122\n" +
+	"\x15repeat_interval_weeks\x18\r \x01(\x05R\x13repeatIntervalWeeks\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x0e \x01(\tR\tstartDate\"\xee\x01\n" +
 	"\x0eTaskCompletion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
@@ -3197,7 +3373,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10ListUsersRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
 	"\x11ListUsersResponse\x12%\n" +
-	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xe7\x01\n" +
+	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\x94\x03\n" +
 	"\x11CreateTaskRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3206,9 +3382,17 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x1b\n" +
 	"\tchild_ids\x18\x06 \x03(\tR\bchildIds\x12#\n" +
-	"\x04icon\x18\a \x01(\v2\x0f.chores.v1.IconR\x04icon\"9\n" +
+	"\x04icon\x18\a \x01(\v2\x0f.chores.v1.IconR\x04icon\x126\n" +
+	"\vrepeat_mode\x18\b \x01(\x0e2\x15.chores.v1.RepeatModeR\n" +
+	"repeatMode\x12 \n" +
+	"\fdays_of_week\x18\t \x03(\x05R\n" +
+	"daysOfWeek\x122\n" +
+	"\x15repeat_interval_weeks\x18\n" +
+	" \x01(\x05R\x13repeatIntervalWeeks\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\v \x01(\tR\tstartDate\"9\n" +
 	"\x12CreateTaskResponse\x12#\n" +
-	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xfb\x01\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xa8\x03\n" +
 	"\x11UpdateTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -3218,7 +3402,15 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x16\n" +
 	"\x06active\x18\x06 \x01(\bR\x06active\x12\x1b\n" +
 	"\tchild_ids\x18\a \x03(\tR\bchildIds\x12#\n" +
-	"\x04icon\x18\b \x01(\v2\x0f.chores.v1.IconR\x04icon\"9\n" +
+	"\x04icon\x18\b \x01(\v2\x0f.chores.v1.IconR\x04icon\x126\n" +
+	"\vrepeat_mode\x18\t \x01(\x0e2\x15.chores.v1.RepeatModeR\n" +
+	"repeatMode\x12 \n" +
+	"\fdays_of_week\x18\n" +
+	" \x03(\x05R\n" +
+	"daysOfWeek\x122\n" +
+	"\x15repeat_interval_weeks\x18\v \x01(\x05R\x13repeatIntervalWeeks\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\f \x01(\tR\tstartDate\"9\n" +
 	"\x12UpdateTaskResponse\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\",\n" +
 	"\x11DeleteTaskRequest\x12\x17\n" +
@@ -3329,7 +3521,13 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x15ICON_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fICON_TYPE_EMOJI\x10\x01\x12\x1a\n" +
 	"\x16ICON_TYPE_FONT_AWESOME\x10\x02\x12\x1e\n" +
-	"\x1aICON_TYPE_MATERIAL_SYMBOLS\x10\x032\x88\x0e\n" +
+	"\x1aICON_TYPE_MATERIAL_SYMBOLS\x10\x03*m\n" +
+	"\n" +
+	"RepeatMode\x12\x1b\n" +
+	"\x17REPEAT_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10REPEAT_MODE_ONCE\x10\x01\x12\x16\n" +
+	"\x12REPEAT_MODE_WEEKLY\x10\x02\x12\x14\n" +
+	"\x10REPEAT_MODE_CRON\x10\x032\x88\x0e\n" +
 	"\rChoresService\x12O\n" +
 	"\fCreateFamily\x12\x1e.chores.v1.CreateFamilyRequest\x1a\x1f.chores.v1.CreateFamilyResponse\x12O\n" +
 	"\fListFamilies\x12\x1e.chores.v1.ListFamiliesRequest\x1a\x1f.chores.v1.ListFamiliesResponse\x12I\n" +
@@ -3369,154 +3567,158 @@ func file_chores_v1_chores_proto_rawDescGZIP() []byte {
 	return file_chores_v1_chores_proto_rawDescData
 }
 
-var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_chores_v1_chores_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_chores_v1_chores_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_chores_v1_chores_proto_goTypes = []any{
 	(UserRole)(0),                       // 0: chores.v1.UserRole
 	(IconType)(0),                       // 1: chores.v1.IconType
-	(*Icon)(nil),                        // 2: chores.v1.Icon
-	(*Family)(nil),                      // 3: chores.v1.Family
-	(*User)(nil),                        // 4: chores.v1.User
-	(*Task)(nil),                        // 5: chores.v1.Task
-	(*TaskCompletion)(nil),              // 6: chores.v1.TaskCompletion
-	(*Payout)(nil),                      // 7: chores.v1.Payout
-	(*ChildSummary)(nil),                // 8: chores.v1.ChildSummary
-	(*TaskOccurrence)(nil),              // 9: chores.v1.TaskOccurrence
-	(*CreateFamilyRequest)(nil),         // 10: chores.v1.CreateFamilyRequest
-	(*CreateFamilyResponse)(nil),        // 11: chores.v1.CreateFamilyResponse
-	(*ListFamiliesRequest)(nil),         // 12: chores.v1.ListFamiliesRequest
-	(*ListFamiliesResponse)(nil),        // 13: chores.v1.ListFamiliesResponse
-	(*CreateUserRequest)(nil),           // 14: chores.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),          // 15: chores.v1.CreateUserResponse
-	(*ListUsersRequest)(nil),            // 16: chores.v1.ListUsersRequest
-	(*ListUsersResponse)(nil),           // 17: chores.v1.ListUsersResponse
-	(*CreateTaskRequest)(nil),           // 18: chores.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),          // 19: chores.v1.CreateTaskResponse
-	(*UpdateTaskRequest)(nil),           // 20: chores.v1.UpdateTaskRequest
-	(*UpdateTaskResponse)(nil),          // 21: chores.v1.UpdateTaskResponse
-	(*DeleteTaskRequest)(nil),           // 22: chores.v1.DeleteTaskRequest
-	(*DeleteTaskResponse)(nil),          // 23: chores.v1.DeleteTaskResponse
-	(*ListTasksRequest)(nil),            // 24: chores.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),           // 25: chores.v1.ListTasksResponse
-	(*ListTaskOccurrencesRequest)(nil),  // 26: chores.v1.ListTaskOccurrencesRequest
-	(*ListTaskOccurrencesResponse)(nil), // 27: chores.v1.ListTaskOccurrencesResponse
-	(*CompleteTaskRequest)(nil),         // 28: chores.v1.CompleteTaskRequest
-	(*CompleteTaskResponse)(nil),        // 29: chores.v1.CompleteTaskResponse
-	(*UncompleteTaskRequest)(nil),       // 30: chores.v1.UncompleteTaskRequest
-	(*UncompleteTaskResponse)(nil),      // 31: chores.v1.UncompleteTaskResponse
-	(*ListTaskCompletionsRequest)(nil),  // 32: chores.v1.ListTaskCompletionsRequest
-	(*ListTaskCompletionsResponse)(nil), // 33: chores.v1.ListTaskCompletionsResponse
-	(*GetChildSummaryRequest)(nil),      // 34: chores.v1.GetChildSummaryRequest
-	(*GetChildSummaryResponse)(nil),     // 35: chores.v1.GetChildSummaryResponse
-	(*ListChildSummariesRequest)(nil),   // 36: chores.v1.ListChildSummariesRequest
-	(*ListChildSummariesResponse)(nil),  // 37: chores.v1.ListChildSummariesResponse
-	(*CreatePayoutRequest)(nil),         // 38: chores.v1.CreatePayoutRequest
-	(*CreatePayoutResponse)(nil),        // 39: chores.v1.CreatePayoutResponse
-	(*ListPayoutsRequest)(nil),          // 40: chores.v1.ListPayoutsRequest
-	(*ListPayoutsResponse)(nil),         // 41: chores.v1.ListPayoutsResponse
-	(*Membership)(nil),                  // 42: chores.v1.Membership
-	(*GetMyMembershipRequest)(nil),      // 43: chores.v1.GetMyMembershipRequest
-	(*GetMyMembershipResponse)(nil),     // 44: chores.v1.GetMyMembershipResponse
-	(*Invitation)(nil),                  // 45: chores.v1.Invitation
-	(*CreateInvitationRequest)(nil),     // 46: chores.v1.CreateInvitationRequest
-	(*CreateInvitationResponse)(nil),    // 47: chores.v1.CreateInvitationResponse
-	(*ListInvitationsRequest)(nil),      // 48: chores.v1.ListInvitationsRequest
-	(*ListInvitationsResponse)(nil),     // 49: chores.v1.ListInvitationsResponse
-	(*RevokeInvitationRequest)(nil),     // 50: chores.v1.RevokeInvitationRequest
-	(*RevokeInvitationResponse)(nil),    // 51: chores.v1.RevokeInvitationResponse
-	(*AcceptInvitationRequest)(nil),     // 52: chores.v1.AcceptInvitationRequest
-	(*AcceptInvitationResponse)(nil),    // 53: chores.v1.AcceptInvitationResponse
-	(*timestamppb.Timestamp)(nil),       // 54: google.protobuf.Timestamp
+	(RepeatMode)(0),                     // 2: chores.v1.RepeatMode
+	(*Icon)(nil),                        // 3: chores.v1.Icon
+	(*Family)(nil),                      // 4: chores.v1.Family
+	(*User)(nil),                        // 5: chores.v1.User
+	(*Task)(nil),                        // 6: chores.v1.Task
+	(*TaskCompletion)(nil),              // 7: chores.v1.TaskCompletion
+	(*Payout)(nil),                      // 8: chores.v1.Payout
+	(*ChildSummary)(nil),                // 9: chores.v1.ChildSummary
+	(*TaskOccurrence)(nil),              // 10: chores.v1.TaskOccurrence
+	(*CreateFamilyRequest)(nil),         // 11: chores.v1.CreateFamilyRequest
+	(*CreateFamilyResponse)(nil),        // 12: chores.v1.CreateFamilyResponse
+	(*ListFamiliesRequest)(nil),         // 13: chores.v1.ListFamiliesRequest
+	(*ListFamiliesResponse)(nil),        // 14: chores.v1.ListFamiliesResponse
+	(*CreateUserRequest)(nil),           // 15: chores.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),          // 16: chores.v1.CreateUserResponse
+	(*ListUsersRequest)(nil),            // 17: chores.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),           // 18: chores.v1.ListUsersResponse
+	(*CreateTaskRequest)(nil),           // 19: chores.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),          // 20: chores.v1.CreateTaskResponse
+	(*UpdateTaskRequest)(nil),           // 21: chores.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil),          // 22: chores.v1.UpdateTaskResponse
+	(*DeleteTaskRequest)(nil),           // 23: chores.v1.DeleteTaskRequest
+	(*DeleteTaskResponse)(nil),          // 24: chores.v1.DeleteTaskResponse
+	(*ListTasksRequest)(nil),            // 25: chores.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),           // 26: chores.v1.ListTasksResponse
+	(*ListTaskOccurrencesRequest)(nil),  // 27: chores.v1.ListTaskOccurrencesRequest
+	(*ListTaskOccurrencesResponse)(nil), // 28: chores.v1.ListTaskOccurrencesResponse
+	(*CompleteTaskRequest)(nil),         // 29: chores.v1.CompleteTaskRequest
+	(*CompleteTaskResponse)(nil),        // 30: chores.v1.CompleteTaskResponse
+	(*UncompleteTaskRequest)(nil),       // 31: chores.v1.UncompleteTaskRequest
+	(*UncompleteTaskResponse)(nil),      // 32: chores.v1.UncompleteTaskResponse
+	(*ListTaskCompletionsRequest)(nil),  // 33: chores.v1.ListTaskCompletionsRequest
+	(*ListTaskCompletionsResponse)(nil), // 34: chores.v1.ListTaskCompletionsResponse
+	(*GetChildSummaryRequest)(nil),      // 35: chores.v1.GetChildSummaryRequest
+	(*GetChildSummaryResponse)(nil),     // 36: chores.v1.GetChildSummaryResponse
+	(*ListChildSummariesRequest)(nil),   // 37: chores.v1.ListChildSummariesRequest
+	(*ListChildSummariesResponse)(nil),  // 38: chores.v1.ListChildSummariesResponse
+	(*CreatePayoutRequest)(nil),         // 39: chores.v1.CreatePayoutRequest
+	(*CreatePayoutResponse)(nil),        // 40: chores.v1.CreatePayoutResponse
+	(*ListPayoutsRequest)(nil),          // 41: chores.v1.ListPayoutsRequest
+	(*ListPayoutsResponse)(nil),         // 42: chores.v1.ListPayoutsResponse
+	(*Membership)(nil),                  // 43: chores.v1.Membership
+	(*GetMyMembershipRequest)(nil),      // 44: chores.v1.GetMyMembershipRequest
+	(*GetMyMembershipResponse)(nil),     // 45: chores.v1.GetMyMembershipResponse
+	(*Invitation)(nil),                  // 46: chores.v1.Invitation
+	(*CreateInvitationRequest)(nil),     // 47: chores.v1.CreateInvitationRequest
+	(*CreateInvitationResponse)(nil),    // 48: chores.v1.CreateInvitationResponse
+	(*ListInvitationsRequest)(nil),      // 49: chores.v1.ListInvitationsRequest
+	(*ListInvitationsResponse)(nil),     // 50: chores.v1.ListInvitationsResponse
+	(*RevokeInvitationRequest)(nil),     // 51: chores.v1.RevokeInvitationRequest
+	(*RevokeInvitationResponse)(nil),    // 52: chores.v1.RevokeInvitationResponse
+	(*AcceptInvitationRequest)(nil),     // 53: chores.v1.AcceptInvitationRequest
+	(*AcceptInvitationResponse)(nil),    // 54: chores.v1.AcceptInvitationResponse
+	(*timestamppb.Timestamp)(nil),       // 55: google.protobuf.Timestamp
 }
 var file_chores_v1_chores_proto_depIdxs = []int32{
 	1,  // 0: chores.v1.Icon.type:type_name -> chores.v1.IconType
-	54, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
+	55, // 1: chores.v1.Family.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: chores.v1.User.role:type_name -> chores.v1.UserRole
-	54, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	54, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	2,  // 5: chores.v1.Task.icon:type_name -> chores.v1.Icon
-	54, // 6: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	54, // 7: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
-	4,  // 8: chores.v1.ChildSummary.child:type_name -> chores.v1.User
-	54, // 9: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
-	5,  // 10: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
-	6,  // 11: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
-	3,  // 12: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
-	3,  // 13: chores.v1.ListFamiliesResponse.families:type_name -> chores.v1.Family
-	0,  // 14: chores.v1.CreateUserRequest.role:type_name -> chores.v1.UserRole
-	4,  // 15: chores.v1.CreateUserResponse.user:type_name -> chores.v1.User
-	4,  // 16: chores.v1.ListUsersResponse.users:type_name -> chores.v1.User
-	2,  // 17: chores.v1.CreateTaskRequest.icon:type_name -> chores.v1.Icon
-	5,  // 18: chores.v1.CreateTaskResponse.task:type_name -> chores.v1.Task
-	2,  // 19: chores.v1.UpdateTaskRequest.icon:type_name -> chores.v1.Icon
-	5,  // 20: chores.v1.UpdateTaskResponse.task:type_name -> chores.v1.Task
-	5,  // 21: chores.v1.ListTasksResponse.tasks:type_name -> chores.v1.Task
-	9,  // 22: chores.v1.ListTaskOccurrencesResponse.occurrences:type_name -> chores.v1.TaskOccurrence
-	6,  // 23: chores.v1.CompleteTaskResponse.completion:type_name -> chores.v1.TaskCompletion
-	6,  // 24: chores.v1.ListTaskCompletionsResponse.completions:type_name -> chores.v1.TaskCompletion
-	8,  // 25: chores.v1.GetChildSummaryResponse.summary:type_name -> chores.v1.ChildSummary
-	8,  // 26: chores.v1.ListChildSummariesResponse.summaries:type_name -> chores.v1.ChildSummary
-	7,  // 27: chores.v1.CreatePayoutResponse.payout:type_name -> chores.v1.Payout
-	7,  // 28: chores.v1.ListPayoutsResponse.payouts:type_name -> chores.v1.Payout
-	4,  // 29: chores.v1.Membership.user:type_name -> chores.v1.User
-	3,  // 30: chores.v1.Membership.family:type_name -> chores.v1.Family
-	42, // 31: chores.v1.GetMyMembershipResponse.memberships:type_name -> chores.v1.Membership
-	54, // 32: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	54, // 33: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	54, // 34: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
-	0,  // 35: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
-	0,  // 36: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
-	45, // 37: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
-	45, // 38: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
-	4,  // 39: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
-	3,  // 40: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
-	10, // 41: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
-	12, // 42: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
-	14, // 43: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
-	16, // 44: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
-	18, // 45: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
-	20, // 46: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
-	22, // 47: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
-	24, // 48: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
-	26, // 49: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
-	28, // 50: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
-	30, // 51: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
-	32, // 52: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
-	34, // 53: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
-	36, // 54: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
-	38, // 55: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
-	40, // 56: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
-	43, // 57: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
-	46, // 58: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
-	48, // 59: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
-	50, // 60: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
-	52, // 61: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
-	11, // 62: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
-	13, // 63: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
-	15, // 64: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
-	17, // 65: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
-	19, // 66: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
-	21, // 67: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
-	23, // 68: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
-	25, // 69: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
-	27, // 70: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
-	29, // 71: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
-	31, // 72: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
-	33, // 73: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
-	35, // 74: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
-	37, // 75: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
-	39, // 76: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
-	41, // 77: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
-	44, // 78: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
-	47, // 79: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
-	49, // 80: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
-	51, // 81: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
-	53, // 82: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
-	62, // [62:83] is the sub-list for method output_type
-	41, // [41:62] is the sub-list for method input_type
-	41, // [41:41] is the sub-list for extension type_name
-	41, // [41:41] is the sub-list for extension extendee
-	0,  // [0:41] is the sub-list for field type_name
+	55, // 3: chores.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	55, // 4: chores.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	3,  // 5: chores.v1.Task.icon:type_name -> chores.v1.Icon
+	2,  // 6: chores.v1.Task.repeat_mode:type_name -> chores.v1.RepeatMode
+	55, // 7: chores.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	55, // 8: chores.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
+	5,  // 9: chores.v1.ChildSummary.child:type_name -> chores.v1.User
+	55, // 10: chores.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
+	6,  // 11: chores.v1.TaskOccurrence.task:type_name -> chores.v1.Task
+	7,  // 12: chores.v1.TaskOccurrence.completion:type_name -> chores.v1.TaskCompletion
+	4,  // 13: chores.v1.CreateFamilyResponse.family:type_name -> chores.v1.Family
+	4,  // 14: chores.v1.ListFamiliesResponse.families:type_name -> chores.v1.Family
+	0,  // 15: chores.v1.CreateUserRequest.role:type_name -> chores.v1.UserRole
+	5,  // 16: chores.v1.CreateUserResponse.user:type_name -> chores.v1.User
+	5,  // 17: chores.v1.ListUsersResponse.users:type_name -> chores.v1.User
+	3,  // 18: chores.v1.CreateTaskRequest.icon:type_name -> chores.v1.Icon
+	2,  // 19: chores.v1.CreateTaskRequest.repeat_mode:type_name -> chores.v1.RepeatMode
+	6,  // 20: chores.v1.CreateTaskResponse.task:type_name -> chores.v1.Task
+	3,  // 21: chores.v1.UpdateTaskRequest.icon:type_name -> chores.v1.Icon
+	2,  // 22: chores.v1.UpdateTaskRequest.repeat_mode:type_name -> chores.v1.RepeatMode
+	6,  // 23: chores.v1.UpdateTaskResponse.task:type_name -> chores.v1.Task
+	6,  // 24: chores.v1.ListTasksResponse.tasks:type_name -> chores.v1.Task
+	10, // 25: chores.v1.ListTaskOccurrencesResponse.occurrences:type_name -> chores.v1.TaskOccurrence
+	7,  // 26: chores.v1.CompleteTaskResponse.completion:type_name -> chores.v1.TaskCompletion
+	7,  // 27: chores.v1.ListTaskCompletionsResponse.completions:type_name -> chores.v1.TaskCompletion
+	9,  // 28: chores.v1.GetChildSummaryResponse.summary:type_name -> chores.v1.ChildSummary
+	9,  // 29: chores.v1.ListChildSummariesResponse.summaries:type_name -> chores.v1.ChildSummary
+	8,  // 30: chores.v1.CreatePayoutResponse.payout:type_name -> chores.v1.Payout
+	8,  // 31: chores.v1.ListPayoutsResponse.payouts:type_name -> chores.v1.Payout
+	5,  // 32: chores.v1.Membership.user:type_name -> chores.v1.User
+	4,  // 33: chores.v1.Membership.family:type_name -> chores.v1.Family
+	43, // 34: chores.v1.GetMyMembershipResponse.memberships:type_name -> chores.v1.Membership
+	55, // 35: chores.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	55, // 36: chores.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	55, // 37: chores.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
+	0,  // 38: chores.v1.Invitation.role:type_name -> chores.v1.UserRole
+	0,  // 39: chores.v1.CreateInvitationRequest.role:type_name -> chores.v1.UserRole
+	46, // 40: chores.v1.CreateInvitationResponse.invitation:type_name -> chores.v1.Invitation
+	46, // 41: chores.v1.ListInvitationsResponse.invitations:type_name -> chores.v1.Invitation
+	5,  // 42: chores.v1.AcceptInvitationResponse.user:type_name -> chores.v1.User
+	4,  // 43: chores.v1.AcceptInvitationResponse.family:type_name -> chores.v1.Family
+	11, // 44: chores.v1.ChoresService.CreateFamily:input_type -> chores.v1.CreateFamilyRequest
+	13, // 45: chores.v1.ChoresService.ListFamilies:input_type -> chores.v1.ListFamiliesRequest
+	15, // 46: chores.v1.ChoresService.CreateUser:input_type -> chores.v1.CreateUserRequest
+	17, // 47: chores.v1.ChoresService.ListUsers:input_type -> chores.v1.ListUsersRequest
+	19, // 48: chores.v1.ChoresService.CreateTask:input_type -> chores.v1.CreateTaskRequest
+	21, // 49: chores.v1.ChoresService.UpdateTask:input_type -> chores.v1.UpdateTaskRequest
+	23, // 50: chores.v1.ChoresService.DeleteTask:input_type -> chores.v1.DeleteTaskRequest
+	25, // 51: chores.v1.ChoresService.ListTasks:input_type -> chores.v1.ListTasksRequest
+	27, // 52: chores.v1.ChoresService.ListTaskOccurrences:input_type -> chores.v1.ListTaskOccurrencesRequest
+	29, // 53: chores.v1.ChoresService.CompleteTask:input_type -> chores.v1.CompleteTaskRequest
+	31, // 54: chores.v1.ChoresService.UncompleteTask:input_type -> chores.v1.UncompleteTaskRequest
+	33, // 55: chores.v1.ChoresService.ListTaskCompletions:input_type -> chores.v1.ListTaskCompletionsRequest
+	35, // 56: chores.v1.ChoresService.GetChildSummary:input_type -> chores.v1.GetChildSummaryRequest
+	37, // 57: chores.v1.ChoresService.ListChildSummaries:input_type -> chores.v1.ListChildSummariesRequest
+	39, // 58: chores.v1.ChoresService.CreatePayout:input_type -> chores.v1.CreatePayoutRequest
+	41, // 59: chores.v1.ChoresService.ListPayouts:input_type -> chores.v1.ListPayoutsRequest
+	44, // 60: chores.v1.ChoresService.GetMyMembership:input_type -> chores.v1.GetMyMembershipRequest
+	47, // 61: chores.v1.ChoresService.CreateInvitation:input_type -> chores.v1.CreateInvitationRequest
+	49, // 62: chores.v1.ChoresService.ListInvitations:input_type -> chores.v1.ListInvitationsRequest
+	51, // 63: chores.v1.ChoresService.RevokeInvitation:input_type -> chores.v1.RevokeInvitationRequest
+	53, // 64: chores.v1.ChoresService.AcceptInvitation:input_type -> chores.v1.AcceptInvitationRequest
+	12, // 65: chores.v1.ChoresService.CreateFamily:output_type -> chores.v1.CreateFamilyResponse
+	14, // 66: chores.v1.ChoresService.ListFamilies:output_type -> chores.v1.ListFamiliesResponse
+	16, // 67: chores.v1.ChoresService.CreateUser:output_type -> chores.v1.CreateUserResponse
+	18, // 68: chores.v1.ChoresService.ListUsers:output_type -> chores.v1.ListUsersResponse
+	20, // 69: chores.v1.ChoresService.CreateTask:output_type -> chores.v1.CreateTaskResponse
+	22, // 70: chores.v1.ChoresService.UpdateTask:output_type -> chores.v1.UpdateTaskResponse
+	24, // 71: chores.v1.ChoresService.DeleteTask:output_type -> chores.v1.DeleteTaskResponse
+	26, // 72: chores.v1.ChoresService.ListTasks:output_type -> chores.v1.ListTasksResponse
+	28, // 73: chores.v1.ChoresService.ListTaskOccurrences:output_type -> chores.v1.ListTaskOccurrencesResponse
+	30, // 74: chores.v1.ChoresService.CompleteTask:output_type -> chores.v1.CompleteTaskResponse
+	32, // 75: chores.v1.ChoresService.UncompleteTask:output_type -> chores.v1.UncompleteTaskResponse
+	34, // 76: chores.v1.ChoresService.ListTaskCompletions:output_type -> chores.v1.ListTaskCompletionsResponse
+	36, // 77: chores.v1.ChoresService.GetChildSummary:output_type -> chores.v1.GetChildSummaryResponse
+	38, // 78: chores.v1.ChoresService.ListChildSummaries:output_type -> chores.v1.ListChildSummariesResponse
+	40, // 79: chores.v1.ChoresService.CreatePayout:output_type -> chores.v1.CreatePayoutResponse
+	42, // 80: chores.v1.ChoresService.ListPayouts:output_type -> chores.v1.ListPayoutsResponse
+	45, // 81: chores.v1.ChoresService.GetMyMembership:output_type -> chores.v1.GetMyMembershipResponse
+	48, // 82: chores.v1.ChoresService.CreateInvitation:output_type -> chores.v1.CreateInvitationResponse
+	50, // 83: chores.v1.ChoresService.ListInvitations:output_type -> chores.v1.ListInvitationsResponse
+	52, // 84: chores.v1.ChoresService.RevokeInvitation:output_type -> chores.v1.RevokeInvitationResponse
+	54, // 85: chores.v1.ChoresService.AcceptInvitation:output_type -> chores.v1.AcceptInvitationResponse
+	65, // [65:86] is the sub-list for method output_type
+	44, // [44:65] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_chores_v1_chores_proto_init() }
@@ -3529,7 +3731,7 @@ func file_chores_v1_chores_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chores_v1_chores_proto_rawDesc), len(file_chores_v1_chores_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,

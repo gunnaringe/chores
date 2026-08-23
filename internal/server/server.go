@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -331,6 +333,112 @@ func taskIconFromDB(iconType, iconValue string) *v1.Icon {
 	return &v1.Icon{Type: iconTypeFromDB(iconType), Value: iconValue}
 }
 
+func repeatModeToDB(m v1.RepeatMode) (string, error) {
+	switch m {
+	case v1.RepeatMode_REPEAT_MODE_ONCE:
+		return "once", nil
+	case v1.RepeatMode_REPEAT_MODE_WEEKLY:
+		return "weekly", nil
+	case v1.RepeatMode_REPEAT_MODE_CRON:
+		return "cron", nil
+	default:
+		return "", fmt.Errorf("invalid repeat_mode %v", m)
+	}
+}
+
+func repeatModeFromDB(m string) v1.RepeatMode {
+	switch m {
+	case "once":
+		return v1.RepeatMode_REPEAT_MODE_ONCE
+	case "weekly":
+		return v1.RepeatMode_REPEAT_MODE_WEEKLY
+	case "cron":
+		return v1.RepeatMode_REPEAT_MODE_CRON
+	default:
+		return v1.RepeatMode_REPEAT_MODE_UNSPECIFIED
+	}
+}
+
+func daysOfWeekToDB(days []int) string {
+	if len(days) == 0 {
+		return ""
+	}
+	strs := make([]string, len(days))
+	for i, d := range days {
+		strs[i] = strconv.Itoa(d)
+	}
+	return strings.Join(strs, ",")
+}
+
+func int32SliceFrom(ints []int) []int32 {
+	if len(ints) == 0 {
+		return nil
+	}
+	out := make([]int32, len(ints))
+	for i, v := range ints {
+		out[i] = int32(v)
+	}
+	return out
+}
+
+func daysOfWeekFromDB(s string) []int32 {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	days := make([]int32, 0, len(parts))
+	for _, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			continue
+		}
+		days = append(days, int32(n))
+	}
+	return days
+}
+
+// taskSpecFromFields builds a scheduling.Spec from a task's repeat fields,
+// whether they come from an incoming request or from a row already in the
+// database. now is only consulted as a default: a WEEKLY task with no
+// explicit start_date is anchored to it — needed to compute "every N weeks"
+// parity, and harmless when repeat_interval_weeks is 1 since the anchor is
+// unused there. A task loaded from storage always has start_date already
+// populated (CreateTask/UpdateTask never leave it empty), so this default
+// only ever fires for a fresh request.
+func taskSpecFromFields(mode v1.RepeatMode, cronSchedule string, daysOfWeek []int32, intervalWeeks int32, startDate string, now time.Time) (scheduling.Spec, error) {
+	spec := scheduling.Spec{IntervalWeeks: 1} // meaningless outside ModeWeekly; kept at its natural default rather than left at Go's zero value
+	switch mode {
+	case v1.RepeatMode_REPEAT_MODE_ONCE:
+		spec.Mode = scheduling.ModeOnce
+		spec.StartDate = startDate
+	case v1.RepeatMode_REPEAT_MODE_WEEKLY:
+		spec.Mode = scheduling.ModeWeekly
+		days := make([]int, len(daysOfWeek))
+		for i, d := range daysOfWeek {
+			days[i] = int(d)
+		}
+		spec.DaysOfWeek = days
+		spec.IntervalWeeks = int(intervalWeeks)
+		if spec.IntervalWeeks < 1 {
+			spec.IntervalWeeks = 1
+		}
+		spec.StartDate = startDate
+		if spec.StartDate == "" {
+			spec.StartDate = scheduling.FormatDate(now)
+		}
+	case v1.RepeatMode_REPEAT_MODE_CRON:
+		spec.Mode = scheduling.ModeCron
+		spec.Cron = cronSchedule
+	default:
+		return scheduling.Spec{}, errors.New("repeat_mode is required")
+	}
+	return spec, nil
+}
+
+func taskSpec(t *v1.Task, now time.Time) (scheduling.Spec, error) {
+	return taskSpecFromFields(t.GetRepeatMode(), t.GetSchedule(), t.GetDaysOfWeek(), t.GetRepeatIntervalWeeks(), t.GetStartDate(), now)
+}
+
 func (s *Server) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
 	familyID := req.Msg.GetFamilyId()
 	name := req.Msg.GetName()
@@ -492,14 +600,17 @@ func (s *Server) taskAssignmentsByFamily(ctx context.Context, familyID string) (
 func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error) {
 	familyID := req.Msg.GetFamilyId()
 	title := req.Msg.GetTitle()
-	schedule := req.Msg.GetSchedule()
-	if familyID == "" || title == "" || schedule == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id, title and schedule are required"))
+	if familyID == "" || title == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id and title are required"))
 	}
 	if req.Msg.GetPriceCents() < 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("price_cents must not be negative"))
 	}
-	if err := scheduling.Validate(schedule); err != nil {
+	spec, err := taskSpecFromFields(req.Msg.GetRepeatMode(), req.Msg.GetSchedule(), req.Msg.GetDaysOfWeek(), req.Msg.GetRepeatIntervalWeeks(), req.Msg.GetStartDate(), nowUTC())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if err := spec.Validate(); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	if err := s.requireParent(ctx, familyID); err != nil {
@@ -513,13 +624,18 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	repeatModeDB, err := repeatModeToDB(req.Msg.GetRepeatMode())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	id := newID()
 	now := nowUTC()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value)
-		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
-		id, familyID, title, req.Msg.GetDescription(), req.Msg.GetPriceCents(), schedule, formatTime(now), iconType, iconValue,
+		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
+		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+		id, familyID, title, req.Msg.GetDescription(), req.Msg.GetPriceCents(), spec.Cron, formatTime(now), iconType, iconValue,
+		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create task: %w", err))
 	}
@@ -529,8 +645,10 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	return connect.NewResponse(&v1.CreateTaskResponse{
 		Task: &v1.Task{
 			Id: id, FamilyId: familyID, Title: title, Description: req.Msg.GetDescription(),
-			PriceCents: req.Msg.GetPriceCents(), Schedule: schedule, Active: true, CreatedAt: timestampPB(now),
+			PriceCents: req.Msg.GetPriceCents(), Schedule: spec.Cron, Active: true, CreatedAt: timestampPB(now),
 			ChildIds: childIDs, Icon: taskIconFromDB(iconType, iconValue),
+			RepeatMode: req.Msg.GetRepeatMode(), DaysOfWeek: int32SliceFrom(spec.DaysOfWeek),
+			RepeatIntervalWeeks: int32(spec.IntervalWeeks), StartDate: spec.StartDate,
 		},
 	}), nil
 }
@@ -540,10 +658,12 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if taskID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("task_id is required"))
 	}
-	if req.Msg.GetSchedule() != "" {
-		if err := scheduling.Validate(req.Msg.GetSchedule()); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
+	spec, err := taskSpecFromFields(req.Msg.GetRepeatMode(), req.Msg.GetSchedule(), req.Msg.GetDaysOfWeek(), req.Msg.GetRepeatIntervalWeeks(), req.Msg.GetStartDate(), nowUTC())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if err := spec.Validate(); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	existing, err := s.getTask(ctx, taskID)
@@ -561,10 +681,16 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	repeatModeDB, err := repeatModeToDB(req.Msg.GetRepeatMode())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ? WHERE id = ?`,
-		req.Msg.GetTitle(), req.Msg.GetDescription(), req.Msg.GetPriceCents(), req.Msg.GetSchedule(), req.Msg.GetActive(), iconType, iconValue, taskID,
+		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ?,
+		 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ?`,
+		req.Msg.GetTitle(), req.Msg.GetDescription(), req.Msg.GetPriceCents(), spec.Cron, req.Msg.GetActive(), iconType, iconValue,
+		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
@@ -601,11 +727,16 @@ func (s *Server) DeleteTask(ctx context.Context, req *connect.Request[v1.DeleteT
 	return connect.NewResponse(&v1.DeleteTaskResponse{}), nil
 }
 
+const taskColumns = `id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value,
+	repeat_mode, days_of_week, repeat_interval_weeks, start_date`
+
 func scanTask(row rowScanner) (*v1.Task, error) {
 	var t v1.Task
-	var createdAt, iconType, iconValue string
+	var createdAt, iconType, iconValue, repeatMode, daysOfWeek string
 	var active bool
-	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &t.PriceCents, &t.Schedule, &active, &createdAt, &iconType, &iconValue); err != nil {
+	var intervalWeeks int32
+	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &t.PriceCents, &t.Schedule, &active, &createdAt, &iconType, &iconValue,
+		&repeatMode, &daysOfWeek, &intervalWeeks, &t.StartDate); err != nil {
 		return nil, err
 	}
 	ts, err := parseTime(createdAt)
@@ -615,12 +746,15 @@ func scanTask(row rowScanner) (*v1.Task, error) {
 	t.Active = active
 	t.CreatedAt = timestampPB(ts)
 	t.Icon = taskIconFromDB(iconType, iconValue)
+	t.RepeatMode = repeatModeFromDB(repeatMode)
+	t.DaysOfWeek = daysOfWeekFromDB(daysOfWeek)
+	t.RepeatIntervalWeeks = intervalWeeks
 	return &t, nil
 }
 
 func (s *Server) getTask(ctx context.Context, taskID string) (*v1.Task, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value FROM tasks WHERE id = ?`,
+		`SELECT `+taskColumns+` FROM tasks WHERE id = ?`,
 		taskID,
 	)
 	t, err := scanTask(row)
@@ -647,8 +781,7 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 		return nil, err
 	}
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value
-		 FROM tasks WHERE family_id = ? ORDER BY created_at`,
+		`SELECT `+taskColumns+` FROM tasks WHERE family_id = ? ORDER BY created_at`,
 		familyID,
 	)
 	if err != nil {
@@ -717,12 +850,17 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	now := nowUTC()
 	var occurrences []*v1.TaskOccurrence
 	for _, t := range tasksResp.Msg.GetTasks() {
 		if !t.GetActive() {
 			continue
 		}
-		dates, err := scheduling.DatesBetween(t.GetSchedule(), start, end)
+		spec, err := taskSpec(t, now)
+		if err != nil {
+			continue
+		}
+		dates, err := spec.DatesBetween(start, end)
 		if err != nil {
 			continue
 		}

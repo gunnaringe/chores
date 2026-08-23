@@ -121,6 +121,9 @@ label {
 .icon-type-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .icon-choices { display: flex; flex-wrap: wrap; gap: 4px; }
 .icon-choices button { padding: 4px 8px; }
+.repeat-mode-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
+.repeat-mode-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.hint { color: var(--muted); }
 .stat {
   text-align: center;
 }

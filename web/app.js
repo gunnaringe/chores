@@ -54,22 +54,34 @@ function DOW() {
   ];
 }
 
-function buildScheduleFromDays(days) {
-  if (!days.length) return "0 0 * * *"; // default: every day
-  return `0 0 * * ${days.slice().sort().join(",")}`;
+// Formats a "YYYY-MM-DD" date string for display. Deliberately avoids
+// `new Date("YYYY-MM-DD")`, which parses as UTC midnight and can render as
+// the previous day in a timezone behind UTC; constructing from the Y/M/D
+// components directly keeps it a local-time date with no shift.
+function formatDateStr(s) {
+  if (!s) return "";
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(localeTag());
 }
 
-function daysFromSchedule(schedule) {
-  const parts = (schedule || "").trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const dow = parts[4];
-  if (dow === "*") return DOW().map((d) => d.code);
-  const days = dow
-    .split(",")
-    .map((s) => parseInt(s, 10))
-    .filter((n) => !Number.isNaN(n));
-  if (days.some((d) => d < 0 || d > 6)) return null;
-  return days;
+// Describes a task's repeat rule (one-off date, weekly pattern, or raw
+// cron) for display in the task list.
+function repeatLabel(t_) {
+  const dow = DOW();
+  switch (t_.repeatMode) {
+    case "REPEAT_MODE_ONCE":
+      return t("taskList.onceOn", { date: formatDateStr(t_.startDate) });
+    case "REPEAT_MODE_WEEKLY": {
+      const days = t_.daysOfWeek || [];
+      const dayLabel = days.length && days.length < 7 ? dow.filter((d) => days.includes(d.code)).map((d) => d.label).join(", ") : t("taskList.everyDay");
+      const interval = t_.repeatIntervalWeeks || 1;
+      return interval > 1 ? t("taskList.everyNWeeks", { n: interval, days: dayLabel }) : dayLabel;
+    }
+    case "REPEAT_MODE_CRON":
+      return t_.schedule;
+    default:
+      return "";
+  }
 }
 
 // ---- state -----------------------------------------------------------
@@ -722,23 +734,14 @@ function renderTaskList() {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("taskList.empty"))}</p>`));
     return card;
   }
-  const dow = DOW();
   const usersById = new Map(state.users.map((u) => [u.id, u]));
   state.tasks.forEach((t_) => {
-    const days = daysFromSchedule(t_.schedule);
-    const dayLabel =
-      days && days.length < 7
-        ? dow
-            .filter((d) => days.includes(d.code))
-            .map((d) => d.label)
-            .join(", ")
-        : t("taskList.everyDay");
     const assignedNames = (t_.childIds || []).map((id) => (usersById.get(id) ? usersById.get(id).name : "?")).join(", ");
     const row = el(`
       <div class="row">
         <div>
           <div class="task-title">${taskLabel(t_)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""}</div>
-          <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
+          <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
         </div>
         <div class="actions">
           <button class="secondary" data-action="edit">${escapeHtml(t("taskList.edit"))}</button>
@@ -760,6 +763,10 @@ function renderTaskList() {
           description: t_.description,
           priceCents: t_.priceCents,
           schedule: t_.schedule,
+          repeatMode: t_.repeatMode,
+          daysOfWeek: t_.daysOfWeek,
+          repeatIntervalWeeks: t_.repeatIntervalWeeks,
+          startDate: t_.startDate,
           active: t_.active === false,
           childIds: t_.childIds,
           icon: t_.icon,
@@ -811,14 +818,30 @@ function renderTaskForm(existingTask) {
         <input type="text" id="task-icon" maxlength="32" style="width:12em;" />
         <div id="task-icon-choices" class="icon-choices" style="margin-top:6px;"></div>
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label>${escapeHtml(t("addTask.priceLabel"))}</label>
-          <input type="number" id="task-price" min="0" step="0.5" value="10" />
+      <div class="field">
+        <label>${escapeHtml(t("addTask.priceLabel"))}</label>
+        <input type="number" id="task-price" min="0" step="0.5" value="10" style="width:8em;" />
+      </div>
+      <div class="field">
+        <label>${escapeHtml(t("addTask.repeatLabel"))}</label>
+        <div class="repeat-mode-toggle">
+          <button type="button" class="secondary" data-repeat-mode="ONCE">${escapeHtml(t("addTask.repeatOnce"))}</button>
+          <button type="button" class="secondary" data-repeat-mode="WEEKLY">${escapeHtml(t("addTask.repeatWeekly"))}</button>
+          <button type="button" class="secondary" data-repeat-mode="CRON">${escapeHtml(t("addTask.repeatCron"))}</button>
         </div>
-        <div class="field">
-          <label>${escapeHtml(t("addTask.repeatsOn"))}</label>
+        <div id="repeat-once-fields" style="margin-top:8px;">
+          <label>${escapeHtml(t("addTask.onceDateLabel"))}</label>
+          <input type="date" id="task-once-date" style="width:10em;" />
+        </div>
+        <div id="repeat-weekly-fields" style="margin-top:8px;">
           <div id="task-days"></div>
+          <label style="margin-top:8px;">${escapeHtml(t("addTask.everyNWeeksLabel"))}</label>
+          <input type="number" id="task-interval-weeks" min="1" max="52" value="1" style="width:5em;" />
+        </div>
+        <div id="repeat-cron-fields" style="margin-top:8px;">
+          <label>${escapeHtml(t("addTask.cronLabel"))}</label>
+          <input type="text" id="task-cron" placeholder="0 0 * * 1,3,5" style="width:14em;" />
+          <p class="hint" style="margin:4px 0 0;font-size:0.8rem;">${escapeHtml(t("addTask.cronHint"))}</p>
         </div>
       </div>
       <div class="field">
@@ -884,7 +907,7 @@ function renderTaskForm(existingTask) {
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
-  const preCheckedDays = isEdit ? daysFromSchedule(existingTask.schedule) || [] : null;
+  const preCheckedDays = isEdit ? existingTask.daysOfWeek || [] : [];
   dow.forEach((d) => {
     const id = `day-${d.code}`;
     const checked = isEdit ? preCheckedDays.includes(d.code) : d.code >= 1 && d.code <= 5;
@@ -893,6 +916,31 @@ function renderTaskForm(existingTask) {
     </label>`);
     daysWrap.appendChild(label);
   });
+
+  const repeatModeButtons = [...form.querySelectorAll(".repeat-mode-toggle button")];
+  const onceFieldsWrap = form.querySelector("#repeat-once-fields");
+  const weeklyFieldsWrap = form.querySelector("#repeat-weekly-fields");
+  const cronFieldsWrap = form.querySelector("#repeat-cron-fields");
+  const onceDateInput = form.querySelector("#task-once-date");
+  const intervalWeeksInput = form.querySelector("#task-interval-weeks");
+  const cronInput = form.querySelector("#task-cron");
+
+  const repeatModeKey = { REPEAT_MODE_ONCE: "ONCE", REPEAT_MODE_WEEKLY: "WEEKLY", REPEAT_MODE_CRON: "CRON" };
+  let selectedRepeatMode = isEdit ? repeatModeKey[existingTask.repeatMode] || "WEEKLY" : "WEEKLY";
+
+  onceDateInput.value = (isEdit && existingTask.repeatMode === "REPEAT_MODE_ONCE" && existingTask.startDate) || todayStr();
+  intervalWeeksInput.value = (isEdit && existingTask.repeatIntervalWeeks) || 1;
+  cronInput.value = (isEdit && existingTask.repeatMode === "REPEAT_MODE_CRON" && existingTask.schedule) || "";
+
+  function selectRepeatMode(mode) {
+    selectedRepeatMode = mode;
+    repeatModeButtons.forEach((b) => b.classList.toggle("active", b.dataset.repeatMode === mode));
+    onceFieldsWrap.style.display = mode === "ONCE" ? "" : "none";
+    weeklyFieldsWrap.style.display = mode === "WEEKLY" ? "" : "none";
+    cronFieldsWrap.style.display = mode === "CRON" ? "" : "none";
+  }
+  repeatModeButtons.forEach((btn) => btn.addEventListener("click", () => selectRepeatMode(btn.dataset.repeatMode)));
+  selectRepeatMode(selectedRepeatMode);
 
   const childrenWrap = form.querySelector("#task-children");
   if (!children.length) {
@@ -926,12 +974,30 @@ function renderTaskForm(existingTask) {
         selectedIconType === "FONT_AWESOME" ? faIconClass(iconValueRaw) : selectedIconType === "MATERIAL_SYMBOLS" ? materialIconName(iconValueRaw) : iconValueRaw;
       const icon = iconValueRaw ? { type: iconTypeProto, value: iconValue } : undefined;
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
-      const days = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
       const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);
       if (!title) throw new Error(t("addTask.titleRequired"));
       if (!(priceKr >= 0)) throw new Error(t("addTask.pricePositive"));
       if (!childIds.length) throw new Error(t("addTask.childRequired"));
-      const schedule = buildScheduleFromDays(days);
+
+      let repeatMode, schedule, daysOfWeek, repeatIntervalWeeks, startDate;
+      if (selectedRepeatMode === "ONCE") {
+        repeatMode = "REPEAT_MODE_ONCE";
+        startDate = onceDateInput.value;
+        if (!startDate) throw new Error(t("addTask.onceDateRequired"));
+      } else if (selectedRepeatMode === "WEEKLY") {
+        repeatMode = "REPEAT_MODE_WEEKLY";
+        daysOfWeek = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
+        if (!daysOfWeek.length) throw new Error(t("addTask.daysRequired"));
+        repeatIntervalWeeks = parseInt(intervalWeeksInput.value || "1", 10);
+        if (!(repeatIntervalWeeks >= 1)) throw new Error(t("addTask.intervalPositive"));
+        startDate = isEdit && existingTask.repeatMode === "REPEAT_MODE_WEEKLY" ? existingTask.startDate : todayStr();
+      } else {
+        repeatMode = "REPEAT_MODE_CRON";
+        schedule = cronInput.value.trim();
+        if (!schedule) throw new Error(t("addTask.cronRequired"));
+      }
+
+      const repeatFields = { repeatMode, schedule, daysOfWeek, repeatIntervalWeeks, startDate };
       if (isEdit) {
         await call("UpdateTask", {
           taskId: existingTask.id,
@@ -939,7 +1005,7 @@ function renderTaskForm(existingTask) {
           description,
           icon,
           priceCents: Math.round(priceKr * 100),
-          schedule,
+          ...repeatFields,
           childIds,
           active: existingTask.active !== false,
         });
@@ -951,7 +1017,7 @@ function renderTaskForm(existingTask) {
           description,
           icon,
           priceCents: Math.round(priceKr * 100),
-          schedule,
+          ...repeatFields,
           childIds,
         });
       }

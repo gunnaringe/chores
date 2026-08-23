@@ -51,12 +51,12 @@ func TestJSONCodec_EmitsFalseActiveField(t *testing.T) {
 	child := post("CreateUser", map[string]any{"familyId": familyID, "name": "Kid", "role": "USER_ROLE_CHILD"})["user"].(map[string]any)
 	childID := child["id"].(string)
 	task := post("CreateTask", map[string]any{
-		"familyId": familyID, "title": "Sweep", "priceCents": 100, "schedule": "0 0 * * *", "childIds": []string{childID},
+		"familyId": familyID, "title": "Sweep", "priceCents": 100, "schedule": "0 0 * * *", "repeatMode": "REPEAT_MODE_CRON", "childIds": []string{childID},
 	})["task"].(map[string]any)
 	taskID := task["id"].(string)
 
 	post("UpdateTask", map[string]any{
-		"taskId": taskID, "title": "Sweep", "priceCents": 100, "schedule": "0 0 * * *", "childIds": []string{childID}, "active": false,
+		"taskId": taskID, "title": "Sweep", "priceCents": 100, "schedule": "0 0 * * *", "repeatMode": "REPEAT_MODE_CRON", "childIds": []string{childID}, "active": false,
 	})
 
 	// Read the raw body directly instead of decoding into a map, since a Go

@@ -14,16 +14,20 @@ acceptable tradeoff here since the app already needs a live connection to
 its own backend for essentially everything; there's no offline mode to
 preserve.
 
-- Parents create tasks with a price, a cron-like recurrence (`0 0 * * 1,3,5`
-  = every Monday, Wednesday, Friday — the UI offers day-of-week checkboxes,
-  shown Monday-first, that build this expression for you), an assignment to
-  one or more children (with a "select all" shortcut), and an optional icon
-  shown next to the title everywhere the task appears — any emoji, a
+- Parents create tasks with a price, an assignment to one or more children
+  (with a "select all" shortcut), and an optional icon shown next to the
+  title everywhere the task appears — any emoji, a
   [Font Awesome](https://fontawesome.com) Free Solid icon, or a
   [Material Symbols](https://fonts.google.com/icons) icon, each with a row
   of quick-pick suggestions plus a free-text field. A task only shows up
   for the children it's assigned to, can be edited in place at any time,
   and can be paused (and later resumed) instead of deleted.
+- A task's repeat rule is one of three modes: **does not repeat** (due once,
+  on a specific date, then never again), **weekly** (day-of-week checkboxes,
+  shown Monday-first, plus "every N weeks" — 1 for every week, higher for
+  every other week and beyond, counted from the date the task was created),
+  or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
+  every month) for anything the other two can't express.
 - A parent's Home tab is a daily dashboard: for each child, today's tasks
   and their completion status, what they've earned today, and their
   outstanding balance — all at a glance. Managing tasks (add/edit/pause/
