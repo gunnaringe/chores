@@ -11,10 +11,13 @@ Buf-generated Connect API.
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
 
-Authentication (via Auth0) gates access to the app as a whole. It does not
-yet know about individual family members — anyone who logs in can still act
-as any family member via the in-app picker. Per-person login is meant to
-follow later.
+When Auth0 is enabled, each parent's login is bound to a specific parent
+record: the first parent to log in creates the family and is bound to it
+automatically, and any other parent joins via a one-time invite link. Once
+bound, a login only ever sees its own family — every API call is checked
+server-side. Children still don't log in themselves; a bound parent's
+session can act as any child in their family via the in-app picker (handing
+the device to a kid to mark a chore done, for example).
 
 ## Running
 
@@ -67,6 +70,17 @@ profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
 (no JWT verification needed since tokens never leave the server). Sessions
 don't survive a server restart. `/auth/logout` clears the session and signs
 out of Auth0 too.
+
+### Inviting another parent
+
+From the Family tab, a parent can create an invite link for a second parent
+(e.g. the other guardian). The link is a one-time, unguessable token
+(`/invite/accept?token=...`) — whoever opens it, after logging into their
+own Auth0 account, is bound to that parent slot in the same family. The
+token is shown once at creation time; a parent can revoke an invite before
+it's accepted, which also removes the unclaimed slot it created. Accepting
+an invite isn't restricted to any particular email address — possession of
+the link is what grants access, so only share it with the intended person.
 
 ## Regenerating the Connect/protobuf code
 

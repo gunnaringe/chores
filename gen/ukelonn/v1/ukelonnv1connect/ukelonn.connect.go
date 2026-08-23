@@ -81,6 +81,21 @@ const (
 	// UkelonnServiceListPayoutsProcedure is the fully-qualified name of the UkelonnService's
 	// ListPayouts RPC.
 	UkelonnServiceListPayoutsProcedure = "/ukelonn.v1.UkelonnService/ListPayouts"
+	// UkelonnServiceGetMyMembershipProcedure is the fully-qualified name of the UkelonnService's
+	// GetMyMembership RPC.
+	UkelonnServiceGetMyMembershipProcedure = "/ukelonn.v1.UkelonnService/GetMyMembership"
+	// UkelonnServiceCreateInvitationProcedure is the fully-qualified name of the UkelonnService's
+	// CreateInvitation RPC.
+	UkelonnServiceCreateInvitationProcedure = "/ukelonn.v1.UkelonnService/CreateInvitation"
+	// UkelonnServiceListInvitationsProcedure is the fully-qualified name of the UkelonnService's
+	// ListInvitations RPC.
+	UkelonnServiceListInvitationsProcedure = "/ukelonn.v1.UkelonnService/ListInvitations"
+	// UkelonnServiceRevokeInvitationProcedure is the fully-qualified name of the UkelonnService's
+	// RevokeInvitation RPC.
+	UkelonnServiceRevokeInvitationProcedure = "/ukelonn.v1.UkelonnService/RevokeInvitation"
+	// UkelonnServiceAcceptInvitationProcedure is the fully-qualified name of the UkelonnService's
+	// AcceptInvitation RPC.
+	UkelonnServiceAcceptInvitationProcedure = "/ukelonn.v1.UkelonnService/AcceptInvitation"
 )
 
 // UkelonnServiceClient is a client for the ukelonn.v1.UkelonnService service.
@@ -101,6 +116,11 @@ type UkelonnServiceClient interface {
 	ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error)
 	CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error)
 	ListPayouts(context.Context, *connect.Request[v1.ListPayoutsRequest]) (*connect.Response[v1.ListPayoutsResponse], error)
+	GetMyMembership(context.Context, *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error)
+	CreateInvitation(context.Context, *connect.Request[v1.CreateInvitationRequest]) (*connect.Response[v1.CreateInvitationResponse], error)
+	ListInvitations(context.Context, *connect.Request[v1.ListInvitationsRequest]) (*connect.Response[v1.ListInvitationsResponse], error)
+	RevokeInvitation(context.Context, *connect.Request[v1.RevokeInvitationRequest]) (*connect.Response[v1.RevokeInvitationResponse], error)
+	AcceptInvitation(context.Context, *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error)
 }
 
 // NewUkelonnServiceClient constructs a client for the ukelonn.v1.UkelonnService service. By
@@ -210,6 +230,36 @@ func NewUkelonnServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(ukelonnServiceMethods.ByName("ListPayouts")),
 			connect.WithClientOptions(opts...),
 		),
+		getMyMembership: connect.NewClient[v1.GetMyMembershipRequest, v1.GetMyMembershipResponse](
+			httpClient,
+			baseURL+UkelonnServiceGetMyMembershipProcedure,
+			connect.WithSchema(ukelonnServiceMethods.ByName("GetMyMembership")),
+			connect.WithClientOptions(opts...),
+		),
+		createInvitation: connect.NewClient[v1.CreateInvitationRequest, v1.CreateInvitationResponse](
+			httpClient,
+			baseURL+UkelonnServiceCreateInvitationProcedure,
+			connect.WithSchema(ukelonnServiceMethods.ByName("CreateInvitation")),
+			connect.WithClientOptions(opts...),
+		),
+		listInvitations: connect.NewClient[v1.ListInvitationsRequest, v1.ListInvitationsResponse](
+			httpClient,
+			baseURL+UkelonnServiceListInvitationsProcedure,
+			connect.WithSchema(ukelonnServiceMethods.ByName("ListInvitations")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeInvitation: connect.NewClient[v1.RevokeInvitationRequest, v1.RevokeInvitationResponse](
+			httpClient,
+			baseURL+UkelonnServiceRevokeInvitationProcedure,
+			connect.WithSchema(ukelonnServiceMethods.ByName("RevokeInvitation")),
+			connect.WithClientOptions(opts...),
+		),
+		acceptInvitation: connect.NewClient[v1.AcceptInvitationRequest, v1.AcceptInvitationResponse](
+			httpClient,
+			baseURL+UkelonnServiceAcceptInvitationProcedure,
+			connect.WithSchema(ukelonnServiceMethods.ByName("AcceptInvitation")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -231,6 +281,11 @@ type ukelonnServiceClient struct {
 	listChildSummaries  *connect.Client[v1.ListChildSummariesRequest, v1.ListChildSummariesResponse]
 	createPayout        *connect.Client[v1.CreatePayoutRequest, v1.CreatePayoutResponse]
 	listPayouts         *connect.Client[v1.ListPayoutsRequest, v1.ListPayoutsResponse]
+	getMyMembership     *connect.Client[v1.GetMyMembershipRequest, v1.GetMyMembershipResponse]
+	createInvitation    *connect.Client[v1.CreateInvitationRequest, v1.CreateInvitationResponse]
+	listInvitations     *connect.Client[v1.ListInvitationsRequest, v1.ListInvitationsResponse]
+	revokeInvitation    *connect.Client[v1.RevokeInvitationRequest, v1.RevokeInvitationResponse]
+	acceptInvitation    *connect.Client[v1.AcceptInvitationRequest, v1.AcceptInvitationResponse]
 }
 
 // CreateFamily calls ukelonn.v1.UkelonnService.CreateFamily.
@@ -313,6 +368,31 @@ func (c *ukelonnServiceClient) ListPayouts(ctx context.Context, req *connect.Req
 	return c.listPayouts.CallUnary(ctx, req)
 }
 
+// GetMyMembership calls ukelonn.v1.UkelonnService.GetMyMembership.
+func (c *ukelonnServiceClient) GetMyMembership(ctx context.Context, req *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error) {
+	return c.getMyMembership.CallUnary(ctx, req)
+}
+
+// CreateInvitation calls ukelonn.v1.UkelonnService.CreateInvitation.
+func (c *ukelonnServiceClient) CreateInvitation(ctx context.Context, req *connect.Request[v1.CreateInvitationRequest]) (*connect.Response[v1.CreateInvitationResponse], error) {
+	return c.createInvitation.CallUnary(ctx, req)
+}
+
+// ListInvitations calls ukelonn.v1.UkelonnService.ListInvitations.
+func (c *ukelonnServiceClient) ListInvitations(ctx context.Context, req *connect.Request[v1.ListInvitationsRequest]) (*connect.Response[v1.ListInvitationsResponse], error) {
+	return c.listInvitations.CallUnary(ctx, req)
+}
+
+// RevokeInvitation calls ukelonn.v1.UkelonnService.RevokeInvitation.
+func (c *ukelonnServiceClient) RevokeInvitation(ctx context.Context, req *connect.Request[v1.RevokeInvitationRequest]) (*connect.Response[v1.RevokeInvitationResponse], error) {
+	return c.revokeInvitation.CallUnary(ctx, req)
+}
+
+// AcceptInvitation calls ukelonn.v1.UkelonnService.AcceptInvitation.
+func (c *ukelonnServiceClient) AcceptInvitation(ctx context.Context, req *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error) {
+	return c.acceptInvitation.CallUnary(ctx, req)
+}
+
 // UkelonnServiceHandler is an implementation of the ukelonn.v1.UkelonnService service.
 type UkelonnServiceHandler interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
@@ -331,6 +411,11 @@ type UkelonnServiceHandler interface {
 	ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error)
 	CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error)
 	ListPayouts(context.Context, *connect.Request[v1.ListPayoutsRequest]) (*connect.Response[v1.ListPayoutsResponse], error)
+	GetMyMembership(context.Context, *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error)
+	CreateInvitation(context.Context, *connect.Request[v1.CreateInvitationRequest]) (*connect.Response[v1.CreateInvitationResponse], error)
+	ListInvitations(context.Context, *connect.Request[v1.ListInvitationsRequest]) (*connect.Response[v1.ListInvitationsResponse], error)
+	RevokeInvitation(context.Context, *connect.Request[v1.RevokeInvitationRequest]) (*connect.Response[v1.RevokeInvitationResponse], error)
+	AcceptInvitation(context.Context, *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error)
 }
 
 // NewUkelonnServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -436,6 +521,36 @@ func NewUkelonnServiceHandler(svc UkelonnServiceHandler, opts ...connect.Handler
 		connect.WithSchema(ukelonnServiceMethods.ByName("ListPayouts")),
 		connect.WithHandlerOptions(opts...),
 	)
+	ukelonnServiceGetMyMembershipHandler := connect.NewUnaryHandler(
+		UkelonnServiceGetMyMembershipProcedure,
+		svc.GetMyMembership,
+		connect.WithSchema(ukelonnServiceMethods.ByName("GetMyMembership")),
+		connect.WithHandlerOptions(opts...),
+	)
+	ukelonnServiceCreateInvitationHandler := connect.NewUnaryHandler(
+		UkelonnServiceCreateInvitationProcedure,
+		svc.CreateInvitation,
+		connect.WithSchema(ukelonnServiceMethods.ByName("CreateInvitation")),
+		connect.WithHandlerOptions(opts...),
+	)
+	ukelonnServiceListInvitationsHandler := connect.NewUnaryHandler(
+		UkelonnServiceListInvitationsProcedure,
+		svc.ListInvitations,
+		connect.WithSchema(ukelonnServiceMethods.ByName("ListInvitations")),
+		connect.WithHandlerOptions(opts...),
+	)
+	ukelonnServiceRevokeInvitationHandler := connect.NewUnaryHandler(
+		UkelonnServiceRevokeInvitationProcedure,
+		svc.RevokeInvitation,
+		connect.WithSchema(ukelonnServiceMethods.ByName("RevokeInvitation")),
+		connect.WithHandlerOptions(opts...),
+	)
+	ukelonnServiceAcceptInvitationHandler := connect.NewUnaryHandler(
+		UkelonnServiceAcceptInvitationProcedure,
+		svc.AcceptInvitation,
+		connect.WithSchema(ukelonnServiceMethods.ByName("AcceptInvitation")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ukelonn.v1.UkelonnService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case UkelonnServiceCreateFamilyProcedure:
@@ -470,6 +585,16 @@ func NewUkelonnServiceHandler(svc UkelonnServiceHandler, opts ...connect.Handler
 			ukelonnServiceCreatePayoutHandler.ServeHTTP(w, r)
 		case UkelonnServiceListPayoutsProcedure:
 			ukelonnServiceListPayoutsHandler.ServeHTTP(w, r)
+		case UkelonnServiceGetMyMembershipProcedure:
+			ukelonnServiceGetMyMembershipHandler.ServeHTTP(w, r)
+		case UkelonnServiceCreateInvitationProcedure:
+			ukelonnServiceCreateInvitationHandler.ServeHTTP(w, r)
+		case UkelonnServiceListInvitationsProcedure:
+			ukelonnServiceListInvitationsHandler.ServeHTTP(w, r)
+		case UkelonnServiceRevokeInvitationProcedure:
+			ukelonnServiceRevokeInvitationHandler.ServeHTTP(w, r)
+		case UkelonnServiceAcceptInvitationProcedure:
+			ukelonnServiceAcceptInvitationHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -541,4 +666,24 @@ func (UnimplementedUkelonnServiceHandler) CreatePayout(context.Context, *connect
 
 func (UnimplementedUkelonnServiceHandler) ListPayouts(context.Context, *connect.Request[v1.ListPayoutsRequest]) (*connect.Response[v1.ListPayoutsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ukelonn.v1.UkelonnService.ListPayouts is not implemented"))
+}
+
+func (UnimplementedUkelonnServiceHandler) GetMyMembership(context.Context, *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ukelonn.v1.UkelonnService.GetMyMembership is not implemented"))
+}
+
+func (UnimplementedUkelonnServiceHandler) CreateInvitation(context.Context, *connect.Request[v1.CreateInvitationRequest]) (*connect.Response[v1.CreateInvitationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ukelonn.v1.UkelonnService.CreateInvitation is not implemented"))
+}
+
+func (UnimplementedUkelonnServiceHandler) ListInvitations(context.Context, *connect.Request[v1.ListInvitationsRequest]) (*connect.Response[v1.ListInvitationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ukelonn.v1.UkelonnService.ListInvitations is not implemented"))
+}
+
+func (UnimplementedUkelonnServiceHandler) RevokeInvitation(context.Context, *connect.Request[v1.RevokeInvitationRequest]) (*connect.Response[v1.RevokeInvitationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ukelonn.v1.UkelonnService.RevokeInvitation is not implemented"))
+}
+
+func (UnimplementedUkelonnServiceHandler) AcceptInvitation(context.Context, *connect.Request[v1.AcceptInvitationRequest]) (*connect.Response[v1.AcceptInvitationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ukelonn.v1.UkelonnService.AcceptInvitation is not implemented"))
 }

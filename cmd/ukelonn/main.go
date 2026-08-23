@@ -5,10 +5,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
+	"connectrpc.com/connect"
+
+	v1 "github.com/gunnaringe/ukelonn/gen/ukelonn/v1"
 	"github.com/gunnaringe/ukelonn/gen/ukelonn/v1/ukelonnv1connect"
 	"github.com/gunnaringe/ukelonn/internal/auth"
 	"github.com/gunnaringe/ukelonn/internal/db"
@@ -80,6 +84,10 @@ func main() {
 	path, handler := ukelonnv1connect.NewUkelonnServiceHandler(svc)
 	mux.Handle(path, authMgr.RequireAuth(handler))
 
+	mux.Handle("/invite/accept", authMgr.RequirePage(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acceptInvitationHandler(w, r, svc)
+	})))
+
 	mux.Handle("/", authMgr.Gate(http.FileServerFS(web.FS), http.HandlerFunc(loginPageHandler)))
 
 	log.Printf("ukelønn listening on %s (db: %s)", *addr, *dbPath)
@@ -96,4 +104,20 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(data)
+}
+
+// acceptInvitationHandler binds the now-authenticated caller (RequirePage
+// has already ensured that and put their identity in the request context)
+// to the invitation's parent slot, then sends them into the app.
+func acceptInvitationHandler(w http.ResponseWriter, r *http.Request, svc *server.Server) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "missing invitation token", http.StatusBadRequest)
+		return
+	}
+	if _, err := svc.AcceptInvitation(r.Context(), connect.NewRequest(&v1.AcceptInvitationRequest{Token: token})); err != nil {
+		http.Error(w, fmt.Sprintf("could not accept invitation: %v", err), http.StatusBadRequest)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
 }

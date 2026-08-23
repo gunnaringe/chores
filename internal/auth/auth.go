@@ -1,9 +1,10 @@
 // Package auth gates access to the app behind an Auth0 login when
 // configured, or lets every request through when running in local-testing
 // mode. It intentionally does not know anything about families or users —
-// it only answers "is somebody logged in" for the app as a whole. Which
-// family member a logged-in person is acting as is still chosen inside the
-// app itself.
+// it only answers "is somebody logged in, and as which login identity" for
+// the app as a whole. Binding a login identity to a specific family member
+// is the server package's job (see internal/server); this package just
+// makes that identity available via context.
 package auth
 
 import (
@@ -17,6 +18,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,17 +40,26 @@ type Config struct {
 	CallbackURL  string
 }
 
+// Identity is the logged-in person's login-provider profile. Sub is the
+// stable identifier (Auth0's "subject") that should be used for binding —
+// unlike Email, it never changes and is never reused across accounts.
+type Identity struct {
+	Sub   string
+	Name  string
+	Email string
+}
+
 type session struct {
-	Name      string
-	Email     string
+	Identity
 	ExpiresAt time.Time
 }
 
 const (
-	sessionCookieName = "ukelonn_session"
-	stateCookieName   = "ukelonn_oauth_state"
-	sessionTTL        = 7 * 24 * time.Hour
-	stateTTL          = 10 * time.Minute
+	sessionCookieName  = "ukelonn_session"
+	stateCookieName    = "ukelonn_oauth_state"
+	returnToCookieName = "ukelonn_oauth_return_to"
+	sessionTTL         = 7 * 24 * time.Hour
+	stateTTL           = 10 * time.Minute
 )
 
 // Manager implements both modes. In ModeDisabled every handler is a no-op
@@ -101,6 +112,38 @@ func isSecure(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 }
 
+// safeReturnTo only allows same-origin relative paths, so a crafted
+// ?returnTo= can't be used to redirect a login through an external site.
+func safeReturnTo(path string) string {
+	if path == "" || !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
+		return "/"
+	}
+	return path
+}
+
+// ---- identity context -----------------------------------------------------
+
+type ctxKey struct{}
+
+// FromContext returns the caller's login identity, as attached by
+// RequireAuth or RequirePage. It reports false in ModeDisabled, or for any
+// request that didn't pass through one of those middlewares.
+func FromContext(ctx context.Context) (Identity, bool) {
+	id, ok := ctx.Value(ctxKey{}).(Identity)
+	return id, ok
+}
+
+// NewContextWithIdentity attaches id to ctx the same way RequireAuth and
+// RequirePage do. Exposed for tests that need to exercise identity-aware
+// server code without going through a real HTTP request.
+func NewContextWithIdentity(ctx context.Context, id Identity) context.Context {
+	return withIdentity(ctx, id)
+}
+
+func withIdentity(ctx context.Context, id Identity) context.Context {
+	return context.WithValue(ctx, ctxKey{}, id)
+}
+
 // ---- session store -----------------------------------------------------
 
 func (m *Manager) sessionFromRequest(r *http.Request) (session, bool) {
@@ -121,12 +164,12 @@ func (m *Manager) sessionFromRequest(r *http.Request) (session, bool) {
 	return s, true
 }
 
-func (m *Manager) createSession(w http.ResponseWriter, r *http.Request, s session) error {
+func (m *Manager) createSession(w http.ResponseWriter, r *http.Request, id Identity) error {
 	token, err := randomToken()
 	if err != nil {
 		return err
 	}
-	s.ExpiresAt = time.Now().Add(sessionTTL)
+	s := session{Identity: id, ExpiresAt: time.Now().Add(sessionTTL)}
 
 	m.mu.Lock()
 	m.sessions[token] = s
@@ -168,6 +211,9 @@ func (m *Manager) clearSession(w http.ResponseWriter, r *http.Request) {
 
 // ---- login / callback / logout -----------------------------------------------------
 
+// LoginHandler starts the Auth0 login. An optional ?returnTo=/some/path
+// (same-origin only) sends the browser there after a successful login
+// instead of "/" — used by the invite-accept flow to resume after login.
 func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if m.mode != ModeAuth0 {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -187,6 +233,20 @@ func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(stateTTL),
 	})
+
+	returnTo := safeReturnTo(r.URL.Query().Get("returnTo"))
+	if returnTo != "/" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     returnToCookieName,
+			Value:    returnTo,
+			Path:     "/auth",
+			HttpOnly: true,
+			Secure:   isSecure(r),
+			SameSite: http.SameSiteLaxMode,
+			Expires:  time.Now().Add(stateTTL),
+		})
+	}
+
 	http.Redirect(w, r, m.oauthCfg.AuthCodeURL(state), http.StatusFound)
 }
 
@@ -242,6 +302,20 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 
+	returnTo := "/"
+	if c, err := r.Cookie(returnToCookieName); err == nil {
+		returnTo = safeReturnTo(c.Value)
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     returnToCookieName,
+		Value:    "",
+		Path:     "/auth",
+		HttpOnly: true,
+		Secure:   isSecure(r),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
 		http.Error(w, "login failed: "+errParam+": "+r.URL.Query().Get("error_description"), http.StatusBadGateway)
 		return
@@ -266,13 +340,13 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.createSession(w, r, session{Name: info.Name, Email: info.Email}); err != nil {
+	if err := m.createSession(w, r, Identity{Sub: info.Sub, Name: info.Name, Email: info.Email}); err != nil {
 		log.Printf("create session failed: %v", err)
 		http.Error(w, "login failed", http.StatusInternalServerError)
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, returnTo, http.StatusFound)
 }
 
 func (m *Manager) LogoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -324,19 +398,43 @@ func (m *Manager) MeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // RequireAuth protects the API: unauthenticated requests get a 401 instead
-// of reaching the RPC layer. A no-op in ModeDisabled.
+// of reaching the RPC layer. Authenticated requests carry their Identity in
+// context (see FromContext). A no-op in ModeDisabled.
 func (m *Manager) RequireAuth(next http.Handler) http.Handler {
 	if m.mode != ModeAuth0 {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := m.sessionFromRequest(r); !ok {
+		s, ok := m.sessionFromRequest(r)
+		if !ok {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = w.Write([]byte(`{"code":"unauthenticated","message":"login required"}`))
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), s.Identity)))
+	})
+}
+
+// RequirePage protects a browser-navigated (non-API) route: unauthenticated
+// requests are redirected through login instead of getting a bare 401, and
+// sent back to the original URL afterwards. Used by the invite-accept page.
+// A no-op in ModeDisabled.
+func (m *Manager) RequirePage(next http.Handler) http.Handler {
+	if m.mode != ModeAuth0 {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s, ok := m.sessionFromRequest(r)
+		if !ok {
+			returnTo := r.URL.Path
+			if r.URL.RawQuery != "" {
+				returnTo += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, "/auth/login?returnTo="+url.QueryEscape(returnTo), http.StatusFound)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), s.Identity)))
 	})
 }
 
@@ -354,8 +452,8 @@ func (m *Manager) Gate(protected, loginPage http.Handler) http.Handler {
 			protected.ServeHTTP(w, r)
 			return
 		}
-		if _, ok := m.sessionFromRequest(r); ok {
-			protected.ServeHTTP(w, r)
+		if s, ok := m.sessionFromRequest(r); ok {
+			protected.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), s.Identity)))
 			return
 		}
 		loginPage.ServeHTTP(w, r)

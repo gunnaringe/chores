@@ -24,6 +24,11 @@ message User {
   string name = 3;
   UserRole role = 4;
   google.protobuf.Timestamp created_at = 5;
+  string email = 6;
+  // Whether this user is bound to a login identity (only ever true for
+  // parents, since children don't log in themselves). A parent row created
+  // via an invitation stays unbound until the invite is accepted.
+  bool auth_bound = 7;
 }
 
 message Task {
@@ -80,6 +85,11 @@ message TaskOccurrence {
 
 message CreateFamilyRequest {
   string name = 1;
+  // When auth is enabled, the caller is automatically created as the
+  // founding parent and bound to their login identity. This is their
+  // display name; if empty, their login profile's name (or email) is used.
+  // Ignored in local-testing mode (no auth configured).
+  string parent_name = 2;
 }
 message CreateFamilyResponse {
   Family family = 1;
@@ -210,6 +220,68 @@ message ListPayoutsResponse {
   repeated Payout payouts = 1;
 }
 
+// GetMyMembership resolves the caller's login identity (when auth is
+// enabled) to the family member it's bound to, if any. In local-testing
+// mode (no auth configured) it always reports unbound, since there is no
+// login identity to resolve.
+message GetMyMembershipRequest {}
+message GetMyMembershipResponse {
+  bool bound = 1;
+  User user = 2;
+  Family family = 3;
+}
+
+// An invitation grants whoever holds its (unguessable, single-use) token
+// the ability to bind their login identity to user_id — an unclaimed
+// parent slot in family_id. The token itself is only ever returned once,
+// from CreateInvitation.
+message Invitation {
+  string id = 1;
+  string family_id = 2;
+  string user_id = 3;
+  string user_name = 4;
+  string email = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  google.protobuf.Timestamp accepted_at = 8;
+}
+
+message CreateInvitationRequest {
+  string family_id = 1;
+  // Display name for the new parent slot this invitation grants access to.
+  string name = 2;
+  // Informational only (shown in the pending-invites list) — accepting an
+  // invitation is not restricted to any particular login's email address.
+  string email = 3;
+}
+message CreateInvitationResponse {
+  Invitation invitation = 1;
+  string token = 2;
+  // Convenience relative path the frontend can turn into a shareable link,
+  // e.g. "/invite/accept?token=...".
+  string accept_path = 3;
+}
+
+message ListInvitationsRequest {
+  string family_id = 1;
+}
+message ListInvitationsResponse {
+  repeated Invitation invitations = 1;
+}
+
+message RevokeInvitationRequest {
+  string invitation_id = 1;
+}
+message RevokeInvitationResponse {}
+
+message AcceptInvitationRequest {
+  string token = 1;
+}
+message AcceptInvitationResponse {
+  User user = 1;
+  Family family = 2;
+}
+
 service UkelonnService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
@@ -232,4 +304,10 @@ service UkelonnService {
 
   rpc CreatePayout(CreatePayoutRequest) returns (CreatePayoutResponse);
   rpc ListPayouts(ListPayoutsRequest) returns (ListPayoutsResponse);
+
+  rpc GetMyMembership(GetMyMembershipRequest) returns (GetMyMembershipResponse);
+  rpc CreateInvitation(CreateInvitationRequest) returns (CreateInvitationResponse);
+  rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+  rpc RevokeInvitation(RevokeInvitationRequest) returns (RevokeInvitationResponse);
+  rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
 }

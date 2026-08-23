@@ -15,7 +15,12 @@ CREATE TABLE IF NOT EXISTS users (
     family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('parent', 'child')),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    -- The login identity (Auth0 "sub") bound to this user, if any. Only
+    -- ever set for parents; children don't log in themselves. NULL until an
+    -- invitation is accepted (or the founding parent's first login).
+    auth_subject TEXT UNIQUE,
+    email TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_users_family ON users(family_id);
 
@@ -54,3 +59,15 @@ CREATE TABLE IF NOT EXISTS payouts (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_payouts_child ON payouts(child_id);
+
+CREATE TABLE IF NOT EXISTS invitations (
+    id TEXT PRIMARY KEY,
+    family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL DEFAULT '',
+    token TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    accepted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_invitations_family ON invitations(family_id);

@@ -132,12 +132,17 @@ func (x *Family) GetCreatedAt() *timestamppb.Timestamp {
 }
 
 type User struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	FamilyId      string                 `protobuf:"bytes,2,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Role          UserRole               `protobuf:"varint,4,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FamilyId  string                 `protobuf:"bytes,2,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	Name      string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Role      UserRole               `protobuf:"varint,4,opt,name=role,proto3,enum=ukelonn.v1.UserRole" json:"role,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Email     string                 `protobuf:"bytes,6,opt,name=email,proto3" json:"email,omitempty"`
+	// Whether this user is bound to a login identity (only ever true for
+	// parents, since children don't log in themselves). A parent row created
+	// via an invitation stays unbound until the invite is accepted.
+	AuthBound     bool `protobuf:"varint,7,opt,name=auth_bound,json=authBound,proto3" json:"auth_bound,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -205,6 +210,20 @@ func (x *User) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *User) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *User) GetAuthBound() bool {
+	if x != nil {
+		return x.AuthBound
+	}
+	return false
 }
 
 type Task struct {
@@ -649,8 +668,13 @@ func (x *TaskOccurrence) GetCompletion() *TaskCompletion {
 }
 
 type CreateFamilyRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// When auth is enabled, the caller is automatically created as the
+	// founding parent and bound to their login identity. This is their
+	// display name; if empty, their login profile's name (or email) is used.
+	// Ignored in local-testing mode (no auth configured).
+	ParentName    string `protobuf:"bytes,2,opt,name=parent_name,json=parentName,proto3" json:"parent_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -688,6 +712,13 @@ func (*CreateFamilyRequest) Descriptor() ([]byte, []int) {
 func (x *CreateFamilyRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateFamilyRequest) GetParentName() string {
+	if x != nil {
+		return x.ParentName
 	}
 	return ""
 }
@@ -2212,6 +2243,599 @@ func (x *ListPayoutsResponse) GetPayouts() []*Payout {
 	return nil
 }
 
+// GetMyMembership resolves the caller's login identity (when auth is
+// enabled) to the family member it's bound to, if any. In local-testing
+// mode (no auth configured) it always reports unbound, since there is no
+// login identity to resolve.
+type GetMyMembershipRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMyMembershipRequest) Reset() {
+	*x = GetMyMembershipRequest{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMyMembershipRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMyMembershipRequest) ProtoMessage() {}
+
+func (x *GetMyMembershipRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMyMembershipRequest.ProtoReflect.Descriptor instead.
+func (*GetMyMembershipRequest) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{39}
+}
+
+type GetMyMembershipResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bound         bool                   `protobuf:"varint,1,opt,name=bound,proto3" json:"bound,omitempty"`
+	User          *User                  `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	Family        *Family                `protobuf:"bytes,3,opt,name=family,proto3" json:"family,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMyMembershipResponse) Reset() {
+	*x = GetMyMembershipResponse{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMyMembershipResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMyMembershipResponse) ProtoMessage() {}
+
+func (x *GetMyMembershipResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMyMembershipResponse.ProtoReflect.Descriptor instead.
+func (*GetMyMembershipResponse) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *GetMyMembershipResponse) GetBound() bool {
+	if x != nil {
+		return x.Bound
+	}
+	return false
+}
+
+func (x *GetMyMembershipResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *GetMyMembershipResponse) GetFamily() *Family {
+	if x != nil {
+		return x.Family
+	}
+	return nil
+}
+
+// An invitation grants whoever holds its (unguessable, single-use) token
+// the ability to bind their login identity to user_id — an unclaimed
+// parent slot in family_id. The token itself is only ever returned once,
+// from CreateInvitation.
+type Invitation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FamilyId      string                 `protobuf:"bytes,2,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserName      string                 `protobuf:"bytes,4,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	Email         string                 `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	AcceptedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=accepted_at,json=acceptedAt,proto3" json:"accepted_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Invitation) Reset() {
+	*x = Invitation{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Invitation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Invitation) ProtoMessage() {}
+
+func (x *Invitation) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Invitation.ProtoReflect.Descriptor instead.
+func (*Invitation) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *Invitation) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Invitation) GetFamilyId() string {
+	if x != nil {
+		return x.FamilyId
+	}
+	return ""
+}
+
+func (x *Invitation) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *Invitation) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *Invitation) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *Invitation) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Invitation) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *Invitation) GetAcceptedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AcceptedAt
+	}
+	return nil
+}
+
+type CreateInvitationRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	FamilyId string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	// Display name for the new parent slot this invitation grants access to.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Informational only (shown in the pending-invites list) — accepting an
+	// invitation is not restricted to any particular login's email address.
+	Email         string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateInvitationRequest) Reset() {
+	*x = CreateInvitationRequest{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateInvitationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateInvitationRequest) ProtoMessage() {}
+
+func (x *CreateInvitationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateInvitationRequest.ProtoReflect.Descriptor instead.
+func (*CreateInvitationRequest) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *CreateInvitationRequest) GetFamilyId() string {
+	if x != nil {
+		return x.FamilyId
+	}
+	return ""
+}
+
+func (x *CreateInvitationRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateInvitationRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type CreateInvitationResponse struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Invitation *Invitation            `protobuf:"bytes,1,opt,name=invitation,proto3" json:"invitation,omitempty"`
+	Token      string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	// Convenience relative path the frontend can turn into a shareable link,
+	// e.g. "/invite/accept?token=...".
+	AcceptPath    string `protobuf:"bytes,3,opt,name=accept_path,json=acceptPath,proto3" json:"accept_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateInvitationResponse) Reset() {
+	*x = CreateInvitationResponse{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateInvitationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateInvitationResponse) ProtoMessage() {}
+
+func (x *CreateInvitationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateInvitationResponse.ProtoReflect.Descriptor instead.
+func (*CreateInvitationResponse) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *CreateInvitationResponse) GetInvitation() *Invitation {
+	if x != nil {
+		return x.Invitation
+	}
+	return nil
+}
+
+func (x *CreateInvitationResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *CreateInvitationResponse) GetAcceptPath() string {
+	if x != nil {
+		return x.AcceptPath
+	}
+	return ""
+}
+
+type ListInvitationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FamilyId      string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInvitationsRequest) Reset() {
+	*x = ListInvitationsRequest{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInvitationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInvitationsRequest) ProtoMessage() {}
+
+func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInvitationsRequest.ProtoReflect.Descriptor instead.
+func (*ListInvitationsRequest) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListInvitationsRequest) GetFamilyId() string {
+	if x != nil {
+		return x.FamilyId
+	}
+	return ""
+}
+
+type ListInvitationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Invitations   []*Invitation          `protobuf:"bytes,1,rep,name=invitations,proto3" json:"invitations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInvitationsResponse) Reset() {
+	*x = ListInvitationsResponse{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInvitationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInvitationsResponse) ProtoMessage() {}
+
+func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInvitationsResponse.ProtoReflect.Descriptor instead.
+func (*ListInvitationsResponse) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListInvitationsResponse) GetInvitations() []*Invitation {
+	if x != nil {
+		return x.Invitations
+	}
+	return nil
+}
+
+type RevokeInvitationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	InvitationId  string                 `protobuf:"bytes,1,opt,name=invitation_id,json=invitationId,proto3" json:"invitation_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeInvitationRequest) Reset() {
+	*x = RevokeInvitationRequest{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeInvitationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeInvitationRequest) ProtoMessage() {}
+
+func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeInvitationRequest.ProtoReflect.Descriptor instead.
+func (*RevokeInvitationRequest) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *RevokeInvitationRequest) GetInvitationId() string {
+	if x != nil {
+		return x.InvitationId
+	}
+	return ""
+}
+
+type RevokeInvitationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeInvitationResponse) Reset() {
+	*x = RevokeInvitationResponse{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeInvitationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeInvitationResponse) ProtoMessage() {}
+
+func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeInvitationResponse.ProtoReflect.Descriptor instead.
+func (*RevokeInvitationResponse) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{47}
+}
+
+type AcceptInvitationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcceptInvitationRequest) Reset() {
+	*x = AcceptInvitationRequest{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcceptInvitationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcceptInvitationRequest) ProtoMessage() {}
+
+func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcceptInvitationRequest.ProtoReflect.Descriptor instead.
+func (*AcceptInvitationRequest) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *AcceptInvitationRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+type AcceptInvitationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Family        *Family                `protobuf:"bytes,2,opt,name=family,proto3" json:"family,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcceptInvitationResponse) Reset() {
+	*x = AcceptInvitationResponse{}
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcceptInvitationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcceptInvitationResponse) ProtoMessage() {}
+
+func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_ukelonn_v1_ukelonn_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcceptInvitationResponse.ProtoReflect.Descriptor instead.
+func (*AcceptInvitationResponse) Descriptor() ([]byte, []int) {
+	return file_ukelonn_v1_ukelonn_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *AcceptInvitationResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *AcceptInvitationResponse) GetFamily() *Family {
+	if x != nil {
+		return x.Family
+	}
+	return nil
+}
+
 var File_ukelonn_v1_ukelonn_proto protoreflect.FileDescriptor
 
 const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
@@ -2222,14 +2846,17 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xac\x01\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe1\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12(\n" +
 	"\x04role\x18\x04 \x01(\x0e2\x14.ukelonn.v1.UserRoleR\x04role\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xfb\x01\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
+	"\x05email\x18\x06 \x01(\tR\x05email\x12\x1d\n" +
+	"\n" +
+	"auth_bound\x18\a \x01(\bR\tauthBound\"\xfb\x01\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x14\n" +
@@ -2272,9 +2899,11 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\tcompleted\x18\x03 \x01(\bR\tcompleted\x12:\n" +
 	"\n" +
 	"completion\x18\x04 \x01(\v2\x1a.ukelonn.v1.TaskCompletionR\n" +
-	"completion\")\n" +
+	"completion\"J\n" +
 	"\x13CreateFamilyRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"B\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
+	"\vparent_name\x18\x02 \x01(\tR\n" +
+	"parentName\"B\n" +
 	"\x14CreateFamilyResponse\x12*\n" +
 	"\x06family\x18\x01 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family\"\x15\n" +
 	"\x13ListFamiliesRequest\"F\n" +
@@ -2361,12 +2990,52 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x19\n" +
 	"\bchild_id\x18\x02 \x01(\tR\achildId\"C\n" +
 	"\x13ListPayoutsResponse\x12,\n" +
-	"\apayouts\x18\x01 \x03(\v2\x12.ukelonn.v1.PayoutR\apayouts*P\n" +
+	"\apayouts\x18\x01 \x03(\v2\x12.ukelonn.v1.PayoutR\apayouts\"\x18\n" +
+	"\x16GetMyMembershipRequest\"\x81\x01\n" +
+	"\x17GetMyMembershipResponse\x12\x14\n" +
+	"\x05bound\x18\x01 \x01(\bR\x05bound\x12$\n" +
+	"\x04user\x18\x02 \x01(\v2\x10.ukelonn.v1.UserR\x04user\x12*\n" +
+	"\x06family\x18\x03 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family\"\xb8\x02\n" +
+	"\n" +
+	"Invitation\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tuser_name\x18\x04 \x01(\tR\buserName\x12\x14\n" +
+	"\x05email\x18\x05 \x01(\tR\x05email\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12;\n" +
+	"\vaccepted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"acceptedAt\"`\n" +
+	"\x17CreateInvitationRequest\x12\x1b\n" +
+	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\"\x89\x01\n" +
+	"\x18CreateInvitationResponse\x126\n" +
+	"\n" +
+	"invitation\x18\x01 \x01(\v2\x16.ukelonn.v1.InvitationR\n" +
+	"invitation\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token\x12\x1f\n" +
+	"\vaccept_path\x18\x03 \x01(\tR\n" +
+	"acceptPath\"5\n" +
+	"\x16ListInvitationsRequest\x12\x1b\n" +
+	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\"S\n" +
+	"\x17ListInvitationsResponse\x128\n" +
+	"\vinvitations\x18\x01 \x03(\v2\x16.ukelonn.v1.InvitationR\vinvitations\">\n" +
+	"\x17RevokeInvitationRequest\x12#\n" +
+	"\rinvitation_id\x18\x01 \x01(\tR\finvitationId\"\x1a\n" +
+	"\x18RevokeInvitationResponse\"/\n" +
+	"\x17AcceptInvitationRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"l\n" +
+	"\x18AcceptInvitationResponse\x12$\n" +
+	"\x04user\x18\x01 \x01(\v2\x10.ukelonn.v1.UserR\x04user\x12*\n" +
+	"\x06family\x18\x02 \x01(\v2\x12.ukelonn.v1.FamilyR\x06family*P\n" +
 	"\bUserRole\x12\x19\n" +
 	"\x15USER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10USER_ROLE_PARENT\x10\x01\x12\x13\n" +
-	"\x0fUSER_ROLE_CHILD\x10\x022\xde\n" +
-	"\n" +
+	"\x0fUSER_ROLE_CHILD\x10\x022\xb3\x0e\n" +
 	"\x0eUkelonnService\x12Q\n" +
 	"\fCreateFamily\x12\x1f.ukelonn.v1.CreateFamilyRequest\x1a .ukelonn.v1.CreateFamilyResponse\x12Q\n" +
 	"\fListFamilies\x12\x1f.ukelonn.v1.ListFamiliesRequest\x1a .ukelonn.v1.ListFamiliesResponse\x12K\n" +
@@ -2387,7 +3056,12 @@ const file_ukelonn_v1_ukelonn_proto_rawDesc = "" +
 	"\x0fGetChildSummary\x12\".ukelonn.v1.GetChildSummaryRequest\x1a#.ukelonn.v1.GetChildSummaryResponse\x12c\n" +
 	"\x12ListChildSummaries\x12%.ukelonn.v1.ListChildSummariesRequest\x1a&.ukelonn.v1.ListChildSummariesResponse\x12Q\n" +
 	"\fCreatePayout\x12\x1f.ukelonn.v1.CreatePayoutRequest\x1a .ukelonn.v1.CreatePayoutResponse\x12N\n" +
-	"\vListPayouts\x12\x1e.ukelonn.v1.ListPayoutsRequest\x1a\x1f.ukelonn.v1.ListPayoutsResponseB8Z6github.com/gunnaringe/ukelonn/gen/ukelonn/v1;ukelonnv1b\x06proto3"
+	"\vListPayouts\x12\x1e.ukelonn.v1.ListPayoutsRequest\x1a\x1f.ukelonn.v1.ListPayoutsResponse\x12Z\n" +
+	"\x0fGetMyMembership\x12\".ukelonn.v1.GetMyMembershipRequest\x1a#.ukelonn.v1.GetMyMembershipResponse\x12]\n" +
+	"\x10CreateInvitation\x12#.ukelonn.v1.CreateInvitationRequest\x1a$.ukelonn.v1.CreateInvitationResponse\x12Z\n" +
+	"\x0fListInvitations\x12\".ukelonn.v1.ListInvitationsRequest\x1a#.ukelonn.v1.ListInvitationsResponse\x12]\n" +
+	"\x10RevokeInvitation\x12#.ukelonn.v1.RevokeInvitationRequest\x1a$.ukelonn.v1.RevokeInvitationResponse\x12]\n" +
+	"\x10AcceptInvitation\x12#.ukelonn.v1.AcceptInvitationRequest\x1a$.ukelonn.v1.AcceptInvitationResponseB8Z6github.com/gunnaringe/ukelonn/gen/ukelonn/v1;ukelonnv1b\x06proto3"
 
 var (
 	file_ukelonn_v1_ukelonn_proto_rawDescOnce sync.Once
@@ -2402,7 +3076,7 @@ func file_ukelonn_v1_ukelonn_proto_rawDescGZIP() []byte {
 }
 
 var file_ukelonn_v1_ukelonn_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_ukelonn_v1_ukelonn_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_ukelonn_v1_ukelonn_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_ukelonn_v1_ukelonn_proto_goTypes = []any{
 	(UserRole)(0),                       // 0: ukelonn.v1.UserRole
 	(*Family)(nil),                      // 1: ukelonn.v1.Family
@@ -2444,17 +3118,28 @@ var file_ukelonn_v1_ukelonn_proto_goTypes = []any{
 	(*CreatePayoutResponse)(nil),        // 37: ukelonn.v1.CreatePayoutResponse
 	(*ListPayoutsRequest)(nil),          // 38: ukelonn.v1.ListPayoutsRequest
 	(*ListPayoutsResponse)(nil),         // 39: ukelonn.v1.ListPayoutsResponse
-	(*timestamppb.Timestamp)(nil),       // 40: google.protobuf.Timestamp
+	(*GetMyMembershipRequest)(nil),      // 40: ukelonn.v1.GetMyMembershipRequest
+	(*GetMyMembershipResponse)(nil),     // 41: ukelonn.v1.GetMyMembershipResponse
+	(*Invitation)(nil),                  // 42: ukelonn.v1.Invitation
+	(*CreateInvitationRequest)(nil),     // 43: ukelonn.v1.CreateInvitationRequest
+	(*CreateInvitationResponse)(nil),    // 44: ukelonn.v1.CreateInvitationResponse
+	(*ListInvitationsRequest)(nil),      // 45: ukelonn.v1.ListInvitationsRequest
+	(*ListInvitationsResponse)(nil),     // 46: ukelonn.v1.ListInvitationsResponse
+	(*RevokeInvitationRequest)(nil),     // 47: ukelonn.v1.RevokeInvitationRequest
+	(*RevokeInvitationResponse)(nil),    // 48: ukelonn.v1.RevokeInvitationResponse
+	(*AcceptInvitationRequest)(nil),     // 49: ukelonn.v1.AcceptInvitationRequest
+	(*AcceptInvitationResponse)(nil),    // 50: ukelonn.v1.AcceptInvitationResponse
+	(*timestamppb.Timestamp)(nil),       // 51: google.protobuf.Timestamp
 }
 var file_ukelonn_v1_ukelonn_proto_depIdxs = []int32{
-	40, // 0: ukelonn.v1.Family.created_at:type_name -> google.protobuf.Timestamp
+	51, // 0: ukelonn.v1.Family.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 1: ukelonn.v1.User.role:type_name -> ukelonn.v1.UserRole
-	40, // 2: ukelonn.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	40, // 3: ukelonn.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	40, // 4: ukelonn.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	40, // 5: ukelonn.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
+	51, // 2: ukelonn.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	51, // 3: ukelonn.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	51, // 4: ukelonn.v1.TaskCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	51, // 5: ukelonn.v1.Payout.created_at:type_name -> google.protobuf.Timestamp
 	2,  // 6: ukelonn.v1.ChildSummary.child:type_name -> ukelonn.v1.User
-	40, // 7: ukelonn.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
+	51, // 7: ukelonn.v1.ChildSummary.last_payout_at:type_name -> google.protobuf.Timestamp
 	3,  // 8: ukelonn.v1.TaskOccurrence.task:type_name -> ukelonn.v1.Task
 	4,  // 9: ukelonn.v1.TaskOccurrence.completion:type_name -> ukelonn.v1.TaskCompletion
 	1,  // 10: ukelonn.v1.CreateFamilyResponse.family:type_name -> ukelonn.v1.Family
@@ -2472,43 +3157,62 @@ var file_ukelonn_v1_ukelonn_proto_depIdxs = []int32{
 	6,  // 22: ukelonn.v1.ListChildSummariesResponse.summaries:type_name -> ukelonn.v1.ChildSummary
 	5,  // 23: ukelonn.v1.CreatePayoutResponse.payout:type_name -> ukelonn.v1.Payout
 	5,  // 24: ukelonn.v1.ListPayoutsResponse.payouts:type_name -> ukelonn.v1.Payout
-	8,  // 25: ukelonn.v1.UkelonnService.CreateFamily:input_type -> ukelonn.v1.CreateFamilyRequest
-	10, // 26: ukelonn.v1.UkelonnService.ListFamilies:input_type -> ukelonn.v1.ListFamiliesRequest
-	12, // 27: ukelonn.v1.UkelonnService.CreateUser:input_type -> ukelonn.v1.CreateUserRequest
-	14, // 28: ukelonn.v1.UkelonnService.ListUsers:input_type -> ukelonn.v1.ListUsersRequest
-	16, // 29: ukelonn.v1.UkelonnService.CreateTask:input_type -> ukelonn.v1.CreateTaskRequest
-	18, // 30: ukelonn.v1.UkelonnService.UpdateTask:input_type -> ukelonn.v1.UpdateTaskRequest
-	20, // 31: ukelonn.v1.UkelonnService.DeleteTask:input_type -> ukelonn.v1.DeleteTaskRequest
-	22, // 32: ukelonn.v1.UkelonnService.ListTasks:input_type -> ukelonn.v1.ListTasksRequest
-	24, // 33: ukelonn.v1.UkelonnService.ListTaskOccurrences:input_type -> ukelonn.v1.ListTaskOccurrencesRequest
-	26, // 34: ukelonn.v1.UkelonnService.CompleteTask:input_type -> ukelonn.v1.CompleteTaskRequest
-	28, // 35: ukelonn.v1.UkelonnService.UncompleteTask:input_type -> ukelonn.v1.UncompleteTaskRequest
-	30, // 36: ukelonn.v1.UkelonnService.ListTaskCompletions:input_type -> ukelonn.v1.ListTaskCompletionsRequest
-	32, // 37: ukelonn.v1.UkelonnService.GetChildSummary:input_type -> ukelonn.v1.GetChildSummaryRequest
-	34, // 38: ukelonn.v1.UkelonnService.ListChildSummaries:input_type -> ukelonn.v1.ListChildSummariesRequest
-	36, // 39: ukelonn.v1.UkelonnService.CreatePayout:input_type -> ukelonn.v1.CreatePayoutRequest
-	38, // 40: ukelonn.v1.UkelonnService.ListPayouts:input_type -> ukelonn.v1.ListPayoutsRequest
-	9,  // 41: ukelonn.v1.UkelonnService.CreateFamily:output_type -> ukelonn.v1.CreateFamilyResponse
-	11, // 42: ukelonn.v1.UkelonnService.ListFamilies:output_type -> ukelonn.v1.ListFamiliesResponse
-	13, // 43: ukelonn.v1.UkelonnService.CreateUser:output_type -> ukelonn.v1.CreateUserResponse
-	15, // 44: ukelonn.v1.UkelonnService.ListUsers:output_type -> ukelonn.v1.ListUsersResponse
-	17, // 45: ukelonn.v1.UkelonnService.CreateTask:output_type -> ukelonn.v1.CreateTaskResponse
-	19, // 46: ukelonn.v1.UkelonnService.UpdateTask:output_type -> ukelonn.v1.UpdateTaskResponse
-	21, // 47: ukelonn.v1.UkelonnService.DeleteTask:output_type -> ukelonn.v1.DeleteTaskResponse
-	23, // 48: ukelonn.v1.UkelonnService.ListTasks:output_type -> ukelonn.v1.ListTasksResponse
-	25, // 49: ukelonn.v1.UkelonnService.ListTaskOccurrences:output_type -> ukelonn.v1.ListTaskOccurrencesResponse
-	27, // 50: ukelonn.v1.UkelonnService.CompleteTask:output_type -> ukelonn.v1.CompleteTaskResponse
-	29, // 51: ukelonn.v1.UkelonnService.UncompleteTask:output_type -> ukelonn.v1.UncompleteTaskResponse
-	31, // 52: ukelonn.v1.UkelonnService.ListTaskCompletions:output_type -> ukelonn.v1.ListTaskCompletionsResponse
-	33, // 53: ukelonn.v1.UkelonnService.GetChildSummary:output_type -> ukelonn.v1.GetChildSummaryResponse
-	35, // 54: ukelonn.v1.UkelonnService.ListChildSummaries:output_type -> ukelonn.v1.ListChildSummariesResponse
-	37, // 55: ukelonn.v1.UkelonnService.CreatePayout:output_type -> ukelonn.v1.CreatePayoutResponse
-	39, // 56: ukelonn.v1.UkelonnService.ListPayouts:output_type -> ukelonn.v1.ListPayoutsResponse
-	41, // [41:57] is the sub-list for method output_type
-	25, // [25:41] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	2,  // 25: ukelonn.v1.GetMyMembershipResponse.user:type_name -> ukelonn.v1.User
+	1,  // 26: ukelonn.v1.GetMyMembershipResponse.family:type_name -> ukelonn.v1.Family
+	51, // 27: ukelonn.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	51, // 28: ukelonn.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	51, // 29: ukelonn.v1.Invitation.accepted_at:type_name -> google.protobuf.Timestamp
+	42, // 30: ukelonn.v1.CreateInvitationResponse.invitation:type_name -> ukelonn.v1.Invitation
+	42, // 31: ukelonn.v1.ListInvitationsResponse.invitations:type_name -> ukelonn.v1.Invitation
+	2,  // 32: ukelonn.v1.AcceptInvitationResponse.user:type_name -> ukelonn.v1.User
+	1,  // 33: ukelonn.v1.AcceptInvitationResponse.family:type_name -> ukelonn.v1.Family
+	8,  // 34: ukelonn.v1.UkelonnService.CreateFamily:input_type -> ukelonn.v1.CreateFamilyRequest
+	10, // 35: ukelonn.v1.UkelonnService.ListFamilies:input_type -> ukelonn.v1.ListFamiliesRequest
+	12, // 36: ukelonn.v1.UkelonnService.CreateUser:input_type -> ukelonn.v1.CreateUserRequest
+	14, // 37: ukelonn.v1.UkelonnService.ListUsers:input_type -> ukelonn.v1.ListUsersRequest
+	16, // 38: ukelonn.v1.UkelonnService.CreateTask:input_type -> ukelonn.v1.CreateTaskRequest
+	18, // 39: ukelonn.v1.UkelonnService.UpdateTask:input_type -> ukelonn.v1.UpdateTaskRequest
+	20, // 40: ukelonn.v1.UkelonnService.DeleteTask:input_type -> ukelonn.v1.DeleteTaskRequest
+	22, // 41: ukelonn.v1.UkelonnService.ListTasks:input_type -> ukelonn.v1.ListTasksRequest
+	24, // 42: ukelonn.v1.UkelonnService.ListTaskOccurrences:input_type -> ukelonn.v1.ListTaskOccurrencesRequest
+	26, // 43: ukelonn.v1.UkelonnService.CompleteTask:input_type -> ukelonn.v1.CompleteTaskRequest
+	28, // 44: ukelonn.v1.UkelonnService.UncompleteTask:input_type -> ukelonn.v1.UncompleteTaskRequest
+	30, // 45: ukelonn.v1.UkelonnService.ListTaskCompletions:input_type -> ukelonn.v1.ListTaskCompletionsRequest
+	32, // 46: ukelonn.v1.UkelonnService.GetChildSummary:input_type -> ukelonn.v1.GetChildSummaryRequest
+	34, // 47: ukelonn.v1.UkelonnService.ListChildSummaries:input_type -> ukelonn.v1.ListChildSummariesRequest
+	36, // 48: ukelonn.v1.UkelonnService.CreatePayout:input_type -> ukelonn.v1.CreatePayoutRequest
+	38, // 49: ukelonn.v1.UkelonnService.ListPayouts:input_type -> ukelonn.v1.ListPayoutsRequest
+	40, // 50: ukelonn.v1.UkelonnService.GetMyMembership:input_type -> ukelonn.v1.GetMyMembershipRequest
+	43, // 51: ukelonn.v1.UkelonnService.CreateInvitation:input_type -> ukelonn.v1.CreateInvitationRequest
+	45, // 52: ukelonn.v1.UkelonnService.ListInvitations:input_type -> ukelonn.v1.ListInvitationsRequest
+	47, // 53: ukelonn.v1.UkelonnService.RevokeInvitation:input_type -> ukelonn.v1.RevokeInvitationRequest
+	49, // 54: ukelonn.v1.UkelonnService.AcceptInvitation:input_type -> ukelonn.v1.AcceptInvitationRequest
+	9,  // 55: ukelonn.v1.UkelonnService.CreateFamily:output_type -> ukelonn.v1.CreateFamilyResponse
+	11, // 56: ukelonn.v1.UkelonnService.ListFamilies:output_type -> ukelonn.v1.ListFamiliesResponse
+	13, // 57: ukelonn.v1.UkelonnService.CreateUser:output_type -> ukelonn.v1.CreateUserResponse
+	15, // 58: ukelonn.v1.UkelonnService.ListUsers:output_type -> ukelonn.v1.ListUsersResponse
+	17, // 59: ukelonn.v1.UkelonnService.CreateTask:output_type -> ukelonn.v1.CreateTaskResponse
+	19, // 60: ukelonn.v1.UkelonnService.UpdateTask:output_type -> ukelonn.v1.UpdateTaskResponse
+	21, // 61: ukelonn.v1.UkelonnService.DeleteTask:output_type -> ukelonn.v1.DeleteTaskResponse
+	23, // 62: ukelonn.v1.UkelonnService.ListTasks:output_type -> ukelonn.v1.ListTasksResponse
+	25, // 63: ukelonn.v1.UkelonnService.ListTaskOccurrences:output_type -> ukelonn.v1.ListTaskOccurrencesResponse
+	27, // 64: ukelonn.v1.UkelonnService.CompleteTask:output_type -> ukelonn.v1.CompleteTaskResponse
+	29, // 65: ukelonn.v1.UkelonnService.UncompleteTask:output_type -> ukelonn.v1.UncompleteTaskResponse
+	31, // 66: ukelonn.v1.UkelonnService.ListTaskCompletions:output_type -> ukelonn.v1.ListTaskCompletionsResponse
+	33, // 67: ukelonn.v1.UkelonnService.GetChildSummary:output_type -> ukelonn.v1.GetChildSummaryResponse
+	35, // 68: ukelonn.v1.UkelonnService.ListChildSummaries:output_type -> ukelonn.v1.ListChildSummariesResponse
+	37, // 69: ukelonn.v1.UkelonnService.CreatePayout:output_type -> ukelonn.v1.CreatePayoutResponse
+	39, // 70: ukelonn.v1.UkelonnService.ListPayouts:output_type -> ukelonn.v1.ListPayoutsResponse
+	41, // 71: ukelonn.v1.UkelonnService.GetMyMembership:output_type -> ukelonn.v1.GetMyMembershipResponse
+	44, // 72: ukelonn.v1.UkelonnService.CreateInvitation:output_type -> ukelonn.v1.CreateInvitationResponse
+	46, // 73: ukelonn.v1.UkelonnService.ListInvitations:output_type -> ukelonn.v1.ListInvitationsResponse
+	48, // 74: ukelonn.v1.UkelonnService.RevokeInvitation:output_type -> ukelonn.v1.RevokeInvitationResponse
+	50, // 75: ukelonn.v1.UkelonnService.AcceptInvitation:output_type -> ukelonn.v1.AcceptInvitationResponse
+	55, // [55:76] is the sub-list for method output_type
+	34, // [34:55] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_ukelonn_v1_ukelonn_proto_init() }
@@ -2522,7 +3226,7 @@ func file_ukelonn_v1_ukelonn_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_ukelonn_v1_ukelonn_proto_rawDesc), len(file_ukelonn_v1_ukelonn_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   39,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

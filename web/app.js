@@ -80,6 +80,9 @@ const state = {
   payouts: [],
   error: null,
   auth: null,
+  membership: null,
+  invitations: [],
+  lastInviteLink: null,
 };
 
 function setFamilyId(id) {
@@ -118,6 +121,14 @@ async function loadAuth() {
   state.auth = await res.json();
 }
 
+function isAuth0Mode() {
+  return !!state.auth && state.auth.mode === "auth0";
+}
+
+async function loadMembership() {
+  state.membership = await call("GetMyMembership", {});
+}
+
 async function loadFamilies() {
   const resp = await call("ListFamilies", {});
   state.families = resp.families || [];
@@ -148,6 +159,11 @@ async function loadFamilyData() {
     endDate: end,
   });
   state.occurrences = occResp.occurrences || [];
+
+  if (isAuth0Mode()) {
+    const invResp = await call("ListInvitations", { familyId: state.familyId });
+    state.invitations = invResp.invitations || [];
+  }
 }
 
 async function refreshAll() {
@@ -186,6 +202,11 @@ function render() {
     app.appendChild(el(`<div class="error">${escapeHtml(state.error)}</div>`));
   }
 
+  if (isAuth0Mode() && (!state.membership || !state.membership.bound)) {
+    app.appendChild(renderOnboarding());
+    return;
+  }
+
   if (!state.familyId) {
     app.appendChild(renderFamilyPicker());
     return;
@@ -222,6 +243,47 @@ function escapeHtml(s) {
   const d = document.createElement("div");
   d.textContent = s;
   return d.innerHTML;
+}
+
+function renderOnboarding() {
+  const wrap = el(`<div></div>`);
+  wrap.appendChild(el(`
+    <h1>Ukelønn</h1>
+    <p>Create your family to get started, or open the invite link a family
+    member sent you.</p>
+  `));
+
+  const form = el(`
+    <div class="card">
+      <h2>Create your family</h2>
+      <div class="field">
+        <label>Your name</label>
+        <input type="text" id="onboard-parent-name" placeholder="e.g. Mom" />
+      </div>
+      <div class="field">
+        <label>Family name</label>
+        <input type="text" id="onboard-family-name" placeholder="e.g. The Smiths" />
+      </div>
+      <button id="onboard-create-btn">Create family</button>
+    </div>
+  `);
+  form.querySelector("#onboard-create-btn").addEventListener("click", () =>
+    withError(async () => {
+      const parentName = form.querySelector("#onboard-parent-name").value.trim();
+      const familyName = form.querySelector("#onboard-family-name").value.trim();
+      if (!familyName) throw new Error("Family name is required");
+      await call("CreateFamily", { name: familyName, parentName });
+      await loadMembership();
+      if (state.membership.bound) {
+        state.families = [state.membership.family];
+        setFamilyId(state.membership.family.id);
+        setUserId(state.membership.user.id);
+        await loadFamilyData();
+      }
+    })
+  );
+  wrap.appendChild(form);
+  return wrap;
 }
 
 function renderFamilyPicker() {
@@ -277,20 +339,24 @@ function renderFamilyPicker() {
 function renderUserPicker() {
   const wrap = el(`<div></div>`);
   const family = state.families.find((f) => f.id === state.familyId);
+  const switchFamilyBtn = isAuth0Mode() ? "" : `<button class="secondary" id="switch-family">Switch family</button>`;
   wrap.appendChild(
     el(`
       <div class="topbar">
         <h1>${escapeHtml(family ? family.name : "Ukelønn")}</h1>
-        <button class="secondary" id="switch-family">Switch family</button>
+        ${switchFamilyBtn}
       </div>
       <p>Who's using the app right now?</p>
     `)
   );
-  wrap.querySelector("#switch-family").addEventListener("click", () => {
-    setFamilyId(null);
-    setUserId(null);
-    render();
-  });
+  const switchFamilyEl = wrap.querySelector("#switch-family");
+  if (switchFamilyEl) {
+    switchFamilyEl.addEventListener("click", () => {
+      setFamilyId(null);
+      setUserId(null);
+      render();
+    });
+  }
 
   const card = el(`<div class="card"></div>`);
   if (state.users.length) {
@@ -620,10 +686,11 @@ function renderFamilyTab() {
   const wrap = el(`<div></div>`);
   const card = el(`<div class="card"><h2>Family members</h2></div>`);
   state.users.forEach((u) => {
+    const pendingTag = u.role === "USER_ROLE_PARENT" && !u.authBound && isAuth0Mode() ? ' <span class="pill">invite pending</span>' : "";
     card.appendChild(
       el(`
         <div class="row">
-          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${u.role === "USER_ROLE_PARENT" ? "Parent" : "Child"}</span></span>
+          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${u.role === "USER_ROLE_PARENT" ? "Parent" : "Child"}</span>${u.id === state.userId ? " · you" : ""}${pendingTag}</span>
         </div>
       `)
     );
@@ -632,6 +699,74 @@ function renderFamilyTab() {
   if (isParent()) {
     wrap.appendChild(renderAddUserForm());
   }
+  if (isAuth0Mode() && isParent()) {
+    wrap.appendChild(renderInvitationsSection());
+  }
+  return wrap;
+}
+
+function renderInvitationsSection() {
+  const wrap = el(`<div></div>`);
+
+  const pending = state.invitations.filter((i) => !i.acceptedAt);
+  const listCard = el(`<div class="card"><h2>Pending invitations</h2></div>`);
+  if (!pending.length) {
+    listCard.appendChild(el(`<p class="empty">No pending invitations.</p>`));
+  } else {
+    pending.forEach((inv) => {
+      const row = el(`
+        <div class="row">
+          <span>${escapeHtml(inv.userName)}${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
+          <button class="danger" data-id="${inv.id}">Revoke</button>
+        </div>
+      `);
+      row.querySelector("button").addEventListener("click", () =>
+        withError(async () => {
+          await call("RevokeInvitation", { invitationId: inv.id });
+          await loadFamilyData();
+        })
+      );
+      listCard.appendChild(row);
+    });
+  }
+  wrap.appendChild(listCard);
+
+  const form = el(`
+    <div class="card">
+      <h2>Invite another parent</h2>
+      <p style="margin-top:-4px;">Creates a one-time link. Whoever opens it (after logging in with their own Auth0 account) joins this family as a parent.</p>
+      <div class="field">
+        <label>Their name</label>
+        <input type="text" id="invite-name" placeholder="e.g. Dad" />
+      </div>
+      <div class="field">
+        <label>Their email (optional, just for your reference)</label>
+        <input type="text" id="invite-email" />
+      </div>
+      <button id="invite-create-btn">Create invite link</button>
+    </div>
+  `);
+  form.querySelector("#invite-create-btn").addEventListener("click", () =>
+    withError(async () => {
+      const name = form.querySelector("#invite-name").value.trim();
+      const email = form.querySelector("#invite-email").value.trim();
+      if (!name) throw new Error("Name is required");
+      const resp = await call("CreateInvitation", { familyId: state.familyId, name, email });
+      state.lastInviteLink = window.location.origin + resp.acceptPath;
+      await loadFamilyData();
+    })
+  );
+  if (state.lastInviteLink) {
+    form.appendChild(
+      el(`
+        <div class="field" style="margin-top:12px;">
+          <label>Share this link with them (shown once)</label>
+          <input type="text" readonly value="${escapeHtml(state.lastInviteLink)}" onclick="this.select()" />
+        </div>
+      `)
+    );
+  }
+  wrap.appendChild(form);
   return wrap;
 }
 
@@ -639,5 +774,21 @@ function renderFamilyTab() {
 
 withError(async () => {
   await loadAuth();
-  await refreshAll();
+  if (isAuth0Mode()) {
+    // A login is bound to at most one family member. Always resolve that
+    // from the server on boot rather than trusting stale localStorage,
+    // since a different login could have used this same browser before.
+    await loadMembership();
+    if (state.membership.bound) {
+      state.families = [state.membership.family];
+      setFamilyId(state.membership.family.id);
+      setUserId(state.membership.user.id);
+      await loadFamilyData();
+    } else {
+      setFamilyId(null);
+      setUserId(null);
+    }
+  } else {
+    await refreshAll();
+  }
 });
