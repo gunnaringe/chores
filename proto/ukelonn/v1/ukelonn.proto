@@ -1,0 +1,235 @@
+syntax = "proto3";
+
+package ukelonn.v1;
+
+option go_package = "github.com/gunnaringe/ukelonn/gen/ukelonn/v1;ukelonnv1";
+
+import "google/protobuf/timestamp.proto";
+
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;
+  USER_ROLE_PARENT = 1;
+  USER_ROLE_CHILD = 2;
+}
+
+message Family {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message User {
+  string id = 1;
+  string family_id = 2;
+  string name = 3;
+  UserRole role = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message Task {
+  string id = 1;
+  string family_id = 2;
+  string title = 3;
+  string description = 4;
+  int64 price_cents = 5;
+  // Standard 5-field cron expression (minute hour day-of-month month day-of-week),
+  // e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday.
+  string schedule = 6;
+  bool active = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message TaskCompletion {
+  string id = 1;
+  string task_id = 2;
+  string child_id = 3;
+  string family_id = 4;
+  // The calendar date (YYYY-MM-DD) the task instance was due/completed for.
+  string due_date = 5;
+  int64 amount_cents = 6;
+  google.protobuf.Timestamp completed_at = 7;
+}
+
+message Payout {
+  string id = 1;
+  string child_id = 2;
+  string family_id = 3;
+  int64 amount_cents = 4;
+  bool full_payout = 5;
+  string note = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ChildSummary {
+  User child = 1;
+  int64 earned_last_7_days_cents = 2;
+  int64 balance_cents = 3;
+  int64 total_earned_cents = 4;
+  int64 total_paid_out_cents = 5;
+  google.protobuf.Timestamp last_payout_at = 6;
+}
+
+// Represents one occurrence of a recurring task on a given date, joined
+// with whether it has already been completed.
+message TaskOccurrence {
+  Task task = 1;
+  string due_date = 2;
+  bool completed = 3;
+  TaskCompletion completion = 4;
+}
+
+message CreateFamilyRequest {
+  string name = 1;
+}
+message CreateFamilyResponse {
+  Family family = 1;
+}
+
+message ListFamiliesRequest {}
+message ListFamiliesResponse {
+  repeated Family families = 1;
+}
+
+message CreateUserRequest {
+  string family_id = 1;
+  string name = 2;
+  UserRole role = 3;
+}
+message CreateUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {
+  string family_id = 1;
+}
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message CreateTaskRequest {
+  string family_id = 1;
+  string title = 2;
+  string description = 3;
+  int64 price_cents = 4;
+  string schedule = 5;
+}
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message UpdateTaskRequest {
+  string task_id = 1;
+  string title = 2;
+  string description = 3;
+  int64 price_cents = 4;
+  string schedule = 5;
+  bool active = 6;
+}
+message UpdateTaskResponse {
+  Task task = 1;
+}
+
+message DeleteTaskRequest {
+  string task_id = 1;
+}
+message DeleteTaskResponse {}
+
+message ListTasksRequest {
+  string family_id = 1;
+}
+message ListTasksResponse {
+  repeated Task tasks = 1;
+}
+
+// Lists the due occurrences of active tasks for a child between two dates
+// (inclusive), indicating which are already completed.
+message ListTaskOccurrencesRequest {
+  string family_id = 1;
+  string start_date = 2; // YYYY-MM-DD
+  string end_date = 3;   // YYYY-MM-DD
+}
+message ListTaskOccurrencesResponse {
+  repeated TaskOccurrence occurrences = 1;
+}
+
+message CompleteTaskRequest {
+  string task_id = 1;
+  string child_id = 2;
+  string due_date = 3; // YYYY-MM-DD, defaults to today if empty
+}
+message CompleteTaskResponse {
+  TaskCompletion completion = 1;
+}
+
+message UncompleteTaskRequest {
+  string task_id = 1;
+  string child_id = 2;
+  string due_date = 3;
+}
+message UncompleteTaskResponse {}
+
+message ListTaskCompletionsRequest {
+  string family_id = 1;
+  string child_id = 2; // optional filter
+}
+message ListTaskCompletionsResponse {
+  repeated TaskCompletion completions = 1;
+}
+
+message GetChildSummaryRequest {
+  string child_id = 1;
+}
+message GetChildSummaryResponse {
+  ChildSummary summary = 1;
+}
+
+message ListChildSummariesRequest {
+  string family_id = 1;
+}
+message ListChildSummariesResponse {
+  repeated ChildSummary summaries = 1;
+}
+
+message CreatePayoutRequest {
+  string child_id = 1;
+  // If full_payout is true, amount_cents is ignored and the child's full
+  // outstanding balance is paid out.
+  bool full_payout = 2;
+  int64 amount_cents = 3;
+  string note = 4;
+}
+message CreatePayoutResponse {
+  Payout payout = 1;
+}
+
+message ListPayoutsRequest {
+  string family_id = 1;
+  string child_id = 2; // optional filter
+}
+message ListPayoutsResponse {
+  repeated Payout payouts = 1;
+}
+
+service UkelonnService {
+  rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
+  rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
+
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc ListTaskOccurrences(ListTaskOccurrencesRequest) returns (ListTaskOccurrencesResponse);
+
+  rpc CompleteTask(CompleteTaskRequest) returns (CompleteTaskResponse);
+  rpc UncompleteTask(UncompleteTaskRequest) returns (UncompleteTaskResponse);
+  rpc ListTaskCompletions(ListTaskCompletionsRequest) returns (ListTaskCompletionsResponse);
+
+  rpc GetChildSummary(GetChildSummaryRequest) returns (GetChildSummaryResponse);
+  rpc ListChildSummaries(ListChildSummariesRequest) returns (ListChildSummariesResponse);
+
+  rpc CreatePayout(CreatePayoutRequest) returns (CreatePayoutResponse);
+  rpc ListPayouts(ListPayoutsRequest) returns (ListPayoutsResponse);
+}

@@ -1,0 +1,5 @@
+/ukelonn
+/ukelonn.exe
+*.db
+*.db-shm
+*.db-wal
