@@ -9,6 +9,10 @@ async function call(method, req) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req || {}),
   });
+  if (res.status === 401) {
+    window.location.href = "/auth/login";
+    throw new Error("Login required");
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try {
@@ -75,6 +79,7 @@ const state = {
   summaries: [],
   payouts: [],
   error: null,
+  auth: null,
 };
 
 function setFamilyId(id) {
@@ -107,6 +112,11 @@ async function withError(fn) {
 }
 
 // ---- data loading ------------------------------------------------------
+
+async function loadAuth() {
+  const res = await fetch("/auth/me");
+  state.auth = await res.json();
+}
 
 async function loadFamilies() {
   const resp = await call("ListFamilies", {});
@@ -160,6 +170,18 @@ function el(html) {
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
+
+  if (state.auth && state.auth.mode === "auth0" && state.auth.authenticated) {
+    app.appendChild(
+      el(`
+        <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;font-size:0.85rem;color:var(--muted);margin-bottom:8px;">
+          <span>Signed in as ${escapeHtml(state.auth.name || state.auth.email || "")}</span>
+          <a class="link-btn" href="/auth/logout">Log out</a>
+        </div>
+      `)
+    );
+  }
+
   if (state.error) {
     app.appendChild(el(`<div class="error">${escapeHtml(state.error)}</div>`));
   }
@@ -615,4 +637,7 @@ function renderFamilyTab() {
 
 // ---- boot -----------------------------------------------------
 
-withError(refreshAll);
+withError(async () => {
+  await loadAuth();
+  await refreshAll();
+});
