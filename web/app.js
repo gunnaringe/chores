@@ -343,16 +343,28 @@ function renderFamilyPicker() {
         <label>${escapeHtml(t("family.nameLabel"))}</label>
         <input type="text" id="new-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
       </div>
+      <div class="field">
+        <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
+        <input type="text" id="new-family-your-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" />
+      </div>
       <button id="create-family-btn">${escapeHtml(t("family.createBtn"))}</button>
     </div>
   `);
   form.querySelector("#create-family-btn").addEventListener("click", () =>
     withError(async () => {
       const name = form.querySelector("#new-family-name").value.trim();
+      const yourName = form.querySelector("#new-family-your-name").value.trim();
       if (!name) throw new Error(t("familyPicker.nameRequired"));
       const resp = await call("CreateFamily", { name });
       await loadFamilies();
       setFamilyId(resp.family.id);
+      // Creating a family shouldn't leave its creator as a stranger to it —
+      // add them as the first parent right away instead of dropping them on
+      // an empty "no family members yet" screen.
+      if (yourName) {
+        const userResp = await call("CreateUser", { familyId: resp.family.id, name: yourName, role: "USER_ROLE_PARENT" });
+        setUserId(userResp.user.id);
+      }
       await loadFamilyData();
     })
   );
