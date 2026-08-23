@@ -53,6 +53,20 @@ func migrate(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_subject ON users(auth_subject)`); err != nil {
 		return fmt.Errorf("create idx_users_auth_subject: %w", err)
 	}
+
+	// Tasks created before per-child assignment existed have no rows in
+	// task_assignments; treat them as assigned to every child in their
+	// family so they don't silently disappear from everyone's view. Once a
+	// task has at least one assignment this is a no-op for it forever after.
+	if _, err := db.Exec(`
+		INSERT INTO task_assignments (task_id, child_id)
+		SELECT t.id, u.id
+		FROM tasks t
+		JOIN users u ON u.family_id = t.family_id AND u.role = 'child'
+		WHERE NOT EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id)
+	`); err != nil {
+		return fmt.Errorf("backfill task_assignments: %w", err)
+	}
 	return nil
 }
 

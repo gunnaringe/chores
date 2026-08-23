@@ -42,6 +42,9 @@ message Task {
   string schedule = 6;
   bool active = 7;
   google.protobuf.Timestamp created_at = 8;
+  // The children this task applies to. Always non-empty for a task created
+  // through the API.
+  repeated string child_ids = 9;
 }
 
 message TaskCompletion {
@@ -74,13 +77,17 @@ message ChildSummary {
   google.protobuf.Timestamp last_payout_at = 6;
 }
 
-// Represents one occurrence of a recurring task on a given date, joined
-// with whether it has already been completed.
+// Represents one occurrence of a recurring task, for one of the children it
+// applies to, on a given date, joined with whether it has already been
+// completed. A task assigned to several children produces one occurrence
+// per assigned child for each due date.
 message TaskOccurrence {
   Task task = 1;
   string due_date = 2;
   bool completed = 3;
   TaskCompletion completion = 4;
+  string child_id = 5;
+  string child_name = 6;
 }
 
 message CreateFamilyRequest {
@@ -122,6 +129,9 @@ message CreateTaskRequest {
   string description = 3;
   int64 price_cents = 4;
   string schedule = 5;
+  // Which children this task applies to. Must be non-empty and every id
+  // must be a child in family_id.
+  repeated string child_ids = 6;
 }
 message CreateTaskResponse {
   Task task = 1;
@@ -134,6 +144,8 @@ message UpdateTaskRequest {
   int64 price_cents = 4;
   string schedule = 5;
   bool active = 6;
+  // Replaces the task's full set of assigned children. Must be non-empty.
+  repeated string child_ids = 7;
 }
 message UpdateTaskResponse {
   Task task = 1;
@@ -151,12 +163,15 @@ message ListTasksResponse {
   repeated Task tasks = 1;
 }
 
-// Lists the due occurrences of active tasks for a child between two dates
-// (inclusive), indicating which are already completed.
+// Lists the due occurrences of active tasks between two dates (inclusive),
+// indicating which are already completed. Without child_id, returns
+// occurrences for every child in the family (a bound child's login always
+// gets only their own, regardless of what's requested).
 message ListTaskOccurrencesRequest {
   string family_id = 1;
   string start_date = 2; // YYYY-MM-DD
   string end_date = 3;   // YYYY-MM-DD
+  string child_id = 4;   // optional filter
 }
 message ListTaskOccurrencesResponse {
   repeated TaskOccurrence occurrences = 1;

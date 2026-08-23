@@ -4,12 +4,14 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
 	v1 "github.com/gunnaringe/chores/gen/chores/v1"
 	"github.com/gunnaringe/chores/internal/auth"
 	"github.com/gunnaringe/chores/internal/db"
+	"github.com/gunnaringe/chores/internal/scheduling"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -123,17 +125,18 @@ func TestFamilyScoping_CrossFamilyAccessDenied(t *testing.T) {
 
 	// A task and a child created within Family A should be usable by Parent
 	// A but not reachable from Family B's context.
-	task, err := s.CreateTask(ctxA, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: famA.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
-	}))
-	if err != nil {
-		t.Fatalf("CreateTask A: %v", err)
-	}
 	child, err := s.CreateUser(ctxA, connect.NewRequest(&v1.CreateUserRequest{
 		FamilyId: famA.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD,
 	}))
 	if err != nil {
 		t.Fatalf("CreateUser A: %v", err)
+	}
+	task, err := s.CreateTask(ctxA, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: famA.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask A: %v", err)
 	}
 	if _, err := s.CompleteTask(ctxB, connect.NewRequest(&v1.CompleteTaskRequest{
 		TaskId: task.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: "2024-01-01",
@@ -291,6 +294,7 @@ func TestChildInvitation_BindsAndRestrictsToSelf(t *testing.T) {
 	// But a child can complete their own task and view their own summary.
 	task, err := s.CreateTask(ctxParent, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{childID},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask (parent): %v", err)
@@ -337,6 +341,7 @@ func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
 
 	task, err := s.CreateTask(ctxParent, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{childAID, childBID},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
@@ -376,5 +381,85 @@ func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
 		if p.ChildId != childAID {
 			t.Fatalf("expected ListPayouts to only ever return the caller's own payouts even when a different child_id was requested, got %+v", p)
 		}
+	}
+}
+
+func TestTaskAssignment(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background() // local-testing mode: no identity, no role restrictions
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	childA, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid A", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser A: %v", err)
+	}
+	childB, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid B", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser B: %v", err)
+	}
+
+	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "No one", Schedule: "0 0 * * *", PriceCents: 100,
+	})); err == nil {
+		t.Fatal("expected an error creating a task with no assigned children")
+	}
+
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100,
+		ChildIds: []string{childA.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := task.Msg.Task.ChildIds; len(got) != 1 || got[0] != childA.Msg.User.Id {
+		t.Fatalf("expected task assigned to [%s], got %v", childA.Msg.User.Id, got)
+	}
+
+	// Child B isn't assigned, so completing on their behalf must fail...
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: childB.Msg.User.Id, DueDate: "2024-01-01",
+	})); codeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("expected InvalidArgument completing a task for an unassigned child, got %v", err)
+	}
+	// ...while child A, who is assigned, can.
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: childA.Msg.User.Id, DueDate: "2024-01-01",
+	})); err != nil {
+		t.Fatalf("CompleteTask for assigned child: %v", err)
+	}
+
+	// Occurrences are generated per assigned child: with both kids in the
+	// family but the task assigned to only one, exactly one occurrence
+	// should come back for today, for that child.
+	today := scheduling.FormatDate(time.Now())
+	occResp, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: today, EndDate: today,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences: %v", err)
+	}
+	if len(occResp.Msg.Occurrences) != 1 {
+		t.Fatalf("expected exactly 1 occurrence, got %d: %+v", len(occResp.Msg.Occurrences), occResp.Msg.Occurrences)
+	}
+	if occResp.Msg.Occurrences[0].ChildId != childA.Msg.User.Id {
+		t.Fatalf("expected the occurrence to be for child A, got %+v", occResp.Msg.Occurrences[0])
+	}
+
+	// Update can reassign the task to the other child.
+	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: "0 0 * * *", PriceCents: 100, Active: true,
+		ChildIds: []string{childB.Msg.User.Id},
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	updated, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(updated.Msg.Tasks) != 1 || len(updated.Msg.Tasks[0].ChildIds) != 1 || updated.Msg.Tasks[0].ChildIds[0] != childB.Msg.User.Id {
+		t.Fatalf("expected task reassigned to child B only, got %+v", updated.Msg.Tasks[0])
 	}
 }

@@ -36,6 +36,13 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_family ON tasks(family_id);
 
+CREATE TABLE IF NOT EXISTS task_assignments (
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    child_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, child_id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_assignments_child ON task_assignments(child_id);
+
 CREATE TABLE IF NOT EXISTS task_completions (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

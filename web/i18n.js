@@ -42,6 +42,7 @@ const TRANSLATIONS = {
 
     "topbar.switchUser": "Switch user",
 
+    "tabs.home": "Home",
     "tabs.tasks": "Tasks",
     "tabs.accounting": "Accounting",
     "tabs.family": "Family",
@@ -59,6 +60,7 @@ const TRANSLATIONS = {
     "taskList.activate": "Activate",
     "taskList.delete": "Delete",
     "taskList.confirmDelete": 'Delete task "{title}"?',
+    "taskList.notDueToday": "not due today",
 
     "addTask.heading": "Add a task",
     "addTask.titleLabel": "Title",
@@ -66,9 +68,13 @@ const TRANSLATIONS = {
     "addTask.descLabel": "Description (optional)",
     "addTask.priceLabel": "Price (kr)",
     "addTask.repeatsOn": "Repeats on",
+    "addTask.assignLabel": "Assign to",
+    "addTask.selectAll": "Select all",
+    "addTask.noChildren": "Add a child in the Family tab before creating tasks.",
     "addTask.addBtn": "Add task",
     "addTask.titleRequired": "Title is required",
     "addTask.pricePositive": "Price must be a positive number",
+    "addTask.childRequired": "Assign the task to at least one child",
 
     "days.sun": "Sun",
     "days.mon": "Mon",
@@ -150,6 +156,7 @@ const TRANSLATIONS = {
 
     "topbar.switchUser": "Bytt bruker",
 
+    "tabs.home": "Hjem",
     "tabs.tasks": "Oppgaver",
     "tabs.accounting": "Regnskap",
     "tabs.family": "Familie",
@@ -167,6 +174,7 @@ const TRANSLATIONS = {
     "taskList.activate": "Aktiver",
     "taskList.delete": "Slett",
     "taskList.confirmDelete": 'Slette oppgaven "{title}"?',
+    "taskList.notDueToday": "ikke i dag",
 
     "addTask.heading": "Legg til oppgave",
     "addTask.titleLabel": "Tittel",
@@ -174,9 +182,13 @@ const TRANSLATIONS = {
     "addTask.descLabel": "Beskrivelse (valgfritt)",
     "addTask.priceLabel": "Pris (kr)",
     "addTask.repeatsOn": "Gjentas på",
+    "addTask.assignLabel": "Tildel til",
+    "addTask.selectAll": "Velg alle",
+    "addTask.noChildren": "Legg til et barn under Familie før du kan lage oppgaver.",
     "addTask.addBtn": "Legg til oppgave",
     "addTask.titleRequired": "Tittel er påkrevd",
     "addTask.pricePositive": "Prisen må være et positivt tall",
+    "addTask.childRequired": "Tildel oppgaven til minst ett barn",
 
     "days.sun": "Søn",
     "days.mon": "Man",

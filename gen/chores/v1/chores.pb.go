@@ -235,9 +235,12 @@ type Task struct {
 	PriceCents  int64                  `protobuf:"varint,5,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
 	// Standard 5-field cron expression (minute hour day-of-month month day-of-week),
 	// e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday.
-	Schedule      string                 `protobuf:"bytes,6,opt,name=schedule,proto3" json:"schedule,omitempty"`
-	Active        bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Schedule  string                 `protobuf:"bytes,6,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	Active    bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// The children this task applies to. Always non-empty for a task created
+	// through the API.
+	ChildIds      []string `protobuf:"bytes,9,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -324,6 +327,13 @@ func (x *Task) GetActive() bool {
 func (x *Task) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Task) GetChildIds() []string {
+	if x != nil {
+		return x.ChildIds
 	}
 	return nil
 }
@@ -597,14 +607,18 @@ func (x *ChildSummary) GetLastPayoutAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// Represents one occurrence of a recurring task on a given date, joined
-// with whether it has already been completed.
+// Represents one occurrence of a recurring task, for one of the children it
+// applies to, on a given date, joined with whether it has already been
+// completed. A task assigned to several children produces one occurrence
+// per assigned child for each due date.
 type TaskOccurrence struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	DueDate       string                 `protobuf:"bytes,2,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
 	Completed     bool                   `protobuf:"varint,3,opt,name=completed,proto3" json:"completed,omitempty"`
 	Completion    *TaskCompletion        `protobuf:"bytes,4,opt,name=completion,proto3" json:"completion,omitempty"`
+	ChildId       string                 `protobuf:"bytes,5,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
+	ChildName     string                 `protobuf:"bytes,6,opt,name=child_name,json=childName,proto3" json:"child_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -665,6 +679,20 @@ func (x *TaskOccurrence) GetCompletion() *TaskCompletion {
 		return x.Completion
 	}
 	return nil
+}
+
+func (x *TaskOccurrence) GetChildId() string {
+	if x != nil {
+		return x.ChildId
+	}
+	return ""
+}
+
+func (x *TaskOccurrence) GetChildName() string {
+	if x != nil {
+		return x.ChildName
+	}
+	return ""
 }
 
 type CreateFamilyRequest struct {
@@ -1040,12 +1068,15 @@ func (x *ListUsersResponse) GetUsers() []*User {
 }
 
 type CreateTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FamilyId      string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	PriceCents    int64                  `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
-	Schedule      string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	FamilyId    string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	Title       string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	PriceCents  int64                  `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
+	Schedule    string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	// Which children this task applies to. Must be non-empty and every id
+	// must be a child in family_id.
+	ChildIds      []string `protobuf:"bytes,6,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1115,6 +1146,13 @@ func (x *CreateTaskRequest) GetSchedule() string {
 	return ""
 }
 
+func (x *CreateTaskRequest) GetChildIds() []string {
+	if x != nil {
+		return x.ChildIds
+	}
+	return nil
+}
+
 type CreateTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
@@ -1160,13 +1198,15 @@ func (x *CreateTaskResponse) GetTask() *Task {
 }
 
 type UpdateTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	PriceCents    int64                  `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
-	Schedule      string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
-	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TaskId      string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Title       string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	PriceCents  int64                  `protobuf:"varint,4,opt,name=price_cents,json=priceCents,proto3" json:"price_cents,omitempty"`
+	Schedule    string                 `protobuf:"bytes,5,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	Active      bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	// Replaces the task's full set of assigned children. Must be non-empty.
+	ChildIds      []string `protobuf:"bytes,7,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1241,6 +1281,13 @@ func (x *UpdateTaskRequest) GetActive() bool {
 		return x.Active
 	}
 	return false
+}
+
+func (x *UpdateTaskRequest) GetChildIds() []string {
+	if x != nil {
+		return x.ChildIds
+	}
+	return nil
 }
 
 type UpdateTaskResponse struct {
@@ -1455,13 +1502,16 @@ func (x *ListTasksResponse) GetTasks() []*Task {
 	return nil
 }
 
-// Lists the due occurrences of active tasks for a child between two dates
-// (inclusive), indicating which are already completed.
+// Lists the due occurrences of active tasks between two dates (inclusive),
+// indicating which are already completed. Without child_id, returns
+// occurrences for every child in the family (a bound child's login always
+// gets only their own, regardless of what's requested).
 type ListTaskOccurrencesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FamilyId      string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
 	StartDate     string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // YYYY-MM-DD
 	EndDate       string                 `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`       // YYYY-MM-DD
+	ChildId       string                 `protobuf:"bytes,4,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`       // optional filter
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1513,6 +1563,13 @@ func (x *ListTaskOccurrencesRequest) GetStartDate() string {
 func (x *ListTaskOccurrencesRequest) GetEndDate() string {
 	if x != nil {
 		return x.EndDate
+	}
+	return ""
+}
+
+func (x *ListTaskOccurrencesRequest) GetChildId() string {
+	if x != nil {
+		return x.ChildId
 	}
 	return ""
 }
@@ -2873,7 +2930,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
 	"\x05email\x18\x06 \x01(\tR\x05email\x12\x1d\n" +
 	"\n" +
-	"auth_bound\x18\a \x01(\bR\tauthBound\"\xfb\x01\n" +
+	"auth_bound\x18\a \x01(\bR\tauthBound\"\x98\x02\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfamily_id\x18\x02 \x01(\tR\bfamilyId\x12\x14\n" +
@@ -2884,7 +2941,8 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\bschedule\x18\x06 \x01(\tR\bschedule\x12\x16\n" +
 	"\x06active\x18\a \x01(\bR\x06active\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xee\x01\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1b\n" +
+	"\tchild_ids\x18\t \x03(\tR\bchildIds\"\xee\x01\n" +
 	"\x0eTaskCompletion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
@@ -2909,14 +2967,17 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\rbalance_cents\x18\x03 \x01(\x03R\fbalanceCents\x12,\n" +
 	"\x12total_earned_cents\x18\x04 \x01(\x03R\x10totalEarnedCents\x12/\n" +
 	"\x14total_paid_out_cents\x18\x05 \x01(\x03R\x11totalPaidOutCents\x12@\n" +
-	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\"\xa9\x01\n" +
+	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\"\xe3\x01\n" +
 	"\x0eTaskOccurrence\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\x12\x19\n" +
 	"\bdue_date\x18\x02 \x01(\tR\adueDate\x12\x1c\n" +
 	"\tcompleted\x18\x03 \x01(\bR\tcompleted\x129\n" +
 	"\n" +
 	"completion\x18\x04 \x01(\v2\x19.chores.v1.TaskCompletionR\n" +
-	"completion\"J\n" +
+	"completion\x12\x19\n" +
+	"\bchild_id\x18\x05 \x01(\tR\achildId\x12\x1d\n" +
+	"\n" +
+	"child_name\x18\x06 \x01(\tR\tchildName\"J\n" +
 	"\x13CreateFamilyRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1f\n" +
 	"\vparent_name\x18\x02 \x01(\tR\n" +
@@ -2935,16 +2996,17 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10ListUsersRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
 	"\x11ListUsersResponse\x12%\n" +
-	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xa5\x01\n" +
+	"\x05users\x18\x01 \x03(\v2\x0f.chores.v1.UserR\x05users\"\xc2\x01\n" +
 	"\x11CreateTaskRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1f\n" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x1a\n" +
-	"\bschedule\x18\x05 \x01(\tR\bschedule\"9\n" +
+	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x1b\n" +
+	"\tchild_ids\x18\x06 \x03(\tR\bchildIds\"9\n" +
 	"\x12CreateTaskResponse\x12#\n" +
-	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xb9\x01\n" +
+	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\"\xd6\x01\n" +
 	"\x11UpdateTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -2952,7 +3014,8 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\vprice_cents\x18\x04 \x01(\x03R\n" +
 	"priceCents\x12\x1a\n" +
 	"\bschedule\x18\x05 \x01(\tR\bschedule\x12\x16\n" +
-	"\x06active\x18\x06 \x01(\bR\x06active\"9\n" +
+	"\x06active\x18\x06 \x01(\bR\x06active\x12\x1b\n" +
+	"\tchild_ids\x18\a \x03(\tR\bchildIds\"9\n" +
 	"\x12UpdateTaskResponse\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\",\n" +
 	"\x11DeleteTaskRequest\x12\x17\n" +
@@ -2961,12 +3024,13 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10ListTasksRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
 	"\x11ListTasksResponse\x12%\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x0f.chores.v1.TaskR\x05tasks\"s\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x0f.chores.v1.TaskR\x05tasks\"\x8e\x01\n" +
 	"\x1aListTaskOccurrencesRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x1d\n" +
 	"\n" +
 	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
-	"\bend_date\x18\x03 \x01(\tR\aendDate\"Z\n" +
+	"\bend_date\x18\x03 \x01(\tR\aendDate\x12\x19\n" +
+	"\bchild_id\x18\x04 \x01(\tR\achildId\"Z\n" +
 	"\x1bListTaskOccurrencesResponse\x12;\n" +
 	"\voccurrences\x18\x01 \x03(\v2\x19.chores.v1.TaskOccurrenceR\voccurrences\"d\n" +
 	"\x13CompleteTaskRequest\x12\x17\n" +

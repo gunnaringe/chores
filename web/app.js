@@ -244,13 +244,29 @@ function render() {
 
   app.appendChild(renderTopbar());
 
-  const tabs = el(`
-    <div class="tabs">
-      <button data-tab="tasks" class="${state.tab === "tasks" ? "active" : ""}">${escapeHtml(t("tabs.tasks"))}</button>
-      <button data-tab="accounting" class="${state.tab === "accounting" ? "active" : ""}">${escapeHtml(t("tabs.accounting"))}</button>
-      <button data-tab="family" class="${state.tab === "family" ? "active" : ""}">${escapeHtml(t("tabs.family"))}</button>
-    </div>
-  `);
+  // Parents mostly live on one consolidated "Home" page (tasks, per-child
+  // completion, and accounting/payout together) since that's where they
+  // actually do things; switching to a child's own login-restricted view
+  // is a separate, rarer action (see the topbar). Children keep the
+  // original separate tabs.
+  const parentMode = isParent();
+  const tabDefs = parentMode
+    ? [
+        { key: "home", label: t("tabs.home") },
+        { key: "family", label: t("tabs.family") },
+      ]
+    : [
+        { key: "tasks", label: t("tabs.tasks") },
+        { key: "accounting", label: t("tabs.accounting") },
+        { key: "family", label: t("tabs.family") },
+      ];
+  const activeTab = parentMode && state.tab !== "family" ? "home" : state.tab;
+
+  const tabs = el(
+    `<div class="tabs">${tabDefs
+      .map((d) => `<button data-tab="${d.key}" class="${activeTab === d.key ? "active" : ""}">${escapeHtml(d.label)}</button>`)
+      .join("")}</div>`
+  );
   tabs.querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       state.tab = b.dataset.tab;
@@ -259,9 +275,15 @@ function render() {
   );
   app.appendChild(tabs);
 
-  if (state.tab === "tasks") app.appendChild(renderTasksTab());
-  else if (state.tab === "accounting") app.appendChild(renderAccountingTab());
-  else app.appendChild(renderFamilyTab());
+  if (parentMode) {
+    app.appendChild(activeTab === "family" ? renderFamilyTab() : renderHomeTab());
+  } else if (state.tab === "accounting") {
+    app.appendChild(renderAccountingTab());
+  } else if (state.tab === "family") {
+    app.appendChild(renderFamilyTab());
+  } else {
+    app.appendChild(renderChildOccurrences());
+  }
 }
 
 function escapeHtml(s) {
@@ -477,23 +499,21 @@ function renderTopbar() {
   return bar;
 }
 
-// ---- Tasks tab -----------------------------------------------------
+// ---- Home tab (parents) -----------------------------------------------------
 
-function renderTasksTab() {
+function renderHomeTab() {
   const wrap = el(`<div></div>`);
-
-  if (isParent()) {
-    wrap.appendChild(renderTaskList());
-    wrap.appendChild(renderAddTaskForm());
-  } else {
-    wrap.appendChild(renderChildOccurrences());
-  }
+  wrap.appendChild(renderTaskList());
+  wrap.appendChild(renderAddTaskForm());
+  wrap.appendChild(renderAccountingTab());
   return wrap;
 }
 
+// ---- Tasks tab (children) -----------------------------------------------------
+
 function renderChildOccurrences() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("childTasks.heading"))}</h2></div>`);
-  const mine = state.occurrences.filter((o) => o.task.active !== false);
+  const mine = state.occurrences.filter((o) => o.task.active !== false && o.childId === state.userId);
   if (!mine.length) {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     return card;
@@ -539,21 +559,55 @@ function renderTaskList() {
     return card;
   }
   const dow = DOW();
+  const usersById = new Map(state.users.map((u) => [u.id, u]));
   state.tasks.forEach((t_) => {
     const days = daysFromSchedule(t_.schedule);
     const dayLabel = days && days.length < 7 ? days.map((d) => dow[d].label).join(", ") : t("taskList.everyDay");
     const row = el(`
-      <div class="row">
-        <div>
-          <div class="task-title">${escapeHtml(t_.title)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.inactive"))}</span>` : ""}</div>
-          <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}</div>
+      <div class="task-row">
+        <div class="task-row-top">
+          <div>
+            <div class="task-title">${escapeHtml(t_.title)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.inactive"))}</span>` : ""}</div>
+            <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}</div>
+          </div>
+          <div class="actions">
+            <button class="secondary" data-action="toggle">${escapeHtml(t_.active === false ? t("taskList.activate") : t("taskList.deactivate"))}</button>
+            <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="secondary" data-action="toggle">${escapeHtml(t_.active === false ? t("taskList.activate") : t("taskList.deactivate"))}</button>
-          <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
-        </div>
+        <div class="child-toggles"></div>
       </div>
     `);
+
+    // For each child this task is assigned to, show today's status as a
+    // clickable pill — this is how a parent marks a chore done directly
+    // from their own home page, without switching to the child's login.
+    const togglesWrap = row.querySelector(".child-toggles");
+    (t_.childIds || []).forEach((childId) => {
+      const child = usersById.get(childId);
+      const name = child ? child.name : "?";
+      const occ = state.occurrences.find((o) => o.task.id === t_.id && o.childId === childId);
+      if (!occ) {
+        togglesWrap.appendChild(
+          el(`<button type="button" class="child-toggle" disabled title="${escapeHtml(t("taskList.notDueToday"))}">${escapeHtml(name)}</button>`)
+        );
+        return;
+      }
+      const done = !!occ.completed;
+      const btn = el(`<button type="button" class="child-toggle ${done ? "done" : ""}">${done ? "✓ " : ""}${escapeHtml(name)}</button>`);
+      btn.addEventListener("click", () =>
+        withError(async () => {
+          if (done) {
+            await call("UncompleteTask", { taskId: t_.id, childId, dueDate: occ.dueDate });
+          } else {
+            await call("CompleteTask", { taskId: t_.id, childId, dueDate: occ.dueDate });
+          }
+          await loadFamilyData();
+        })
+      );
+      togglesWrap.appendChild(btn);
+    });
+
     row.querySelector('[data-action="toggle"]').addEventListener("click", () =>
       withError(async () => {
         await call("UpdateTask", {
@@ -563,6 +617,7 @@ function renderTaskList() {
           priceCents: t_.priceCents,
           schedule: t_.schedule,
           active: t_.active === false,
+          childIds: t_.childIds,
         });
         await loadFamilyData();
       })
@@ -580,6 +635,7 @@ function renderTaskList() {
 }
 
 function renderAddTaskForm() {
+  const children = state.users.filter((u) => u.role === "USER_ROLE_CHILD");
   const form = el(`
     <div class="card">
       <h2>${escapeHtml(t("addTask.heading"))}</h2>
@@ -601,6 +657,10 @@ function renderAddTaskForm() {
           <div id="task-days"></div>
         </div>
       </div>
+      <div class="field">
+        <label>${escapeHtml(t("addTask.assignLabel"))}</label>
+        <div id="task-children"></div>
+      </div>
       <button id="add-task-btn">${escapeHtml(t("addTask.addBtn"))}</button>
     </div>
   `);
@@ -614,14 +674,35 @@ function renderAddTaskForm() {
     daysWrap.appendChild(label);
   });
 
+  const childrenWrap = form.querySelector("#task-children");
+  if (!children.length) {
+    childrenWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.noChildren"))}</p>`));
+  } else {
+    const checksWrap = el(`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;"></div>`);
+    children.forEach((c) => {
+      const label = el(`<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;">
+        <input type="checkbox" data-child-id="${c.id}" /> ${escapeHtml(c.name)}
+      </label>`);
+      checksWrap.appendChild(label);
+    });
+    childrenWrap.appendChild(checksWrap);
+    const selectAllBtn = el(`<button type="button" class="secondary">${escapeHtml(t("addTask.selectAll"))}</button>`);
+    selectAllBtn.addEventListener("click", () => {
+      checksWrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = true));
+    });
+    childrenWrap.appendChild(selectAllBtn);
+  }
+
   form.querySelector("#add-task-btn").addEventListener("click", () =>
     withError(async () => {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
       const days = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
+      const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);
       if (!title) throw new Error(t("addTask.titleRequired"));
       if (!(priceKr >= 0)) throw new Error(t("addTask.pricePositive"));
+      if (!childIds.length) throw new Error(t("addTask.childRequired"));
       const schedule = buildScheduleFromDays(days);
       await call("CreateTask", {
         familyId: state.familyId,
@@ -629,6 +710,7 @@ function renderAddTaskForm() {
         description,
         priceCents: Math.round(priceKr * 100),
         schedule,
+        childIds,
       });
       await loadFamilyData();
     })

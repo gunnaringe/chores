@@ -346,6 +346,107 @@ func (s *Server) ListUsers(ctx context.Context, req *connect.Request[v1.ListUser
 
 // ---- Tasks -----------------------------------------------------
 
+func dedupeStrings(ids []string) []string {
+	seen := make(map[string]bool, len(ids))
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+func containsString(list []string, v string) bool {
+	for _, s := range list {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
+
+// validateChildIDs ensures childIDs is non-empty and every id names a child
+// belonging to familyID — used whenever a task's assignment is set.
+func (s *Server) validateChildIDs(ctx context.Context, familyID string, childIDs []string) error {
+	if len(childIDs) == 0 {
+		return errors.New("child_ids must include at least one child")
+	}
+	for _, id := range childIDs {
+		var role, fid string
+		err := s.db.QueryRowContext(ctx, `SELECT role, family_id FROM users WHERE id = ?`, id).Scan(&role, &fid)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("child %q not found", id)
+		}
+		if err != nil {
+			return err
+		}
+		if fid != familyID {
+			return fmt.Errorf("child %q does not belong to this family", id)
+		}
+		if role != "child" {
+			return fmt.Errorf("user %q is not a child", id)
+		}
+	}
+	return nil
+}
+
+// setTaskAssignments replaces a task's full set of assigned children.
+func (s *Server) setTaskAssignments(ctx context.Context, taskID string, childIDs []string) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM task_assignments WHERE task_id = ?`, taskID); err != nil {
+		return err
+	}
+	for _, id := range childIDs {
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO task_assignments (task_id, child_id) VALUES (?, ?)`, taskID, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) taskChildIDs(ctx context.Context, taskID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT child_id FROM task_assignments WHERE task_id = ?`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// taskAssignmentsByFamily batches the per-task child-id lookup for
+// ListTasks, instead of one query per task.
+func (s *Server) taskAssignmentsByFamily(ctx context.Context, familyID string) (map[string][]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT ta.task_id, ta.child_id FROM task_assignments ta
+		 JOIN tasks t ON t.id = ta.task_id
+		 WHERE t.family_id = ?`,
+		familyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[string][]string{}
+	for rows.Next() {
+		var taskID, childID string
+		if err := rows.Scan(&taskID, &childID); err != nil {
+			return nil, err
+		}
+		result[taskID] = append(result[taskID], childID)
+	}
+	return result, rows.Err()
+}
+
 func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error) {
 	familyID := req.Msg.GetFamilyId()
 	title := req.Msg.GetTitle()
@@ -362,6 +463,10 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if err := s.requireParent(ctx, familyID); err != nil {
 		return nil, err
 	}
+	childIDs := dedupeStrings(req.Msg.GetChildIds())
+	if err := s.validateChildIDs(ctx, familyID, childIDs); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	id := newID()
 	now := nowUTC()
@@ -372,10 +477,14 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create task: %w", err))
 	}
+	if err := s.setTaskAssignments(ctx, id, childIDs); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("assign task: %w", err))
+	}
 	return connect.NewResponse(&v1.CreateTaskResponse{
 		Task: &v1.Task{
 			Id: id, FamilyId: familyID, Title: title, Description: req.Msg.GetDescription(),
 			PriceCents: req.Msg.GetPriceCents(), Schedule: schedule, Active: true, CreatedAt: timestampPB(now),
+			ChildIds: childIDs,
 		},
 	}), nil
 }
@@ -398,6 +507,10 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err := s.requireParent(ctx, existing.FamilyId); err != nil {
 		return nil, err
 	}
+	childIDs := dedupeStrings(req.Msg.GetChildIds())
+	if err := s.validateChildIDs(ctx, existing.FamilyId, childIDs); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ? WHERE id = ?`,
@@ -408,6 +521,9 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("task not found"))
+	}
+	if err := s.setTaskAssignments(ctx, taskID, childIDs); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("assign task: %w", err))
 	}
 
 	task, err := s.getTask(ctx, taskID)
@@ -463,6 +579,11 @@ func (s *Server) getTask(ctx context.Context, taskID string) (*v1.Task, error) {
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	childIDs, err := s.taskChildIDs(ctx, taskID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	t.ChildIds = childIDs
 	return t, nil
 }
 
@@ -492,6 +613,17 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 		}
 		tasks = append(tasks, t)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	assignments, err := s.taskAssignmentsByFamily(ctx, familyID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	for _, t := range tasks {
+		t.ChildIds = assignments[t.Id]
+	}
 	return connect.NewResponse(&v1.ListTasksResponse{Tasks: tasks}), nil
 }
 
@@ -501,6 +633,10 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id is required"))
 	}
 	if err := s.requireMembership(ctx, familyID); err != nil {
+		return nil, err
+	}
+	childFilter, err := s.selfFilterForChild(ctx, req.Msg.GetChildId())
+	if err != nil {
 		return nil, err
 	}
 	start, err := scheduling.ParseDate(req.Msg.GetStartDate())
@@ -516,8 +652,16 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	if err != nil {
 		return nil, err
 	}
+	usersResp, err := s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: familyID}))
+	if err != nil {
+		return nil, err
+	}
+	childNames := make(map[string]string, len(usersResp.Msg.GetUsers()))
+	for _, u := range usersResp.Msg.GetUsers() {
+		childNames[u.Id] = u.Name
+	}
 
-	completions, err := s.listCompletionsByTaskAndDate(ctx, familyID)
+	completions, err := s.listCompletionsByTaskChildDate(ctx, familyID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -531,24 +675,31 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		if err != nil {
 			continue
 		}
-		for _, d := range dates {
-			dateStr := scheduling.FormatDate(d)
-			occ := &v1.TaskOccurrence{Task: t, DueDate: dateStr}
-			if c, ok := completions[completionKey(t.GetId(), dateStr)]; ok {
-				occ.Completed = true
-				occ.Completion = c
+		for _, childID := range t.GetChildIds() {
+			if childFilter != "" && childID != childFilter {
+				continue
 			}
-			occurrences = append(occurrences, occ)
+			for _, d := range dates {
+				dateStr := scheduling.FormatDate(d)
+				occ := &v1.TaskOccurrence{
+					Task: t, DueDate: dateStr, ChildId: childID, ChildName: childNames[childID],
+				}
+				if c, ok := completions[completionKey(t.GetId(), childID, dateStr)]; ok {
+					occ.Completed = true
+					occ.Completion = c
+				}
+				occurrences = append(occurrences, occ)
+			}
 		}
 	}
 	return connect.NewResponse(&v1.ListTaskOccurrencesResponse{Occurrences: occurrences}), nil
 }
 
-func completionKey(taskID, dueDate string) string {
-	return taskID + "|" + dueDate
+func completionKey(taskID, childID, dueDate string) string {
+	return taskID + "|" + childID + "|" + dueDate
 }
 
-func (s *Server) listCompletionsByTaskAndDate(ctx context.Context, familyID string) (map[string]*v1.TaskCompletion, error) {
+func (s *Server) listCompletionsByTaskChildDate(ctx context.Context, familyID string) (map[string]*v1.TaskCompletion, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, task_id, child_id, family_id, due_date, amount_cents, completed_at
 		 FROM task_completions WHERE family_id = ?`,
@@ -565,7 +716,7 @@ func (s *Server) listCompletionsByTaskAndDate(ctx context.Context, familyID stri
 		if err != nil {
 			return nil, err
 		}
-		result[completionKey(c.TaskId, c.DueDate)] = c
+		result[completionKey(c.TaskId, c.ChildId, c.DueDate)] = c
 	}
 	return result, nil
 }
@@ -641,6 +792,9 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	}
 	if childFamilyID != task.FamilyId {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("child does not belong to the task's family"))
+	}
+	if !containsString(task.ChildIds, childID) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("child is not assigned to this task"))
 	}
 
 	id := newID()

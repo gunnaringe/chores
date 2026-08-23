@@ -6,10 +6,21 @@ SQLite storage, Buf-generated Connect API.
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
-- Parents create tasks with a price and a cron-like recurrence (`0 0 * * 1,3,5`
-  = every Monday, Wednesday, Friday). The Tasks UI offers day-of-week
-  checkboxes that build this expression for you.
-- Children mark tasks done for a given day.
+- Parents create tasks with a price, a cron-like recurrence (`0 0 * * 1,3,5`
+  = every Monday, Wednesday, Friday — the UI offers day-of-week checkboxes
+  that build this expression for you), and an assignment to one or more
+  children (with a "select all" shortcut). A task only shows up for the
+  children it's assigned to.
+- A parent's Home page is a single consolidated view: the task list (with a
+  per-child, per-day toggle to mark a chore done directly, without switching
+  identity), the add-task form, and accounting/payout for every child — all
+  in one place, since that's where parents actually spend their time.
+  Switching to a specific child's own restricted view (via "Switch user")
+  is a separate action, mainly useful for previewing what a kid sees, or for
+  a parent marking a chore done on behalf of a child who doesn't have their
+  own login.
+- Children mark their own assigned tasks done for a given day, and see only
+  their own accounting.
 - Accounting tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
