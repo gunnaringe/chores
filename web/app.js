@@ -1,5 +1,6 @@
-// Ukelønn frontend — vanilla JS, talks to the Connect service using the
+// Chores frontend — vanilla JS, talks to the Connect service using the
 // Connect protocol's unary JSON encoding directly (no generated client).
+// Translation strings live in i18n.js (loaded before this file).
 
 const API = "/ukelonn.v1.UkelonnService";
 
@@ -28,7 +29,7 @@ async function call(method, req) {
 
 const money = (cents) => {
   const n = Number(cents || 0);
-  return (n / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (n / 100).toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const todayStr = () => {
@@ -38,15 +39,17 @@ const todayStr = () => {
   return local.toISOString().slice(0, 10);
 };
 
-const DOW = [
-  { code: 0, label: "Sun" },
-  { code: 1, label: "Mon" },
-  { code: 2, label: "Tue" },
-  { code: 3, label: "Wed" },
-  { code: 4, label: "Thu" },
-  { code: 5, label: "Fri" },
-  { code: 6, label: "Sat" },
-];
+function DOW() {
+  return [
+    { code: 0, label: t("days.sun") },
+    { code: 1, label: t("days.mon") },
+    { code: 2, label: t("days.tue") },
+    { code: 3, label: t("days.wed") },
+    { code: 4, label: t("days.thu") },
+    { code: 5, label: t("days.fri") },
+    { code: 6, label: t("days.sat") },
+  ];
+}
 
 function buildScheduleFromDays(days) {
   if (!days.length) return "0 0 * * *"; // default: every day
@@ -57,7 +60,7 @@ function daysFromSchedule(schedule) {
   const parts = (schedule || "").trim().split(/\s+/);
   if (parts.length !== 5) return null;
   const dow = parts[4];
-  if (dow === "*") return DOW.map((d) => d.code);
+  if (dow === "*") return DOW().map((d) => d.code);
   const days = dow
     .split(",")
     .map((s) => parseInt(s, 10))
@@ -69,8 +72,8 @@ function daysFromSchedule(schedule) {
 // ---- state -----------------------------------------------------------
 
 const state = {
-  familyId: localStorage.getItem("ukelonn.familyId") || null,
-  userId: localStorage.getItem("ukelonn.userId") || null,
+  familyId: localStorage.getItem("chores.familyId") || null,
+  userId: localStorage.getItem("chores.userId") || null,
   tab: "tasks",
   families: [],
   users: [],
@@ -87,13 +90,13 @@ const state = {
 
 function setFamilyId(id) {
   state.familyId = id;
-  if (id) localStorage.setItem("ukelonn.familyId", id);
-  else localStorage.removeItem("ukelonn.familyId");
+  if (id) localStorage.setItem("chores.familyId", id);
+  else localStorage.removeItem("chores.familyId");
 }
 function setUserId(id) {
   state.userId = id;
-  if (id) localStorage.setItem("ukelonn.userId", id);
-  else localStorage.removeItem("ukelonn.userId");
+  if (id) localStorage.setItem("chores.userId", id);
+  else localStorage.removeItem("chores.userId");
 }
 
 function currentUser() {
@@ -102,6 +105,9 @@ function currentUser() {
 function isParent() {
   const u = currentUser();
   return !!u && u.role === "USER_ROLE_PARENT";
+}
+function roleLabel(role) {
+  return role === "USER_ROLE_PARENT" ? t("role.parent") : t("role.child");
 }
 
 async function withError(fn) {
@@ -178,21 +184,40 @@ async function refreshAll() {
 // ---- rendering -----------------------------------------------------
 
 function el(html) {
-  const t = document.createElement("template");
-  t.innerHTML = html.trim();
-  return t.content.firstElementChild;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html.trim();
+  return tpl.content.firstElementChild;
+}
+
+function renderLangSwitcher() {
+  const current = getLang();
+  const options = window.LANGUAGES.map((l) => `<option value="${l.code}" ${l.code === current ? "selected" : ""}>${l.label}</option>`).join("");
+  const bar = el(`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+      <select id="lang-switcher" aria-label="${escapeHtml(t("lang.label"))}" style="font-size:0.8rem;padding:4px 8px;">
+        ${options}
+      </select>
+    </div>
+  `);
+  bar.querySelector("#lang-switcher").addEventListener("change", (e) => {
+    setLang(e.target.value);
+    render();
+  });
+  return bar;
 }
 
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
 
+  app.appendChild(renderLangSwitcher());
+
   if (state.auth && state.auth.mode === "auth0" && state.auth.authenticated) {
     app.appendChild(
       el(`
         <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;font-size:0.85rem;color:var(--muted);margin-bottom:8px;">
-          <span>Signed in as ${escapeHtml(state.auth.name || state.auth.email || "")}</span>
-          <a class="link-btn" href="/auth/logout">Log out</a>
+          <span>${escapeHtml(t("auth.signedInAs", { name: state.auth.name || state.auth.email || "" }))}</span>
+          <a class="link-btn" href="/auth/logout">${escapeHtml(t("auth.logout"))}</a>
         </div>
       `)
     );
@@ -221,9 +246,9 @@ function render() {
 
   const tabs = el(`
     <div class="tabs">
-      <button data-tab="tasks" class="${state.tab === "tasks" ? "active" : ""}">Tasks</button>
-      <button data-tab="accounting" class="${state.tab === "accounting" ? "active" : ""}">Accounting</button>
-      <button data-tab="family" class="${state.tab === "family" ? "active" : ""}">Family</button>
+      <button data-tab="tasks" class="${state.tab === "tasks" ? "active" : ""}">${escapeHtml(t("tabs.tasks"))}</button>
+      <button data-tab="accounting" class="${state.tab === "accounting" ? "active" : ""}">${escapeHtml(t("tabs.accounting"))}</button>
+      <button data-tab="family" class="${state.tab === "family" ? "active" : ""}">${escapeHtml(t("tabs.family"))}</button>
     </div>
   `);
   tabs.querySelectorAll("button").forEach((b) =>
@@ -248,30 +273,29 @@ function escapeHtml(s) {
 function renderOnboarding() {
   const wrap = el(`<div></div>`);
   wrap.appendChild(el(`
-    <h1>Ukelønn</h1>
-    <p>Create your family to get started, or open the invite link a family
-    member sent you.</p>
+    <h1>${window.APP_NAME}</h1>
+    <p>${escapeHtml(t("onboarding.subtitle"))}</p>
   `));
 
   const form = el(`
     <div class="card">
-      <h2>Create your family</h2>
+      <h2>${escapeHtml(t("onboarding.heading"))}</h2>
       <div class="field">
-        <label>Your name</label>
-        <input type="text" id="onboard-parent-name" placeholder="e.g. Mom" />
+        <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
+        <input type="text" id="onboard-parent-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" />
       </div>
       <div class="field">
-        <label>Family name</label>
-        <input type="text" id="onboard-family-name" placeholder="e.g. The Smiths" />
+        <label>${escapeHtml(t("family.nameLabel"))}</label>
+        <input type="text" id="onboard-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
       </div>
-      <button id="onboard-create-btn">Create family</button>
+      <button id="onboard-create-btn">${escapeHtml(t("family.createBtn"))}</button>
     </div>
   `);
   form.querySelector("#onboard-create-btn").addEventListener("click", () =>
     withError(async () => {
       const parentName = form.querySelector("#onboard-parent-name").value.trim();
       const familyName = form.querySelector("#onboard-family-name").value.trim();
-      if (!familyName) throw new Error("Family name is required");
+      if (!familyName) throw new Error(t("familyPicker.nameRequired"));
       await call("CreateFamily", { name: familyName, parentName });
       await loadMembership();
       if (state.membership.bound) {
@@ -288,7 +312,7 @@ function renderOnboarding() {
 
 function renderFamilyPicker() {
   const wrap = el(`<div></div>`);
-  wrap.appendChild(el(`<h1>Ukelønn</h1><p>Pick or create a family to get started.</p>`));
+  wrap.appendChild(el(`<h1>${window.APP_NAME}</h1><p>${escapeHtml(t("familyPicker.subtitle"))}</p>`));
 
   const card = el(`<div class="card"></div>`);
   if (state.families.length) {
@@ -296,7 +320,7 @@ function renderFamilyPicker() {
       const row = el(`
         <div class="row">
           <span>${escapeHtml(f.name)}</span>
-          <button data-id="${f.id}">Open</button>
+          <button data-id="${f.id}">${escapeHtml(t("familyPicker.open"))}</button>
         </div>
       `);
       row.querySelector("button").addEventListener("click", () =>
@@ -308,24 +332,24 @@ function renderFamilyPicker() {
       card.appendChild(row);
     });
   } else {
-    card.appendChild(el(`<p class="empty">No families yet.</p>`));
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("familyPicker.noFamilies"))}</p>`));
   }
   wrap.appendChild(card);
 
   const form = el(`
     <div class="card">
-      <h2>Create a family</h2>
+      <h2>${escapeHtml(t("familyPicker.createHeading"))}</h2>
       <div class="field">
-        <label>Family name</label>
-        <input type="text" id="new-family-name" placeholder="e.g. The Smiths" />
+        <label>${escapeHtml(t("family.nameLabel"))}</label>
+        <input type="text" id="new-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
       </div>
-      <button id="create-family-btn">Create family</button>
+      <button id="create-family-btn">${escapeHtml(t("family.createBtn"))}</button>
     </div>
   `);
   form.querySelector("#create-family-btn").addEventListener("click", () =>
     withError(async () => {
       const name = form.querySelector("#new-family-name").value.trim();
-      if (!name) throw new Error("Family name is required");
+      if (!name) throw new Error(t("familyPicker.nameRequired"));
       const resp = await call("CreateFamily", { name });
       await loadFamilies();
       setFamilyId(resp.family.id);
@@ -339,14 +363,14 @@ function renderFamilyPicker() {
 function renderUserPicker() {
   const wrap = el(`<div></div>`);
   const family = state.families.find((f) => f.id === state.familyId);
-  const switchFamilyBtn = isAuth0Mode() ? "" : `<button class="secondary" id="switch-family">Switch family</button>`;
+  const switchFamilyBtn = isAuth0Mode() ? "" : `<button class="secondary" id="switch-family">${escapeHtml(t("userPicker.switchFamily"))}</button>`;
   wrap.appendChild(
     el(`
       <div class="topbar">
-        <h1>${escapeHtml(family ? family.name : "Ukelønn")}</h1>
+        <h1>${escapeHtml(family ? family.name : window.APP_NAME)}</h1>
         ${switchFamilyBtn}
       </div>
-      <p>Who's using the app right now?</p>
+      <p>${escapeHtml(t("userPicker.whoIsUsing"))}</p>
     `)
   );
   const switchFamilyEl = wrap.querySelector("#switch-family");
@@ -363,8 +387,8 @@ function renderUserPicker() {
     state.users.forEach((u) => {
       const row = el(`
         <div class="row">
-          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${u.role === "USER_ROLE_PARENT" ? "Parent" : "Child"}</span></span>
-          <button data-id="${u.id}">Continue</button>
+          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span></span>
+          <button data-id="${u.id}">${escapeHtml(t("userPicker.continue"))}</button>
         </div>
       `);
       row.querySelector("button").addEventListener("click", () =>
@@ -376,7 +400,7 @@ function renderUserPicker() {
       card.appendChild(row);
     });
   } else {
-    card.appendChild(el(`<p class="empty">No family members yet — add one below.</p>`));
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("userPicker.noMembers"))}</p>`));
   }
   wrap.appendChild(card);
   wrap.appendChild(renderAddUserForm());
@@ -386,26 +410,26 @@ function renderUserPicker() {
 function renderAddUserForm() {
   const form = el(`
     <div class="card">
-      <h2>Add a family member</h2>
+      <h2>${escapeHtml(t("addUser.heading"))}</h2>
       <div class="field">
-        <label>Name</label>
-        <input type="text" id="new-user-name" placeholder="Name" />
+        <label>${escapeHtml(t("addUser.nameLabel"))}</label>
+        <input type="text" id="new-user-name" placeholder="${escapeHtml(t("addUser.namePlaceholder"))}" />
       </div>
       <div class="field">
-        <label>Role</label>
+        <label>${escapeHtml(t("addUser.roleLabel"))}</label>
         <select id="new-user-role">
-          <option value="USER_ROLE_PARENT">Parent</option>
-          <option value="USER_ROLE_CHILD">Child</option>
+          <option value="USER_ROLE_PARENT">${escapeHtml(t("role.parent"))}</option>
+          <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
         </select>
       </div>
-      <button id="add-user-btn">Add</button>
+      <button id="add-user-btn">${escapeHtml(t("addUser.add"))}</button>
     </div>
   `);
   form.querySelector("#add-user-btn").addEventListener("click", () =>
     withError(async () => {
       const name = form.querySelector("#new-user-name").value.trim();
       const role = form.querySelector("#new-user-role").value;
-      if (!name) throw new Error("Name is required");
+      if (!name) throw new Error(t("addUser.nameRequired"));
       await call("CreateUser", { familyId: state.familyId, name, role });
       await loadFamilyData();
     })
@@ -421,12 +445,12 @@ function renderTopbar() {
   // acting on behalf of a child who doesn't have their own login, or in
   // local-testing mode where there's no login binding at all.
   const canSwitch = !isAuth0Mode() || isParent();
-  const switchBtn = canSwitch ? `<button class="secondary" id="switch-user">Switch user</button>` : "";
+  const switchBtn = canSwitch ? `<button class="secondary" id="switch-user">${escapeHtml(t("topbar.switchUser"))}</button>` : "";
   const bar = el(`
     <div class="topbar">
       <div>
-        <h1>${escapeHtml(family ? family.name : "Ukelønn")}</h1>
-        <p style="margin:0">${escapeHtml(user ? user.name : "")} <span class="pill ${isParent() ? "parent" : "child"}">${isParent() ? "Parent" : "Child"}</span></p>
+        <h1>${escapeHtml(family ? family.name : window.APP_NAME)}</h1>
+        <p style="margin:0">${escapeHtml(user ? user.name : "")} <span class="pill ${isParent() ? "parent" : "child"}">${escapeHtml(isParent() ? t("role.parent") : t("role.child"))}</span></p>
       </div>
       <div class="actions">${switchBtn}</div>
     </div>
@@ -456,10 +480,10 @@ function renderTasksTab() {
 }
 
 function renderChildOccurrences() {
-  const card = el(`<div class="card"><h2>Today's tasks</h2></div>`);
+  const card = el(`<div class="card"><h2>${escapeHtml(t("childTasks.heading"))}</h2></div>`);
   const mine = state.occurrences.filter((o) => o.task.active !== false);
   if (!mine.length) {
-    card.appendChild(el(`<p class="empty">No tasks scheduled for today.</p>`));
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     return card;
   }
   mine.forEach((occ) => {
@@ -470,7 +494,7 @@ function renderChildOccurrences() {
           <div class="task-title">${escapeHtml(occ.task.title)}</div>
           <div class="task-meta">kr ${money(occ.task.priceCents)}${occ.task.description ? " — " + escapeHtml(occ.task.description) : ""}</div>
         </div>
-        <button class="checkbtn ${done ? "done" : "todo"}" title="${done ? "Mark not done" : "Mark done"}">${done ? "✓" : ""}</button>
+        <button class="checkbtn ${done ? "done" : "todo"}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}">${done ? "✓" : ""}</button>
       </div>
     `);
     row.querySelector("button").addEventListener("click", () =>
@@ -497,43 +521,44 @@ function renderChildOccurrences() {
 }
 
 function renderTaskList() {
-  const card = el(`<div class="card"><h2>Tasks</h2></div>`);
+  const card = el(`<div class="card"><h2>${escapeHtml(t("taskList.heading"))}</h2></div>`);
   if (!state.tasks.length) {
-    card.appendChild(el(`<p class="empty">No tasks yet — add one below.</p>`));
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("taskList.empty"))}</p>`));
     return card;
   }
-  state.tasks.forEach((t) => {
-    const days = daysFromSchedule(t.schedule);
-    const dayLabel = days && days.length < 7 ? days.map((d) => DOW[d].label).join(", ") : "Every day";
+  const dow = DOW();
+  state.tasks.forEach((t_) => {
+    const days = daysFromSchedule(t_.schedule);
+    const dayLabel = days && days.length < 7 ? days.map((d) => dow[d].label).join(", ") : t("taskList.everyDay");
     const row = el(`
       <div class="row">
         <div>
-          <div class="task-title">${escapeHtml(t.title)} ${t.active === false ? '<span class="pill">inactive</span>' : ""}</div>
-          <div class="task-meta">kr ${money(t.priceCents)} · ${escapeHtml(dayLabel)}${t.description ? " · " + escapeHtml(t.description) : ""}</div>
+          <div class="task-title">${escapeHtml(t_.title)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.inactive"))}</span>` : ""}</div>
+          <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(dayLabel)}${t_.description ? " · " + escapeHtml(t_.description) : ""}</div>
         </div>
         <div class="actions">
-          <button class="secondary" data-action="toggle">${t.active === false ? "Activate" : "Deactivate"}</button>
-          <button class="danger" data-action="delete">Delete</button>
+          <button class="secondary" data-action="toggle">${escapeHtml(t_.active === false ? t("taskList.activate") : t("taskList.deactivate"))}</button>
+          <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
         </div>
       </div>
     `);
     row.querySelector('[data-action="toggle"]').addEventListener("click", () =>
       withError(async () => {
         await call("UpdateTask", {
-          taskId: t.id,
-          title: t.title,
-          description: t.description,
-          priceCents: t.priceCents,
-          schedule: t.schedule,
-          active: t.active === false,
+          taskId: t_.id,
+          title: t_.title,
+          description: t_.description,
+          priceCents: t_.priceCents,
+          schedule: t_.schedule,
+          active: t_.active === false,
         });
         await loadFamilyData();
       })
     );
     row.querySelector('[data-action="delete"]').addEventListener("click", () =>
       withError(async () => {
-        if (!confirm(`Delete task "${t.title}"?`)) return;
-        await call("DeleteTask", { taskId: t.id });
+        if (!confirm(t("taskList.confirmDelete", { title: t_.title }))) return;
+        await call("DeleteTask", { taskId: t_.id });
         await loadFamilyData();
       })
     );
@@ -545,33 +570,34 @@ function renderTaskList() {
 function renderAddTaskForm() {
   const form = el(`
     <div class="card">
-      <h2>Add a task</h2>
+      <h2>${escapeHtml(t("addTask.heading"))}</h2>
       <div class="field">
-        <label>Title</label>
-        <input type="text" id="task-title" placeholder="e.g. Do the dishes" />
+        <label>${escapeHtml(t("addTask.titleLabel"))}</label>
+        <input type="text" id="task-title" placeholder="${escapeHtml(t("addTask.titlePlaceholder"))}" />
       </div>
       <div class="field">
-        <label>Description (optional)</label>
+        <label>${escapeHtml(t("addTask.descLabel"))}</label>
         <input type="text" id="task-desc" />
       </div>
       <div class="grid-2">
         <div class="field">
-          <label>Price (kr)</label>
+          <label>${escapeHtml(t("addTask.priceLabel"))}</label>
           <input type="number" id="task-price" min="0" step="0.5" value="10" />
         </div>
         <div class="field">
-          <label>Repeats on</label>
+          <label>${escapeHtml(t("addTask.repeatsOn"))}</label>
           <div id="task-days"></div>
         </div>
       </div>
-      <button id="add-task-btn">Add task</button>
+      <button id="add-task-btn">${escapeHtml(t("addTask.addBtn"))}</button>
     </div>
   `);
   const daysWrap = form.querySelector("#task-days");
-  DOW.forEach((d) => {
+  const dow = DOW();
+  dow.forEach((d) => {
     const id = `day-${d.code}`;
     const label = el(`<label style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:0.85rem;">
-      <input type="checkbox" id="${id}" ${d.code >= 1 && d.code <= 5 ? "checked" : ""}/> ${d.label}
+      <input type="checkbox" id="${id}" ${d.code >= 1 && d.code <= 5 ? "checked" : ""}/> ${escapeHtml(d.label)}
     </label>`);
     daysWrap.appendChild(label);
   });
@@ -581,9 +607,9 @@ function renderAddTaskForm() {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
-      const days = DOW.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
-      if (!title) throw new Error("Title is required");
-      if (!(priceKr >= 0)) throw new Error("Price must be a positive number");
+      const days = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
+      if (!title) throw new Error(t("addTask.titleRequired"));
+      if (!(priceKr >= 0)) throw new Error(t("addTask.pricePositive"));
       const schedule = buildScheduleFromDays(days);
       await call("CreateTask", {
         familyId: state.familyId,
@@ -605,7 +631,7 @@ function renderAccountingTab() {
   const summaries = isParent() ? state.summaries : state.summaries.filter((s) => s.child.id === state.userId);
 
   if (!summaries.length) {
-    wrap.appendChild(el(`<div class="card"><p class="empty">No children in this family yet.</p></div>`));
+    wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("accounting.noChildren"))}</p></div>`));
     return wrap;
   }
 
@@ -614,26 +640,26 @@ function renderAccountingTab() {
       <div class="card">
         <h2>${escapeHtml(s.child.name)}</h2>
         <div class="grid-2">
-          <div class="stat"><div class="value">kr ${money(s.earnedLast7DaysCents)}</div><div class="label">Last 7 days</div></div>
-          <div class="stat"><div class="value">kr ${money(s.balanceCents)}</div><div class="label">Balance owed</div></div>
+          <div class="stat"><div class="value">kr ${money(s.earnedLast7DaysCents)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
+          <div class="stat"><div class="value">kr ${money(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `);
     if (isParent()) {
       const payoutForm = el(`
         <div class="card">
-          <h3>Pay out</h3>
+          <h3>${escapeHtml(t("accounting.payoutHeading"))}</h3>
           <div class="field">
-            <label>Amount (kr) — leave as full balance or enter a partial amount</label>
+            <label>${escapeHtml(t("accounting.amountLabel"))}</label>
             <input type="number" min="0" step="0.5" id="payout-amount-${s.child.id}" value="${(Number(s.balanceCents || 0) / 100).toFixed(2)}" />
           </div>
           <div class="field">
-            <label>Note (optional)</label>
+            <label>${escapeHtml(t("accounting.noteLabel"))}</label>
             <input type="text" id="payout-note-${s.child.id}" />
           </div>
           <div class="actions">
-            <button data-action="full">Pay full balance</button>
-            <button class="secondary" data-action="partial">Pay entered amount</button>
+            <button data-action="full">${escapeHtml(t("accounting.payFull"))}</button>
+            <button class="secondary" data-action="partial">${escapeHtml(t("accounting.payPartial"))}</button>
           </div>
         </div>
       `);
@@ -648,7 +674,7 @@ function renderAccountingTab() {
         withError(async () => {
           const amountKr = parseFloat(payoutForm.querySelector(`#payout-amount-${s.child.id}`).value || "0");
           const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
-          if (!(amountKr > 0)) throw new Error("Enter an amount greater than zero");
+          if (!(amountKr > 0)) throw new Error(t("accounting.amountPositive"));
           await call("CreatePayout", {
             childId: s.child.id,
             fullPayout: false,
@@ -662,9 +688,9 @@ function renderAccountingTab() {
     }
 
     const history = state.payouts.filter((p) => p.childId === s.child.id);
-    const histCard = el(`<div class="card"><h3>Payout history</h3></div>`);
+    const histCard = el(`<div class="card"><h3>${escapeHtml(t("accounting.historyHeading"))}</h3></div>`);
     if (!history.length) {
-      histCard.appendChild(el(`<p class="empty">No payouts yet.</p>`));
+      histCard.appendChild(el(`<p class="empty">${escapeHtml(t("accounting.noPayouts"))}</p>`));
     } else {
       history
         .slice()
@@ -673,7 +699,7 @@ function renderAccountingTab() {
           histCard.appendChild(
             el(`
               <div class="row">
-                <span>${new Date(p.createdAt).toLocaleDateString()} ${p.fullPayout ? '<span class="pill">full</span>' : '<span class="pill">partial</span>'} ${p.note ? "— " + escapeHtml(p.note) : ""}</span>
+                <span>${new Date(p.createdAt).toLocaleDateString(localeTag())} <span class="pill">${escapeHtml(p.fullPayout ? t("accounting.full") : t("accounting.partial"))}</span> ${p.note ? "— " + escapeHtml(p.note) : ""}</span>
                 <strong>kr ${money(p.amountCents)}</strong>
               </div>
             `)
@@ -692,13 +718,14 @@ function renderAccountingTab() {
 function renderFamilyTab() {
   const wrap = el(`<div></div>`);
   const pendingUserIds = new Set(state.invitations.filter((i) => !i.acceptedAt).map((i) => i.userId));
-  const card = el(`<div class="card"><h2>Family members</h2></div>`);
+  const card = el(`<div class="card"><h2>${escapeHtml(t("familyTab.heading"))}</h2></div>`);
   state.users.forEach((u) => {
-    const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ' <span class="pill">invite pending</span>' : "";
+    const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ` <span class="pill">${escapeHtml(t("familyTab.invitePending"))}</span>` : "";
+    const youTag = u.id === state.userId ? ` · ${escapeHtml(t("familyTab.you"))}` : "";
     card.appendChild(
       el(`
         <div class="row">
-          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${u.role === "USER_ROLE_PARENT" ? "Parent" : "Child"}</span>${u.id === state.userId ? " · you" : ""}${pendingTag}</span>
+          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>
         </div>
       `)
     );
@@ -717,16 +744,15 @@ function renderInvitationsSection() {
   const wrap = el(`<div></div>`);
 
   const pending = state.invitations.filter((i) => !i.acceptedAt);
-  const listCard = el(`<div class="card"><h2>Pending invitations</h2></div>`);
+  const listCard = el(`<div class="card"><h2>${escapeHtml(t("invitations.pendingHeading"))}</h2></div>`);
   if (!pending.length) {
-    listCard.appendChild(el(`<p class="empty">No pending invitations.</p>`));
+    listCard.appendChild(el(`<p class="empty">${escapeHtml(t("invitations.none"))}</p>`));
   } else {
     pending.forEach((inv) => {
-      const roleLabel = inv.role === "USER_ROLE_CHILD" ? "Child" : "Parent";
       const row = el(`
         <div class="row">
-          <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${roleLabel}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
-          <button class="danger" data-id="${inv.id}">Revoke</button>
+          <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${escapeHtml(roleLabel(inv.role))}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
+          <button class="danger" data-id="${inv.id}">${escapeHtml(t("invitations.revoke"))}</button>
         </div>
       `);
       row.querySelector("button").addEventListener("click", () =>
@@ -742,26 +768,26 @@ function renderInvitationsSection() {
 
   const form = el(`
     <div class="card">
-      <h2>Invite a family member</h2>
-      <p style="margin-top:-4px;">Creates a one-time link. Whoever opens it (after logging in with their own Auth0 account) joins this family as the role you pick below.</p>
+      <h2>${escapeHtml(t("invitations.inviteHeading"))}</h2>
+      <p style="margin-top:-4px;">${escapeHtml(t("invitations.inviteDesc"))}</p>
       <div class="field">
-        <label>Their name</label>
-        <input type="text" id="invite-name" placeholder="e.g. Dad, or Kid" />
+        <label>${escapeHtml(t("invitations.theirNameLabel"))}</label>
+        <input type="text" id="invite-name" placeholder="${escapeHtml(t("invitations.theirNamePlaceholder"))}" />
       </div>
       <div class="grid-2">
         <div class="field">
-          <label>Role</label>
+          <label>${escapeHtml(t("invitations.roleLabel"))}</label>
           <select id="invite-role">
-            <option value="USER_ROLE_PARENT">Parent</option>
-            <option value="USER_ROLE_CHILD">Child</option>
+            <option value="USER_ROLE_PARENT">${escapeHtml(t("role.parent"))}</option>
+            <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
           </select>
         </div>
         <div class="field">
-          <label>Their email (optional, just for your reference)</label>
+          <label>${escapeHtml(t("invitations.theirEmailLabel"))}</label>
           <input type="text" id="invite-email" />
         </div>
       </div>
-      <button id="invite-create-btn">Create invite link</button>
+      <button id="invite-create-btn">${escapeHtml(t("invitations.createBtn"))}</button>
     </div>
   `);
   form.querySelector("#invite-create-btn").addEventListener("click", () =>
@@ -769,7 +795,7 @@ function renderInvitationsSection() {
       const name = form.querySelector("#invite-name").value.trim();
       const role = form.querySelector("#invite-role").value;
       const email = form.querySelector("#invite-email").value.trim();
-      if (!name) throw new Error("Name is required");
+      if (!name) throw new Error(t("invitations.nameRequired"));
       const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
       state.lastInviteLink = window.location.origin + resp.acceptPath;
       await loadFamilyData();
@@ -779,7 +805,7 @@ function renderInvitationsSection() {
     form.appendChild(
       el(`
         <div class="field" style="margin-top:12px;">
-          <label>Share this link with them (shown once)</label>
+          <label>${escapeHtml(t("invitations.shareLabel"))}</label>
           <input type="text" readonly value="${escapeHtml(state.lastInviteLink)}" onclick="this.select()" />
         </div>
       `)

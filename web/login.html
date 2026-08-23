@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ukelønn</title>
+<title>Chores</title>
 <link rel="stylesheet" href="/app.css" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
@@ -11,17 +11,34 @@
 <meta name="theme-color" content="#2563eb" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="Ukelønn" />
+<meta name="apple-mobile-web-app-title" content="Chores" />
 </head>
 <body>
+<div style="display:flex;justify-content:flex-end;padding:12px 12px 0;">
+  <select id="lang-switcher" style="font-size:0.8rem;padding:4px 8px;"></select>
+</div>
 <div id="app">
-  <div class="card" style="max-width:360px;margin:15vh auto 0;text-align:center;">
-    <h1>Ukelønn</h1>
-    <p>Please log in to continue.</p>
-    <button onclick="location.href='/auth/login'">Log in</button>
+  <div class="card" style="max-width:360px;margin:12vh auto 0;text-align:center;">
+    <h1 id="app-title"></h1>
+    <p id="login-subtitle"></p>
+    <button id="login-btn" onclick="location.href='/auth/login'"></button>
   </div>
 </div>
+<script src="/i18n.js"></script>
 <script>
+  document.getElementById("app-title").textContent = window.APP_NAME;
+  document.getElementById("login-subtitle").textContent = t("login.subtitle");
+  document.getElementById("login-btn").textContent = t("login.button");
+
+  const switcher = document.getElementById("lang-switcher");
+  switcher.innerHTML = window.LANGUAGES.map(
+    (l) => `<option value="${l.code}"${l.code === getLang() ? " selected" : ""}>${l.label}</option>`
+  ).join("");
+  switcher.addEventListener("change", (e) => {
+    setLang(e.target.value);
+    location.reload();
+  });
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
   }

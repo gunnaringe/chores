@@ -1,6 +1,6 @@
-// Command ukelonn runs the Ukelønn family allowance tracker: a single
-// binary serving both the embedded web UI and the Connect API, backed by
-// a local SQLite database.
+// Command ukelonn runs Chores, a family allowance and chore tracker: a
+// single binary serving both the embedded web UI and the Connect API,
+// backed by a local SQLite database.
 package main
 
 import (
@@ -30,7 +30,7 @@ func main() {
 	}
 
 	addr := flag.String("addr", ":8080", "address to listen on")
-	dbPath := flag.String("db", "ukelonn.db", "path to the sqlite database file")
+	dbPath := flag.String("db", "chores.db", "path to the sqlite database file")
 	authModeFlag := flag.String("auth", "auto",
 		`authentication mode: "auto" (auth0 if AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET are set, otherwise disabled), "auth0", or "disabled"`)
 	auth0Domain := flag.String("auth0-domain", os.Getenv("AUTH0_DOMAIN"), "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com")
@@ -98,7 +98,7 @@ func main() {
 
 	mux.Handle("/", authMgr.Gate(http.FileServerFS(web.FS), http.HandlerFunc(loginPageHandler)))
 
-	log.Printf("ukelønn listening on %s (db: %s)", *addr, *dbPath)
+	log.Printf("Chores listening on %s (db: %s)", *addr, *dbPath)
 	if err := http.ListenAndServe(*addr, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}

@@ -3,11 +3,12 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-const CACHE_NAME = "ukelonn-shell-v1";
+const CACHE_NAME = "chores-shell-v2";
 const PRECACHE_URLS = [
   "/",
   "/app.js",
   "/app.css",
+  "/i18n.js",
   "/login.html",
   "/manifest.webmanifest",
   "/icons/icon-192.png",

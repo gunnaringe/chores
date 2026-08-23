@@ -1,7 +1,11 @@
-# Ukelønn
+# Chores
 
-A family allowance tracker. Single Go binary, embedded web UI, SQLite storage,
-Buf-generated Connect API.
+A family allowance and chore tracker. Single Go binary, embedded web UI,
+SQLite storage, Buf-generated Connect API.
+
+(The Go module path, `github.com/gunnaringe/ukelonn`, and the proto package
+name are unchanged — "Chores" is the app's display name and brand, not a
+repo rename.)
 
 - Parents create tasks with a price and a cron-like recurrence (`0 0 * * 1,3,5`
   = every Monday, Wednesday, Friday). The Tasks UI offers day-of-week
@@ -26,11 +30,26 @@ chore done, for example).
 ## Running
 
 ```bash
-go run ./cmd/ukelonn -addr=:8080 -db=ukelonn.db
+go run ./cmd/ukelonn -addr=:8080 -db=chores.db
 ```
 
 Then open http://localhost:8080. By default (see Authentication below) this
 runs with no login required, so local testing needs no extra setup.
+
+(If you have an existing database from before the rename, pass
+`-db=ukelonn.db` to keep using it, or just rename the file — the schema
+itself didn't change.)
+
+## Language
+
+The UI is available in English and Norwegian (Bokmål), picked with the
+dropdown shown on every screen (including the login page). It defaults to
+the browser's language when there's no saved preference, and the choice is
+then remembered in `localStorage`. Translation strings live in
+`web/i18n.js`; add a new language by adding another entry to
+`TRANSLATIONS` there and to `window.LANGUAGES`. Error messages coming from
+the server (validation errors, permission errors) aren't localized yet —
+only the UI text is.
 
 ## Authentication
 
@@ -116,5 +135,5 @@ buf generate
 - `internal/scheduling` — cron-expression date matching for recurring tasks
 - `internal/server` — Connect service implementation
 - `internal/auth` — Auth0 login (or the local-testing bypass) gating the app
-- `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON)
+- `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/ukelonn` — main entrypoint
