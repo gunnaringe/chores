@@ -66,6 +66,13 @@ p { color: var(--muted); margin: 0 0 12px; }
   padding: 16px;
   margin-bottom: 16px;
 }
+/* Marks the boundary in Settings between account-level sections (join a
+   family) and the sections scoped to whichever family is currently open. */
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0 20px;
+}
 .row {
   display: flex;
   align-items: center;

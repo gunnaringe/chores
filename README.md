@@ -175,11 +175,28 @@ profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
 don't survive a server restart. `/auth/logout` clears the session and signs
 out of Auth0 too.
 
+### Joining a family
+
+"Join a family" sits at the very top of the Settings page, above a divider
+that separates it from everything else there — unlike the rest of Settings,
+it isn't about the family currently open, so it's available to a parent or
+a child alike. Enter an invite code someone shared with you (see "Inviting
+a family member" below) to become a member of their family too. A login can
+accept invites into more than one family; the only thing rejected is
+accepting the same family's invite twice with a login already bound there.
+That's what makes both the "lives in two households" case and a parent
+co-running two families work. (This only works once Auth0 is enabled — a
+family you already belong to will also reject a second acceptance the
+normal way.)
+
 ### The family members list
 
-The Family section of the Settings page lists every member as a collapsed
-row; tapping one expands it to show what can be done with it, which depends
-on whose row it is:
+Below that divider, the rest of Settings is scoped to whichever family is
+currently open — including its members list, which shows every member as a
+collapsed row (parents first, then children, alphabetically within each
+group — the same ordering the topbar's user-switcher dropdown uses).
+Tapping a row expands it to show what can be done with it, which depends on
+whose row it is:
 
 - **Your own row** — rename yourself, and (parents only) leave the family.
 - **A child's row** — remove them, which cascades away their task
@@ -187,33 +204,24 @@ on whose row it is:
 - **A co-parent's row** — nothing. It's shown so you know who's in the
   family, but there's nothing to manage from someone else's row.
 
-Two more rows sit at the bottom of the same list, expanding the same way:
-
-- **"+ Add a family member"** — add someone directly, with no login of
-  their own (the usual way to add a child too young to have an account); or,
-  when Auth0 is enabled, send them an invite instead (see below).
-- **"+ Join a family"** — enter an invite code someone else sent you, to
-  become a member of their family too. A login — parent or child — can
-  accept invites into more than one family; the only thing rejected is
-  accepting the same family's invite twice with a login already bound
-  there. That's what makes both the "lives in two households" case and a
-  parent co-running two families work. (This only works once Auth0 is
-  enabled, same as sending an invite does; a family you already belong to
-  will also reject a second acceptance the normal way.)
+One more row, **"+ Add a family member"**, sits at the bottom of the same
+list, expanding the same way: add someone directly, with no login of their
+own (the usual way to add a child too young to have an account); or, when
+Auth0 is enabled, send them an invite instead (see below).
 
 ### Inviting a family member
 
 Sending an invite (from the "+ Add a family member" row, once Auth0 is
 enabled) creates a one-time invite code for another parent (e.g. the other
 guardian) or for a child old enough to have their own Auth0 account.
-Whoever enters that code in the "+ Join a family" row — after logging into
-their own Auth0 account — is bound to that slot in the same family, with
-the role the invite was created for. The code is shown once, right where it
-was created; a parent can revoke an invite before it's accepted (from the
-"Pending invitations" list), which also removes the unclaimed slot it
-created. Accepting an invite isn't restricted to any particular email
-address — possession of the code is what grants access, so only share it
-with the intended person.
+Whoever enters that code in their own "Join a family" section — after
+logging into their own Auth0 account — is bound to that slot in the same
+family, with the role the invite was created for. The code is shown once,
+right where it was created; a parent can revoke an invite before it's
+accepted (from the "Pending invitations" list), which also removes the
+unclaimed slot it created. Accepting an invite isn't restricted to any
+particular email address — possession of the code is what grants access, so
+only share it with the intended person.
 
 ### Leaving, removing a child, or deleting the family
 

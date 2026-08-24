@@ -810,6 +810,16 @@ function renderAddUserForm() {
   return form;
 }
 
+// Parents before children, alphabetical by name within each group — used
+// everywhere a family's members are listed (the topbar switcher, the
+// Settings family overview) so the ordering reads the same in both places.
+function sortMembersForDisplay(users) {
+  return users.slice().sort((a, b) => {
+    if (a.role !== b.role) return a.role === "USER_ROLE_PARENT" ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 // Every user the current login can directly switch to right from the
 // topbar — mirrors renderUserPicker's old canContinueAs rule: a bound
 // child's login can only ever act as themselves, so this is only
@@ -821,7 +831,7 @@ function switchableUsers() {
   if (isAuth0Mode() && !isParent()) return [];
   const homeUserId = getHomeUserId();
   const canContinueAs = (u) => u.role !== "USER_ROLE_PARENT" || !homeUserId || u.id === homeUserId;
-  return state.users.filter(canContinueAs);
+  return sortMembersForDisplay(state.users.filter(canContinueAs));
 }
 
 // Every family the topbar's family-name dropdown can switch straight to —
@@ -1522,8 +1532,7 @@ let confirmingRemoveChildId = null;
 let confirmingLeaveFamily = false;
 let confirmingDeleteFamily = false;
 // Which row of the family members list is expanded: a user id, the
-// sentinel "__add__" for the "add a family member" row, the sentinel
-// "__join__" for the "join a family" row, or null if none is.
+// sentinel "__add__" for the "add a family member" row, or null if none is.
 let expandedFamilyRow = null;
 // The most recently created invite's code — shown once, right in the
 // add-member row that created it, same as the dashboard key is.
@@ -1590,7 +1599,7 @@ function renderFamilyTab() {
 
   const card = el(`<div class="card"><h2>${escapeHtml(t("familyTab.heading"))}</h2></div>`);
 
-  state.users.forEach((u) => {
+  sortMembersForDisplay(state.users).forEach((u) => {
     const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ` <span class="pill">${escapeHtml(t("familyTab.invitePending"))}</span>` : "";
     const isYou = u.id === state.userId;
     const youTag = isYou ? ` · ${escapeHtml(t("familyTab.you"))}` : "";
@@ -1754,28 +1763,6 @@ function renderFamilyTab() {
         `));
       }
     }
-  }).forEach((n) => card.appendChild(n));
-
-  renderExpandableRow(`+ ${escapeHtml(t("familyTab.joinHeading"))}`, "__join__", (detail) => {
-    detail.appendChild(el(`<p class="hint">${escapeHtml(t("familyTab.joinDesc"))}</p>`));
-    detail.appendChild(el(`
-      <div class="field">
-        <label>${escapeHtml(t("familyTab.joinCodeLabel"))}</label>
-        <input type="text" class="input-full" id="join-family-code" />
-      </div>
-    `));
-    const joinBtn = el(`<button type="button">${escapeHtml(t("familyTab.joinBtn"))}</button>`);
-    joinBtn.addEventListener("click", () =>
-      withError(async () => {
-        const code = detail.querySelector("#join-family-code").value.trim();
-        if (!code) throw new Error(t("familyTab.joinCodeRequired"));
-        await call("AcceptInvitation", { token: code });
-        expandedFamilyRow = null;
-        await loadMembership();
-        render();
-      })
-    );
-    detail.appendChild(joinBtn);
   }).forEach((n) => card.appendChild(n));
 
   wrap.appendChild(card);
@@ -2201,6 +2188,33 @@ async function disablePushNotifications() {
 
 // ---- Settings tab -----------------------------------------------------
 
+// Joining a family isn't about the family currently open — it's account-
+// level, the same for a parent or a child — so it sits at the very top of
+// Settings, above everything scoped to "this" family, rather than inside
+// renderFamilyTab.
+function renderJoinFamilySection() {
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("familyTab.joinHeading"))}</h2>
+      <p class="hint">${escapeHtml(t("familyTab.joinDesc"))}</p>
+      <div class="field">
+        <label>${escapeHtml(t("familyTab.joinCodeLabel"))}</label>
+        <input type="text" class="input-full" id="join-family-code" />
+      </div>
+      <button type="button" id="join-family-btn">${escapeHtml(t("familyTab.joinBtn"))}</button>
+    </div>
+  `);
+  card.querySelector("#join-family-btn").addEventListener("click", () =>
+    withError(async () => {
+      const code = card.querySelector("#join-family-code").value.trim();
+      if (!code) throw new Error(t("familyTab.joinCodeRequired"));
+      await joinFamilyWithCode(code);
+      render();
+    })
+  );
+  return card;
+}
+
 function renderSettingsTab() {
   const wrap = el(`<div></div>`);
   const backBtn = el(`<button class="secondary" style="margin-bottom:16px;">${escapeHtml(t("settings.back"))}</button>`);
@@ -2214,6 +2228,9 @@ function renderSettingsTab() {
     render();
   });
   wrap.appendChild(backBtn);
+
+  wrap.appendChild(renderJoinFamilySection());
+  wrap.appendChild(el(`<hr class="section-divider" />`));
 
   const notifCard = el(`<div class="card"><h2>${escapeHtml(t("settings.notificationsHeading"))}</h2></div>`);
   if (!pushSupported()) {
