@@ -121,6 +121,13 @@ runs with no login required, so local testing needs no extra setup.
 `-db=ukelonn.db` to keep using it, or just rename the file — the schema
 itself didn't change.)
 
+Config is layered with [koanf](https://github.com/knadh/koanf): environment
+variables are loaded first, then CLI flags on top, so a flag only overrides
+its environment variable when actually passed — an unset flag never
+clobbers a value the environment already provided (see `loadConfig` in
+`cmd/chores/main.go`). There's no config file; flags and the four
+`AUTH0_*` env vars are the only sources.
+
 ## Language
 
 The UI is available in English and Norwegian (Bokmål), picked with the

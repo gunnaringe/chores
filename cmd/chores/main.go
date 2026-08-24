@@ -12,6 +12,9 @@ import (
 	"os"
 
 	"connectrpc.com/connect"
+	"github.com/knadh/koanf/providers/basicflag"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/v2"
 
 	v1 "github.com/gunnaringe/chores/gen/chores/v1"
 	"github.com/gunnaringe/chores/gen/chores/v1/choresv1connect"
@@ -21,6 +24,41 @@ import (
 	"github.com/gunnaringe/chores/web"
 )
 
+// loadConfig layers config sources with koanf: env vars first, then CLI
+// flags on top (flags win, but only for flags actually passed — an unset
+// flag never clobbers a value the env layer already provided). This is
+// what lets AUTH0_DOMAIN etc. work as env vars while -auth0-domain still
+// overrides them, without wiring each one up by hand.
+func loadConfig() *koanf.Koanf {
+	fs := flag.NewFlagSet("chores", flag.ExitOnError)
+	fs.String("addr", ":8080", "address to listen on")
+	fs.String("db", "chores.db", "path to the sqlite database file")
+	fs.String("auth", "auto",
+		`authentication mode: "auto" (auth0 if AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET are set, otherwise disabled), "auth0", or "disabled"`)
+	fs.String("auth0-domain", "", "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com (env: AUTH0_DOMAIN)")
+	fs.String("auth0-client-id", "", "Auth0 application client ID (env: AUTH0_CLIENT_ID)")
+	fs.String("auth0-client-secret", "", "Auth0 application client secret (env: AUTH0_CLIENT_SECRET)")
+	fs.String("auth0-callback-url", "", "full callback URL registered with Auth0, e.g. http://localhost:8080/auth/callback (defaults to http://localhost<addr>/auth/callback) (env: AUTH0_CALLBACK_URL)")
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		log.Fatalf("parse flags: %v", err)
+	}
+
+	k := koanf.New(".")
+	envKeys := map[string]string{
+		"AUTH0_DOMAIN":        "auth0-domain",
+		"AUTH0_CLIENT_ID":     "auth0-client-id",
+		"AUTH0_CLIENT_SECRET": "auth0-client-secret",
+		"AUTH0_CALLBACK_URL":  "auth0-callback-url",
+	}
+	if err := k.Load(env.Provider("", ".", func(s string) string { return envKeys[s] }), nil); err != nil {
+		log.Fatalf("load env config: %v", err)
+	}
+	if err := k.Load(basicflag.Provider(fs, ".", &basicflag.Opt{KeyMap: k}), nil); err != nil {
+		log.Fatalf("load flag config: %v", err)
+	}
+	return k
+}
+
 func main() {
 	// Go's mime package doesn't know the .webmanifest extension out of the
 	// box, which would otherwise get served as text/plain and trip up
@@ -29,20 +67,17 @@ func main() {
 		log.Fatalf("register .webmanifest mime type: %v", err)
 	}
 
-	addr := flag.String("addr", ":8080", "address to listen on")
-	dbPath := flag.String("db", "chores.db", "path to the sqlite database file")
-	authModeFlag := flag.String("auth", "auto",
-		`authentication mode: "auto" (auth0 if AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET are set, otherwise disabled), "auth0", or "disabled"`)
-	auth0Domain := flag.String("auth0-domain", os.Getenv("AUTH0_DOMAIN"), "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com")
-	auth0ClientID := flag.String("auth0-client-id", os.Getenv("AUTH0_CLIENT_ID"), "Auth0 application client ID")
-	auth0ClientSecret := flag.String("auth0-client-secret", os.Getenv("AUTH0_CLIENT_SECRET"), "Auth0 application client secret")
-	auth0CallbackURL := flag.String("auth0-callback-url", os.Getenv("AUTH0_CALLBACK_URL"), "full callback URL registered with Auth0, e.g. http://localhost:8080/auth/callback (defaults to http://localhost<addr>/auth/callback)")
-	flag.Parse()
+	cfg := loadConfig()
+	addr := cfg.String("addr")
+	dbPath := cfg.String("db")
+	auth0Domain := cfg.String("auth0-domain")
+	auth0ClientID := cfg.String("auth0-client-id")
+	auth0ClientSecret := cfg.String("auth0-client-secret")
 
 	mode := auth.ModeDisabled
-	switch *authModeFlag {
+	switch cfg.String("auth") {
 	case "auto":
-		if *auth0Domain != "" && *auth0ClientID != "" && *auth0ClientSecret != "" {
+		if auth0Domain != "" && auth0ClientID != "" && auth0ClientSecret != "" {
 			mode = auth.ModeAuth0
 		}
 	case "auth0":
@@ -50,19 +85,19 @@ func main() {
 	case "disabled":
 		mode = auth.ModeDisabled
 	default:
-		log.Fatalf("invalid -auth value %q (want auto, auth0, or disabled)", *authModeFlag)
+		log.Fatalf("invalid -auth value %q (want auto, auth0, or disabled)", cfg.String("auth"))
 	}
 
-	callbackURL := *auth0CallbackURL
+	callbackURL := cfg.String("auth0-callback-url")
 	if mode == auth.ModeAuth0 && callbackURL == "" {
-		callbackURL = "http://localhost" + *addr + "/auth/callback"
+		callbackURL = "http://localhost" + addr + "/auth/callback"
 	}
 
 	authMgr, err := auth.NewManager(auth.Config{
 		Mode:         mode,
-		Domain:       *auth0Domain,
-		ClientID:     *auth0ClientID,
-		ClientSecret: *auth0ClientSecret,
+		Domain:       auth0Domain,
+		ClientID:     auth0ClientID,
+		ClientSecret: auth0ClientSecret,
 		CallbackURL:  callbackURL,
 	})
 	if err != nil {
@@ -72,10 +107,10 @@ func main() {
 	if mode == auth.ModeDisabled {
 		log.Printf("auth: disabled (local testing mode) — anyone can access the app without logging in")
 	} else {
-		log.Printf("auth: auth0 login required (domain=%s, callback=%s)", *auth0Domain, callbackURL)
+		log.Printf("auth: auth0 login required (domain=%s, callback=%s)", auth0Domain, callbackURL)
 	}
 
-	conn, err := db.Open(*dbPath)
+	conn, err := db.Open(dbPath)
 	if err != nil {
 		log.Fatalf("open database: %v", err)
 	}
@@ -113,8 +148,8 @@ func main() {
 
 	mux.Handle("/", authMgr.Gate(http.FileServerFS(web.FS), http.HandlerFunc(loginPageHandler)))
 
-	log.Printf("Chores listening on %s (db: %s)", *addr, *dbPath)
-	if err := http.ListenAndServe(*addr, mux); err != nil {
+	log.Printf("Chores listening on %s (db: %s)", addr, dbPath)
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
