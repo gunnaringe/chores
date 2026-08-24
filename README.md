@@ -176,9 +176,9 @@ out of Auth0 too.
 
 ### Inviting a family member
 
-From the Family tab, a parent can create an invite link for another parent
-(e.g. the other guardian) or for a child old enough to have their own Auth0
-account. The link is a one-time, unguessable token
+From the Family section of the Settings page, a parent can create an invite
+link for another parent (e.g. the other guardian) or for a child old enough
+to have their own Auth0 account. The link is a one-time, unguessable token
 (`/invite/accept?token=...`) — whoever opens it, after logging into their
 own Auth0 account, is bound to that slot in the same family, with the role
 the invite was created for. The token is shown once at creation time; a
@@ -192,6 +192,21 @@ second parent invite with a login that already belongs somewhere is
 rejected. A child invite has no such limit: the same login can accept
 invites into more than one family, which is exactly the "lives in two
 households" case.
+
+### Leaving, removing a child, or deleting the family
+
+The same Family section has the other side of membership: a parent can
+leave the family (only ever themselves — never on a co-parent's behalf),
+remove a child (which cascades away their task assignments, completion
+history, and payout history along with them), or delete the family outright
+(which cascades away everything in it — every user, task, completion,
+payout, invitation, and push subscription). A family always keeps at least
+one parent: leaving is refused for the last one, who has to delete the
+family instead if they want to be rid of it. None of these take effect on
+a single click — each opens an inline "type a word to confirm" prompt
+(`remove` / `leave` / `delete`) with its own Cancel, on the theory that
+losing a family member's history, your own membership, or a whole family is
+much harder to walk back than most things a confirm button guards.
 
 ## Installing as an app (PWA)
 

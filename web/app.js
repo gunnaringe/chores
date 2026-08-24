@@ -1294,26 +1294,178 @@ function renderAccountingTab() {
 
 // ---- Family (shown inside Settings, parents only) -----------------------------------------------------
 
+// Builds a "type X to confirm" widget: an instruction line, a text input,
+// and a button that stays disabled until the input matches expectedWord
+// (case-insensitively) — used for the family-management actions below,
+// which are destructive enough (losing a child's whole task/payout
+// history, losing membership, losing the family outright) that a single
+// click isn't enough friction.
+function renderTypeToConfirm(expectedWord, hint, buttonLabel, onConfirm) {
+  const wrap = el(`
+    <div>
+      <p class="hint" style="margin-bottom:6px;">${hint}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="text" class="input-full" style="width:auto;flex:1 1 160px;" placeholder="${escapeHtml(t("familyTab.typeToConfirmPlaceholder", { word: expectedWord }))}" />
+        <button class="danger" disabled>${escapeHtml(buttonLabel)}</button>
+        <button type="button" class="secondary" data-action="cancel">${escapeHtml(t("taskList.cancel"))}</button>
+      </div>
+    </div>
+  `);
+  const input = wrap.querySelector("input");
+  const confirmBtn = wrap.querySelector("button.danger");
+  input.addEventListener("input", () => {
+    confirmBtn.disabled = input.value.trim().toLowerCase() !== expectedWord.toLowerCase();
+  });
+  confirmBtn.addEventListener("click", () => {
+    if (!confirmBtn.disabled) onConfirm();
+  });
+  return wrap;
+}
+
+// After leaving a family, removing yourself isn't possible, or deleting one
+// outright, there's nothing left to show for it here — fall back to
+// whatever the app would normally land on with no family selected
+// (household/family picker, or onboarding).
+async function afterLeavingFamily() {
+  setUserId(null);
+  setFamilyId(null);
+  state.tab = "home";
+  if (isAuth0Mode()) {
+    await loadMembership();
+  } else {
+    await loadFamilies();
+  }
+}
+
+let confirmingRemoveChildId = null;
+let confirmingLeaveFamily = false;
+let confirmingDeleteFamily = false;
+
 function renderFamilyTab() {
   const wrap = el(`<div></div>`);
   const pendingUserIds = new Set(state.invitations.filter((i) => !i.acceptedAt).map((i) => i.userId));
   const card = el(`<div class="card"><h2>${escapeHtml(t("familyTab.heading"))}</h2></div>`);
+  const family = state.families.find((f) => f.id === state.familyId);
+  const familyName = family ? family.name : "";
+
   state.users.forEach((u) => {
     const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ` <span class="pill">${escapeHtml(t("familyTab.invitePending"))}</span>` : "";
-    const youTag = u.id === state.userId ? ` · ${escapeHtml(t("familyTab.you"))}` : "";
-    card.appendChild(
-      el(`
-        <div class="row">
-          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>
-        </div>
-      `)
-    );
+    const isYou = u.id === state.userId;
+    const youTag = isYou ? ` · ${escapeHtml(t("familyTab.you"))}` : "";
+
+    if (u.role === "USER_ROLE_CHILD" && confirmingRemoveChildId === u.id) {
+      const row = el(`<div class="row"><span>${escapeHtml(u.name)} <span class="pill child">${escapeHtml(roleLabel(u.role))}</span></span></div>`);
+      row.appendChild(
+        renderTypeToConfirm(
+          t("familyTab.removeWord"),
+          t("familyTab.removeConfirmHint", { name: u.name, word: t("familyTab.removeWord") }),
+          t("familyTab.remove"),
+          () =>
+            withError(async () => {
+              confirmingRemoveChildId = null;
+              await call("RemoveChild", { childId: u.id });
+              await loadFamilyData();
+            })
+        )
+      );
+      row.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+        confirmingRemoveChildId = null;
+        render();
+      });
+      card.appendChild(row);
+      return;
+    }
+
+    if (u.role === "USER_ROLE_PARENT" && isYou && confirmingLeaveFamily) {
+      const row = el(`<div class="row"><span>${escapeHtml(u.name)} <span class="pill parent">${escapeHtml(roleLabel(u.role))}</span>${youTag}</span></div>`);
+      row.appendChild(
+        renderTypeToConfirm(
+          t("familyTab.leaveWord"),
+          t("familyTab.leaveConfirmHint", { family: familyName, word: t("familyTab.leaveWord") }),
+          t("familyTab.leave"),
+          () =>
+            withError(async () => {
+              confirmingLeaveFamily = false;
+              await call("LeaveFamily", { userId: u.id });
+              await afterLeavingFamily();
+            })
+        )
+      );
+      row.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+        confirmingLeaveFamily = false;
+        render();
+      });
+      card.appendChild(row);
+      return;
+    }
+
+    const action =
+      u.role === "USER_ROLE_CHILD"
+        ? `<button type="button" class="secondary" data-action="remove">${escapeHtml(t("familyTab.remove"))}</button>`
+        : isYou
+          ? `<button type="button" class="secondary" data-action="leave">${escapeHtml(t("familyTab.leave"))}</button>`
+          : "";
+    const row = el(`
+      <div class="row">
+        <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>
+        ${action}
+      </div>
+    `);
+    const removeBtn = row.querySelector('[data-action="remove"]');
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        confirmingRemoveChildId = u.id;
+        render();
+      });
+    }
+    const leaveBtn = row.querySelector('[data-action="leave"]');
+    if (leaveBtn) {
+      leaveBtn.addEventListener("click", () => {
+        confirmingLeaveFamily = true;
+        render();
+      });
+    }
+    card.appendChild(row);
   });
   wrap.appendChild(card);
   wrap.appendChild(renderAddUserForm());
   if (isAuth0Mode()) {
     wrap.appendChild(renderInvitationsSection());
   }
+
+  const dangerCard = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("familyTab.dangerZoneHeading"))}</h2>
+      <p>${escapeHtml(t("familyTab.deleteFamilyDesc", { family: familyName }))}</p>
+    </div>
+  `);
+  if (confirmingDeleteFamily) {
+    const confirmArea = renderTypeToConfirm(
+      t("familyTab.deleteWord"),
+      t("familyTab.deleteConfirmHint", { word: t("familyTab.deleteWord") }),
+      t("familyTab.deleteFamilyButton"),
+      () =>
+        withError(async () => {
+          confirmingDeleteFamily = false;
+          await call("DeleteFamily", { familyId: state.familyId });
+          await afterLeavingFamily();
+        })
+    );
+    confirmArea.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+      confirmingDeleteFamily = false;
+      render();
+    });
+    dangerCard.appendChild(confirmArea);
+  } else {
+    const deleteBtn = el(`<button class="danger">${escapeHtml(t("familyTab.deleteFamilyButton"))}</button>`);
+    deleteBtn.addEventListener("click", () => {
+      confirmingDeleteFamily = true;
+      render();
+    });
+    dangerCard.appendChild(deleteBtn);
+  }
+  wrap.appendChild(dangerCard);
+
   return wrap;
 }
 
@@ -1755,6 +1907,9 @@ function renderSettingsTab() {
   const backBtn = el(`<button class="secondary" style="margin-bottom:16px;">${escapeHtml(t("settings.back"))}</button>`);
   backBtn.addEventListener("click", () => {
     state.tab = isParent() ? "home" : "tasks";
+    confirmingRemoveChildId = null;
+    confirmingLeaveFamily = false;
+    confirmingDeleteFamily = false;
     render();
   });
   wrap.appendChild(backBtn);

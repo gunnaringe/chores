@@ -167,6 +167,16 @@ message ListFamiliesResponse {
   repeated Family families = 1;
 }
 
+// Deletes the family outright: every user, task, completion, payout,
+// invitation, and push subscription tied to it, via cascading foreign
+// keys. Any parent in the family may do this — there's no "last parent"
+// restriction here, unlike LeaveFamily, since deleting is the family's own
+// end rather than one member stepping away from an otherwise-continuing one.
+message DeleteFamilyRequest {
+  string family_id = 1;
+}
+message DeleteFamilyResponse {}
+
 message CreateUserRequest {
   string family_id = 1;
   string name = 2;
@@ -182,6 +192,25 @@ message ListUsersRequest {
 message ListUsersResponse {
   repeated User users = 1;
 }
+
+// A parent removing themselves from the family. Only ever themselves — a
+// bound login can't leave on another parent's behalf — and only when at
+// least one other parent will remain, so a family is never left without
+// one. To get rid of the last parent, delete the family instead.
+message LeaveFamilyRequest {
+  string user_id = 1;
+}
+message LeaveFamilyResponse {}
+
+// A parent removing a child from the family. This cascades away the
+// child's task assignments, completion history, and payout history along
+// with their user row, so it's meant to be used deliberately (the UI
+// confirms with a typed word, not just a click) rather than for routine
+// cleanup.
+message RemoveChildRequest {
+  string child_id = 1;
+}
+message RemoveChildResponse {}
 
 message CreateTaskRequest {
   string family_id = 1;
@@ -437,9 +466,12 @@ message UnsubscribeFromPushResponse {}
 service ChoresService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
+  rpc DeleteFamily(DeleteFamilyRequest) returns (DeleteFamilyResponse);
 
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc LeaveFamily(LeaveFamilyRequest) returns (LeaveFamilyResponse);
+  rpc RemoveChild(RemoveChildRequest) returns (RemoveChildResponse);
 
   rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
   rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);

@@ -896,3 +896,217 @@ func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
 		t.Fatalf("expected 2 completions in [2024-01-02, 2024-01-03], got %d: %+v", len(ranged.Msg.Completions), ranged.Msg.Completions)
 	}
 }
+
+func TestLeaveFamily_BlocksTheLastParent(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	parent, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Mom", Role: v1.UserRole_USER_ROLE_PARENT}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	if _, err := s.LeaveFamily(ctx, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: parent.Msg.User.Id})); codeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("expected FailedPrecondition leaving as the last parent, got %v", err)
+	}
+
+	// Still there afterward — the rejected attempt didn't partially apply.
+	users, err := s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(users.Msg.Users) != 1 {
+		t.Fatalf("expected the last parent to still be a member, got %+v", users.Msg.Users)
+	}
+
+	// A second parent joining unblocks leaving for the first.
+	dad, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Dad", Role: v1.UserRole_USER_ROLE_PARENT}))
+	if err != nil {
+		t.Fatalf("CreateUser Dad: %v", err)
+	}
+	if _, err := s.LeaveFamily(ctx, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: parent.Msg.User.Id})); err != nil {
+		t.Fatalf("LeaveFamily with a second parent present: %v", err)
+	}
+	users, err = s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(users.Msg.Users) != 1 || users.Msg.Users[0].Id != dad.Msg.User.Id {
+		t.Fatalf("expected only Dad to remain, got %+v", users.Msg.Users)
+	}
+}
+
+func TestLeaveFamily_OnlyAsYourself(t *testing.T) {
+	s := newTestServer(t)
+	ctxMom := withIdentity("auth0|mom")
+	ctxDad := withIdentity("auth0|dad")
+
+	fam, err := s.CreateFamily(ctxMom, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Mom"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	inv, err := s.CreateInvitation(ctxMom, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Dad", Role: v1.UserRole_USER_ROLE_PARENT,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxDad, connect.NewRequest(&v1.AcceptInvitationRequest{Token: inv.Msg.Token})); err != nil {
+		t.Fatalf("AcceptInvitation: %v", err)
+	}
+
+	membership, err := s.GetMyMembership(ctxMom, connect.NewRequest(&v1.GetMyMembershipRequest{}))
+	if err != nil {
+		t.Fatalf("GetMyMembership: %v", err)
+	}
+	momUserID := membership.Msg.Memberships[0].User.Id
+
+	dadMembership, err := s.GetMyMembership(ctxDad, connect.NewRequest(&v1.GetMyMembershipRequest{}))
+	if err != nil {
+		t.Fatalf("GetMyMembership (dad): %v", err)
+	}
+	dadUserID := dadMembership.Msg.Memberships[0].User.Id
+
+	// Mom cannot make Dad leave by calling LeaveFamily with his user id.
+	if _, err := s.LeaveFamily(ctxMom, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: dadUserID})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied leaving on another parent's behalf, got %v", err)
+	}
+	// Mom leaving as herself is fine (Dad remains as the other parent).
+	if _, err := s.LeaveFamily(ctxMom, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: momUserID})); err != nil {
+		t.Fatalf("LeaveFamily as yourself: %v", err)
+	}
+}
+
+func TestLeaveFamily_RejectsAChildTarget(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if _, err := s.LeaveFamily(ctx, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: child.Msg.User.Id})); codeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("expected InvalidArgument leaving as a child, got %v", err)
+	}
+}
+
+func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	parent, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Mom", Role: v1.UserRole_USER_ROLE_PARENT}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser child: %v", err)
+	}
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: "2024-01-01",
+	})); err != nil {
+		t.Fatalf("CompleteTask: %v", err)
+	}
+	if _, err := s.CreatePayout(ctx, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: child.Msg.User.Id, FullPayout: true})); err != nil {
+		t.Fatalf("CreatePayout: %v", err)
+	}
+
+	// A parent id is rejected outright.
+	if _, err := s.RemoveChild(ctx, connect.NewRequest(&v1.RemoveChildRequest{ChildId: parent.Msg.User.Id})); codeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("expected InvalidArgument removing a parent as a child, got %v", err)
+	}
+
+	if _, err := s.RemoveChild(ctx, connect.NewRequest(&v1.RemoveChildRequest{ChildId: child.Msg.User.Id})); err != nil {
+		t.Fatalf("RemoveChild: %v", err)
+	}
+
+	users, err := s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(users.Msg.Users) != 1 || users.Msg.Users[0].Id != parent.Msg.User.Id {
+		t.Fatalf("expected only the parent to remain, got %+v", users.Msg.Users)
+	}
+	updatedTask, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(updatedTask.Msg.Tasks) != 1 || len(updatedTask.Msg.Tasks[0].ChildIds) != 0 {
+		t.Fatalf("expected the removed child's assignment to be gone, got %+v", updatedTask.Msg.Tasks[0].ChildIds)
+	}
+	completions, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTaskCompletions: %v", err)
+	}
+	if len(completions.Msg.Completions) != 0 {
+		t.Fatalf("expected the removed child's completion history to be gone, got %+v", completions.Msg.Completions)
+	}
+	payouts, err := s.ListPayouts(ctx, connect.NewRequest(&v1.ListPayoutsRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListPayouts: %v", err)
+	}
+	if len(payouts.Msg.Payouts) != 0 {
+		t.Fatalf("expected the removed child's payout history to be gone, got %+v", payouts.Msg.Payouts)
+	}
+}
+
+func TestDeleteFamily_RemovesEverything(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	if _, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Mom", Role: v1.UserRole_USER_ROLE_PARENT})); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser child: %v", err)
+	}
+	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+	})); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	if _, err := s.DeleteFamily(ctx, connect.NewRequest(&v1.DeleteFamilyRequest{FamilyId: fam.Msg.Family.Id})); err != nil {
+		t.Fatalf("DeleteFamily: %v", err)
+	}
+
+	families, err := s.ListFamilies(ctx, connect.NewRequest(&v1.ListFamiliesRequest{}))
+	if err != nil {
+		t.Fatalf("ListFamilies: %v", err)
+	}
+	for _, f := range families.Msg.Families {
+		if f.Id == fam.Msg.Family.Id {
+			t.Fatalf("expected the deleted family to be gone from ListFamilies, got %+v", families.Msg.Families)
+		}
+	}
+
+	// Deleting it again is a clean NotFound, not a silent no-op.
+	if _, err := s.DeleteFamily(ctx, connect.NewRequest(&v1.DeleteFamilyRequest{FamilyId: fam.Msg.Family.Id})); codeOf(err) != connect.CodeNotFound {
+		t.Fatalf("expected NotFound deleting an already-deleted family, got %v", err)
+	}
+}
