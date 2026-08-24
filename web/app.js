@@ -1261,39 +1261,41 @@ function renderAccountingTab() {
         </div>
       </div>
     `);
+    const balanceCents = Number(s.balanceCents || 0);
+    const balanceKr = balanceCents / 100;
     const payoutForm = el(`
       <div class="card">
         <h3>${escapeHtml(t("accounting.payoutHeading"))}</h3>
         <div class="field">
           <label>${escapeHtml(t("accounting.amountLabel"))}</label>
-          <input type="number" min="0" step="0.5" id="payout-amount-${s.child.id}" value="${(Number(s.balanceCents || 0) / 100).toFixed(2)}" />
+          <input type="number" min="0.01" max="${balanceKr}" step="0.5" id="payout-amount-${s.child.id}" value="${balanceKr.toFixed(2)}" />
         </div>
         <div class="field">
           <label>${escapeHtml(t("accounting.noteLabel"))}</label>
           <input type="text" id="payout-note-${s.child.id}" />
         </div>
         <div class="actions">
-          <button data-action="full">${escapeHtml(t("accounting.payFull"))}</button>
-          <button class="secondary" data-action="partial">${escapeHtml(t("accounting.payPartial"))}</button>
+          <button data-action="pay">${escapeHtml(t("accounting.payFull"))}</button>
         </div>
       </div>
     `);
-    payoutForm.querySelector('[data-action="full"]').addEventListener("click", () =>
+    const amountInput = payoutForm.querySelector(`#payout-amount-${s.child.id}`);
+    const payBtn = payoutForm.querySelector('[data-action="pay"]');
+    const updatePayButtonLabel = () => {
+      const amountCents = Math.round(parseFloat(amountInput.value || "0") * 100);
+      payBtn.textContent = amountCents === balanceCents ? t("accounting.payFull") : t("accounting.payPartial");
+    };
+    amountInput.addEventListener("input", updatePayButtonLabel);
+    payBtn.addEventListener("click", () =>
       withError(async () => {
+        const amountCents = Math.round(parseFloat(amountInput.value || "0") * 100);
         const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
-        await call("CreatePayout", { childId: s.child.id, fullPayout: true, note });
-        await loadFamilyData();
-      })
-    );
-    payoutForm.querySelector('[data-action="partial"]').addEventListener("click", () =>
-      withError(async () => {
-        const amountKr = parseFloat(payoutForm.querySelector(`#payout-amount-${s.child.id}`).value || "0");
-        const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
-        if (!(amountKr > 0)) throw new Error(t("accounting.amountPositive"));
+        if (!(amountCents > 0)) throw new Error(t("accounting.amountPositive"));
+        if (amountCents > balanceCents) throw new Error(t("accounting.amountExceedsBalance"));
         await call("CreatePayout", {
           childId: s.child.id,
-          fullPayout: false,
-          amountCents: Math.round(amountKr * 100),
+          fullPayout: amountCents === balanceCents,
+          amountCents,
           note,
         });
         await loadFamilyData();
