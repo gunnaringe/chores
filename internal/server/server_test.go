@@ -79,12 +79,24 @@ func TestCreateFamily_Auth0Mode_AutoBindsFoundingParent(t *testing.T) {
 		t.Fatal("expected AuthBound to be true for the founding parent")
 	}
 
-	// Founding a second family with the same identity must fail: one login
-	// can only ever belong to one family.
-	if _, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Second Family"})); err == nil {
-		t.Fatal("expected an error creating a second family for an already-bound identity")
-	} else if codeOf(err) != connect.CodeFailedPrecondition {
-		t.Fatalf("expected CodeFailedPrecondition, got %v", codeOf(err))
+	// Founding a second family with the same identity must succeed — a
+	// login can found (or join, via AcceptInvitation) any number of
+	// families, the same "co-running two households" case that already
+	// applies to invites.
+	resp2, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Second Family", ParentName: "Mom"}))
+	if err != nil {
+		t.Fatalf("CreateFamily (second): %v", err)
+	}
+	if resp2.Msg.Family.Id == resp.Msg.Family.Id {
+		t.Fatal("expected a distinct family from the second CreateFamily call")
+	}
+
+	membership2, err := s.GetMyMembership(ctx, connect.NewRequest(&v1.GetMyMembershipRequest{}))
+	if err != nil {
+		t.Fatalf("GetMyMembership (after second family): %v", err)
+	}
+	if len(membership2.Msg.Memberships) != 2 {
+		t.Fatalf("expected exactly 2 memberships after founding a second family, got %d", len(membership2.Msg.Memberships))
 	}
 }
 
