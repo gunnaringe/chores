@@ -421,8 +421,10 @@ message GetMyMembershipResponse {
 
 // An invitation grants whoever holds its (unguessable, single-use) token
 // the ability to bind their login identity to user_id — an unclaimed
-// parent or child slot in family_id. The token itself is only ever
-// returned once, from CreateInvitation.
+// parent or child slot in family_id. The token stays visible (via
+// ListInvitations) for as long as the invitation is still pending, so it
+// can be shared/copied at any time before it's accepted — once accepted_at
+// is set, token is omitted since it's no longer usable.
 message Invitation {
   string id = 1;
   string family_id = 2;
@@ -433,6 +435,7 @@ message Invitation {
   google.protobuf.Timestamp expires_at = 7;
   google.protobuf.Timestamp accepted_at = 8;
   UserRole role = 9;
+  string token = 10;
 }
 
 message CreateInvitationRequest {

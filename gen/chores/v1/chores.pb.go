@@ -3572,8 +3572,10 @@ func (x *GetMyMembershipResponse) GetMemberships() []*Membership {
 
 // An invitation grants whoever holds its (unguessable, single-use) token
 // the ability to bind their login identity to user_id — an unclaimed
-// parent or child slot in family_id. The token itself is only ever
-// returned once, from CreateInvitation.
+// parent or child slot in family_id. The token stays visible (via
+// ListInvitations) for as long as the invitation is still pending, so it
+// can be shared/copied at any time before it's accepted — once accepted_at
+// is set, token is omitted since it's no longer usable.
 type Invitation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -3585,6 +3587,7 @@ type Invitation struct {
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	AcceptedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=accepted_at,json=acceptedAt,proto3" json:"accepted_at,omitempty"`
 	Role          UserRole               `protobuf:"varint,9,opt,name=role,proto3,enum=chores.v1.UserRole" json:"role,omitempty"`
+	Token         string                 `protobuf:"bytes,10,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3680,6 +3683,13 @@ func (x *Invitation) GetRole() UserRole {
 		return x.Role
 	}
 	return UserRole_USER_ROLE_UNSPECIFIED
+}
+
+func (x *Invitation) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
 }
 
 type CreateInvitationRequest struct {
@@ -4644,7 +4654,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x16GetMyMembershipRequest\"h\n" +
 	"\x17GetMyMembershipResponse\x12\x14\n" +
 	"\x05bound\x18\x01 \x01(\bR\x05bound\x127\n" +
-	"\vmemberships\x18\x02 \x03(\v2\x15.chores.v1.MembershipR\vmemberships\"\xe1\x02\n" +
+	"\vmemberships\x18\x02 \x03(\v2\x15.chores.v1.MembershipR\vmemberships\"\xf7\x02\n" +
 	"\n" +
 	"Invitation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -4658,7 +4668,9 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12;\n" +
 	"\vaccepted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"acceptedAt\x12'\n" +
-	"\x04role\x18\t \x01(\x0e2\x13.chores.v1.UserRoleR\x04role\"\x89\x01\n" +
+	"\x04role\x18\t \x01(\x0e2\x13.chores.v1.UserRoleR\x04role\x12\x14\n" +
+	"\x05token\x18\n" +
+	" \x01(\tR\x05token\"\x89\x01\n" +
 	"\x17CreateInvitationRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +

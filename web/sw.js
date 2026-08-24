@@ -3,9 +3,8 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-const CACHE_NAME = "chores-shell-v2";
+const CACHE_NAME = "chores-shell-v3";
 const PRECACHE_URLS = [
-  "/",
   "/app.js",
   "/app.css",
   "/i18n.js",
@@ -33,8 +32,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// "/" is excluded here too, even though it's the app's own shell — Gate
+// (see internal/auth/auth.go) serves completely different content there
+// depending on login state (login page vs. the real app), so caching it
+// risks serving a stale login page right after a successful login, forcing
+// a second one to see it clear. Every other document is a fixed static
+// file that's fine to cache.
 function isDynamic(pathname) {
-  return pathname.startsWith("/chores.v1.ChoresService/") || pathname.startsWith("/auth/") || pathname.startsWith("/invite/");
+  return pathname === "/" || pathname.startsWith("/chores.v1.ChoresService/") || pathname.startsWith("/auth/") || pathname.startsWith("/invite/");
 }
 
 // Push payloads are plain JSON ({title, body}) built server-side in

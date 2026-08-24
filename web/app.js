@@ -289,25 +289,24 @@ function el(html) {
 function renderLangSwitcher() {
   const current = getLang();
   const options = window.LANGUAGES.map((l) => `<option value="${l.code}" ${l.code === current ? "selected" : ""}>${l.label}</option>`).join("");
-  const bar = el(`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
-      <select id="lang-switcher" aria-label="${escapeHtml(t("lang.label"))}" style="font-size:0.8rem;padding:4px 8px;">
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("lang.label"))}</h2>
+      <select id="lang-switcher" aria-label="${escapeHtml(t("lang.label"))}">
         ${options}
       </select>
     </div>
   `);
-  bar.querySelector("#lang-switcher").addEventListener("change", (e) => {
+  card.querySelector("#lang-switcher").addEventListener("change", (e) => {
     setLang(e.target.value);
     render();
   });
-  return bar;
+  return card;
 }
 
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
-
-  app.appendChild(renderLangSwitcher());
 
   // The kiosk dashboard is a completely separate, much smaller UI — no
   // login, no family/user picker, no tabs — so it's handled before any of
@@ -324,17 +323,6 @@ function render() {
       app.appendChild(renderTodayTab());
     }
     return;
-  }
-
-  if (state.auth && state.auth.authenticated) {
-    app.appendChild(
-      el(`
-        <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;font-size:0.85rem;color:var(--muted);margin-bottom:8px;">
-          <span>${escapeHtml(t("auth.signedInAs", { name: state.auth.name || state.auth.email || "" }))}</span>
-          <a class="link-btn" href="/auth/logout">${escapeHtml(t("auth.logout"))}</a>
-        </div>
-      `)
-    );
   }
 
   if (state.error) {
@@ -507,12 +495,17 @@ async function joinFamilyWithCode(code) {
 function renderCreateAndJoinFamilyForms(onDone) {
   const wrap = el(`<div></div>`);
 
+  // Pre-filled from the Auth0 profile so the name stored on the family
+  // member record matches the identity's own name by default — still
+  // editable, but nudges toward one consistent name rather than a
+  // second, independently-typed one.
+  const defaultName = (state.auth && (state.auth.name || state.auth.email)) || "";
   const form = el(`
     <div class="card">
       <h2>${escapeHtml(t("onboarding.heading"))}</h2>
       <div class="field">
         <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
-        <input type="text" id="onboard-parent-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" />
+        <input type="text" id="onboard-parent-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" value="${escapeHtml(defaultName)}" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("family.nameLabel"))}</label>
@@ -714,9 +707,14 @@ function sortMembersForDisplay(users) {
 // topbar just shows the current user's name as plain text instead of a
 // dropdown.
 function switchableUsers() {
-  if (!isParent()) return [];
+  // Gated on the login's own bound role (getHomeUserId), not on whichever
+  // user happens to be selected right now — using isParent() here instead
+  // meant that once you switched to a child, currentUser() became that
+  // child, isParent() went false, and the switcher vanished with no way
+  // back to yourself.
   const homeUserId = getHomeUserId();
-  const canContinueAs = (u) => u.role !== "USER_ROLE_PARENT" || !homeUserId || u.id === homeUserId;
+  if (!homeUserId) return [];
+  const canContinueAs = (u) => u.role !== "USER_ROLE_PARENT" || u.id === homeUserId;
   return sortMembersForDisplay(state.users.filter(canContinueAs));
 }
 
@@ -1412,9 +1410,6 @@ let confirmingDeleteFamily = false;
 // Which row of the family members list is expanded: a user id, the
 // sentinel "__add__" for the "add a family member" row, or null if none is.
 let expandedFamilyRow = null;
-// The most recently created invite's code — shown once, right in the
-// add-member row that created it, same as the dashboard key is.
-let lastCreatedInviteCode = null;
 
 function toggleFamilyRow(key) {
   expandedFamilyRow = expandedFamilyRow === key ? null : key;
@@ -1598,43 +1593,26 @@ function renderFamilyTab() {
     `));
 
     const actions = el(`<div class="actions"></div>`);
+    // Adding a member always goes through CreateInvitation: every family
+    // member gets a shareable code for binding their own login, and that
+    // code stays visible (see renderPendingInvitationsList) for as long as
+    // it's unclaimed — there's no separate no-login "just add them" path.
     const addBtn = el(`<button type="button">${escapeHtml(t("addUser.add"))}</button>`);
     addBtn.addEventListener("click", () =>
       withError(async () => {
         const name = detail.querySelector("#new-member-name").value.trim();
         const role = detail.querySelector("#new-member-role").value;
+        const email = detail.querySelector("#new-member-email").value.trim();
         if (!name) throw new Error(t("addUser.nameRequired"));
-        await call("CreateUser", { familyId: state.familyId, name, role });
-        lastCreatedInviteCode = null;
+        await call("CreateInvitation", { familyId: state.familyId, name, role, email });
         expandedFamilyRow = null;
         await loadFamilyData();
       })
     );
     actions.appendChild(addBtn);
-    const inviteBtn = el(`<button type="button" class="secondary">${escapeHtml(t("invitations.createBtn"))}</button>`);
-    inviteBtn.addEventListener("click", () =>
-      withError(async () => {
-        const name = detail.querySelector("#new-member-name").value.trim();
-        const role = detail.querySelector("#new-member-role").value;
-        const email = detail.querySelector("#new-member-email").value.trim();
-        if (!name) throw new Error(t("addUser.nameRequired"));
-        const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
-        lastCreatedInviteCode = resp.token;
-        await loadFamilyData();
-      })
-    );
-    actions.appendChild(inviteBtn);
     detail.appendChild(actions);
 
     detail.appendChild(el(`<p class="hint" style="margin-top:10px;">${escapeHtml(t("invitations.inviteDesc"))}</p>`));
-    if (lastCreatedInviteCode) {
-      detail.appendChild(el(`
-        <div class="field">
-          <label>${escapeHtml(t("invitations.codeLabel"))}</label>
-          <input type="text" class="input-full" readonly value="${escapeHtml(lastCreatedInviteCode)}" onclick="this.select()" />
-        </div>
-      `));
-    }
   }).forEach((n) => card.appendChild(n));
 
   wrap.appendChild(card);
@@ -1679,7 +1657,10 @@ function renderFamilyTab() {
 
 // The "create invite" form itself now lives inline in the family members
 // list's "+ Add family member" row (see renderFamilyTab) — this is just the
-// list of invites still awaiting a response, with a way to revoke one.
+// list of invites still awaiting a response, with a way to revoke one. Each
+// invite's code stays visible here (ListInvitations returns it only while
+// still pending — see server.go) so it can be copied/shared at any point
+// up until it's accepted, not just once at creation time.
 function renderPendingInvitationsList() {
   const pending = state.invitations.filter((i) => !i.acceptedAt);
   const listCard = el(`<div class="card"><h2>${escapeHtml(t("invitations.pendingHeading"))}</h2></div>`);
@@ -1688,10 +1669,27 @@ function renderPendingInvitationsList() {
     return listCard;
   }
   pending.forEach((inv) => {
+    // Built from the browser's own origin — the invite is only ever
+    // created from within the app itself, so whatever host served this
+    // page is exactly what a recipient should hit too. /invite/accept
+    // (see cmd/chores/main.go) forces login first if needed, then binds
+    // the token and lands them in the app — clicking it is enough, no
+    // separate "enter this code" step required.
+    const acceptUrl = inv.token ? `${window.location.origin}/invite/accept?token=${encodeURIComponent(inv.token)}` : "";
     const row = el(`
-      <div class="row">
+      <div class="row" style="flex-wrap:wrap;">
         <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${escapeHtml(roleLabel(inv.role))}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
         <button class="danger" data-id="${inv.id}">${escapeHtml(t("invitations.revoke"))}</button>
+        ${
+          inv.token
+            ? `<div class="field" style="width:100%;">
+                 <label>${escapeHtml(t("invitations.linkLabel"))}</label>
+                 <input type="text" class="input-full" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+                 <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
+                 <input type="text" class="input-full" readonly value="${escapeHtml(inv.token)}" onclick="this.select()" />
+               </div>`
+            : ""
+        }
       </div>
     `);
     row.querySelector("button").addEventListener("click", () =>
@@ -2094,10 +2092,23 @@ function renderSettingsTab() {
     confirmingLeaveFamily = false;
     confirmingDeleteFamily = false;
     expandedFamilyRow = null;
-    lastCreatedInviteCode = null;
     render();
   });
   wrap.appendChild(backBtn);
+
+  // Logout used to live in a "Signed in as ..." bar shown above every
+  // page; now that a signed-in identity always shows the same name as
+  // the current family member (see the topbar), that bar was pure
+  // redundancy — logout just needs a home, and Settings is it.
+  const logoutCard = el(`<div class="card"></div>`);
+  const logoutBtn = el(`<button class="secondary">${escapeHtml(t("auth.logout"))}</button>`);
+  logoutBtn.addEventListener("click", () => {
+    location.href = "/auth/logout";
+  });
+  logoutCard.appendChild(logoutBtn);
+  wrap.appendChild(logoutCard);
+
+  wrap.appendChild(renderLangSwitcher());
 
   wrap.appendChild(renderJoinFamilySection());
   wrap.appendChild(el(`<hr class="section-divider" />`));

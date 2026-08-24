@@ -1689,6 +1689,7 @@ func (s *Server) CreateInvitation(ctx context.Context, req *connect.Request[v1.C
 		Invitation: &v1.Invitation{
 			Id: invID, FamilyId: familyID, UserId: uid, UserName: name, Email: req.Msg.GetEmail(),
 			CreatedAt: timestampPB(now), ExpiresAt: timestampPB(expiresAt), Role: req.Msg.GetRole(),
+			Token: token,
 		},
 		Token:      token,
 		AcceptPath: "/invite/accept?token=" + token,
@@ -1705,7 +1706,7 @@ func (s *Server) ListInvitations(ctx context.Context, req *connect.Request[v1.Li
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT i.id, i.family_id, i.user_id, u.name, u.role, i.email, i.created_at, i.expires_at, i.accepted_at
+		`SELECT i.id, i.family_id, i.user_id, u.name, u.role, i.email, i.created_at, i.expires_at, i.accepted_at, i.token
 		 FROM invitations i JOIN users u ON u.id = i.user_id
 		 WHERE i.family_id = ? ORDER BY i.created_at DESC`,
 		familyID,
@@ -1718,9 +1719,9 @@ func (s *Server) ListInvitations(ctx context.Context, req *connect.Request[v1.Li
 	var invitations []*v1.Invitation
 	for rows.Next() {
 		var inv v1.Invitation
-		var role, createdAt, expiresAt string
+		var role, createdAt, expiresAt, token string
 		var acceptedAt sql.NullString
-		if err := rows.Scan(&inv.Id, &inv.FamilyId, &inv.UserId, &inv.UserName, &role, &inv.Email, &createdAt, &expiresAt, &acceptedAt); err != nil {
+		if err := rows.Scan(&inv.Id, &inv.FamilyId, &inv.UserId, &inv.UserName, &role, &inv.Email, &createdAt, &expiresAt, &acceptedAt, &token); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		inv.Role = roleFromDB(role)
@@ -1740,6 +1741,11 @@ func (s *Server) ListInvitations(ctx context.Context, req *connect.Request[v1.Li
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			inv.AcceptedAt = timestampPB(at)
+		} else {
+			// Only a still-pending invitation's token is any use to anyone —
+			// once accepted it can never bind another login, so it's left
+			// out rather than needlessly exposing a spent credential.
+			inv.Token = token
 		}
 		invitations = append(invitations, &inv)
 	}

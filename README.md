@@ -139,10 +139,10 @@ AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback
 
 ## Language
 
-The UI is available in English and Norwegian (Bokmål), picked with the
-dropdown shown on every screen (including the login page). It defaults to
-the browser's language when there's no saved preference, and the choice is
-then remembered in `localStorage`. Translation strings live in
+The UI is available in English and Norwegian (Bokmål), picked with a
+dropdown on the login page and, once logged in, on the Settings page. It
+defaults to the browser's language when there's no saved preference, and
+the choice is then remembered in `localStorage`. Translation strings live in
 `web/i18n.js`; add a new language by adding another entry to
 `TRANSLATIONS` there and to `window.LANGUAGES`. Error messages coming from
 the server (validation errors, permission errors) aren't localized yet —

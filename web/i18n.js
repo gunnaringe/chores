@@ -189,12 +189,11 @@ const TRANSLATIONS = {
     "invitations.pendingHeading": "Pending invitations",
     "invitations.none": "No pending invitations.",
     "invitations.revoke": "Revoke",
-    "invitations.inviteDesc": "Or invite them to join with their own login instead — creates a one-time code, shown once, that they enter after logging in.",
+    "invitations.inviteDesc": "Creates a one-time code so they can log in with their own account — it stays visible below, under Pending invitations, until they use it.",
     "invitations.theirEmailLabel": "Their email (optional, just for your reference)",
-    "invitations.createBtn": "Send invite",
-    "invitations.codeLabel": "Invite code (shown once) — share it with them",
+    "invitations.linkLabel": "Invite link — opening it logs them in and accepts automatically",
+    "invitations.codeLabel": "Invite code — share it with them",
 
-    "auth.signedInAs": "Signed in as {name}",
     "auth.logout": "Log out",
 
     "login.subtitle": "Please log in to continue.",
@@ -382,12 +381,11 @@ const TRANSLATIONS = {
     "invitations.pendingHeading": "Ventende invitasjoner",
     "invitations.none": "Ingen ventende invitasjoner.",
     "invitations.revoke": "Trekk tilbake",
-    "invitations.inviteDesc": "Eller inviter dem til å bli med med sin egen innlogging i stedet — oppretter en engangskode, vist én gang, som de skriver inn etter å ha logget inn.",
+    "invitations.inviteDesc": "Oppretter en engangskode så de kan logge inn med sin egen konto — den blir stående synlig nedenfor, under Ventende invitasjoner, til de bruker den.",
     "invitations.theirEmailLabel": "E-posten deres (valgfritt, kun til din egen referanse)",
-    "invitations.createBtn": "Send invitasjon",
-    "invitations.codeLabel": "Invitasjonskode (vises kun én gang) — del den med dem",
+    "invitations.linkLabel": "Invitasjonslenke — å åpne den logger dem inn og godtar automatisk",
+    "invitations.codeLabel": "Invitasjonskode — del den med dem",
 
-    "auth.signedInAs": "Innlogget som {name}",
     "auth.logout": "Logg ut",
 
     "login.subtitle": "Logg inn for å fortsette.",
