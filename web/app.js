@@ -5,12 +5,23 @@
 const API = "/chores.v1.ChoresService";
 
 async function call(method, req) {
+  const headers = { "Content-Type": "application/json" };
+  if (state.dashboardMode && state.dashboardKey) {
+    headers[DASHBOARD_KEY_HEADER] = state.dashboardKey;
+  }
   const res = await fetch(`${API}/${method}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(req || {}),
   });
   if (res.status === 401) {
+    // A kiosk has no Auth0 session to redirect through — a 401 here just
+    // means its dashboard key didn't work, which the key-prompt screen
+    // handles as its own error rather than sending a wall-mounted device
+    // off to a login page it can never complete.
+    if (state.dashboardMode) {
+      throw new Error(t("dashboard.invalidKey"));
+    }
     window.location.href = "/auth/login";
     throw new Error("Login required");
   }
@@ -134,6 +145,9 @@ const state = {
   historySearchResults: null, // null = not searching; array once a search has run
   historySearchOffset: 0,
   historySearchHasMore: false,
+  dashboardMode: false, // true when the page was loaded at /dashboard
+  dashboardKey: null,
+  dashboardConfig: null, // { enabled, dashboardKey } — this family's own kiosk config, shown in Settings
 };
 
 function resetHistoryState() {
@@ -149,7 +163,10 @@ function resetHistoryState() {
 }
 
 function setFamilyId(id) {
-  if (id !== state.familyId) resetHistoryState();
+  if (id !== state.familyId) {
+    resetHistoryState();
+    state.dashboardConfig = null;
+  }
   state.familyId = id;
   if (id) localStorage.setItem("chores.familyId", id);
   else localStorage.removeItem("chores.familyId");
@@ -232,6 +249,7 @@ async function loadFamilies() {
 }
 
 async function loadFamilyData() {
+  if (state.dashboardMode) return loadDashboardData();
   if (!state.familyId) return;
   const [usersResp, tasksResp, summariesResp, payoutsResp] = await Promise.all([
     call("ListUsers", { familyId: state.familyId }),
@@ -319,6 +337,23 @@ function render() {
   app.innerHTML = "";
 
   app.appendChild(renderLangSwitcher());
+
+  // The kiosk dashboard is a completely separate, much smaller UI — no
+  // login, no family/user picker, no tabs — so it's handled before any of
+  // the normal app's routing below even looks at auth/membership state,
+  // none of which applies to it.
+  if (state.dashboardMode) {
+    if (state.error) {
+      app.appendChild(el(`<div class="error">${escapeHtml(state.error)}</div>`));
+    }
+    if (!state.dashboardKey) {
+      app.appendChild(renderDashboardKeyPrompt());
+    } else {
+      app.appendChild(el(`<h1>${escapeHtml(window.APP_NAME)}</h1>`));
+      app.appendChild(renderTodayTab());
+    }
+    return;
+  }
 
   if (state.auth && state.auth.mode === "auth0" && state.auth.authenticated) {
     app.appendChild(
@@ -1956,17 +1991,189 @@ function renderSettingsTab() {
   // you do often — and isn't relevant to a child at all — so it lives here
   // rather than as its own always-visible tab.
   if (isParent()) {
+    wrap.appendChild(renderDashboardSettingsSection());
     wrap.appendChild(renderFamilyTab());
   }
 
   return wrap;
 }
 
+// ---- Dashboard mode: kiosk view of the Today tab, no login -----------------------------------------------------
+//
+// Reached at /dashboard, authorized by a per-family secret key instead of a
+// login — meant for a wall-mounted tablet or shared screen showing every
+// child's status for the day, with the same tap-to-complete checkboxes the
+// parent Today tab has. The key comes in via ?key=... the first time (then
+// stored locally and stripped from the URL) or can be typed directly.
+
+const DASHBOARD_KEY_HEADER = "X-Dashboard-Key";
+const DASHBOARD_KEY_STORAGE = "chores.dashboardKey";
+
+function isDashboardRoute() {
+  return window.location.pathname === "/dashboard";
+}
+
+async function loadDashboardData() {
+  const [summariesResp, occResp] = await Promise.all([
+    call("ListChildSummaries", {}),
+    call("ListTaskOccurrences", { startDate: todayStr(), endDate: todayStr() }),
+  ]);
+  state.summaries = summariesResp.summaries || [];
+  state.occurrences = occResp.occurrences || [];
+}
+
+let dashboardAutoRefreshStarted = false;
+function startDashboardAutoRefresh() {
+  if (dashboardAutoRefreshStarted) return;
+  dashboardAutoRefreshStarted = true;
+  setInterval(() => {
+    if (state.dashboardKey) withError(loadDashboardData);
+  }, AUTO_REFRESH_MS);
+}
+
+// Shared by the boot sequence (a stored or ?key=-supplied key) and the
+// key-prompt form (a typed one). On success the key is what render() then
+// treats as "unlocked"; on failure it's dropped so the prompt reappears
+// instead of showing an empty dashboard with just an error banner.
+async function tryDashboardKey(key) {
+  state.dashboardKey = key;
+  try {
+    state.error = null;
+    await loadDashboardData();
+    localStorage.setItem(DASHBOARD_KEY_STORAGE, key);
+    startDashboardAutoRefresh();
+  } catch (e) {
+    state.dashboardKey = null;
+    localStorage.removeItem(DASHBOARD_KEY_STORAGE);
+    state.error = e.message || String(e);
+  }
+  render();
+}
+
+function renderDashboardKeyPrompt() {
+  const wrap = el(`<div></div>`);
+  wrap.appendChild(el(`<h1>${window.APP_NAME}</h1><p>${escapeHtml(t("dashboard.enterKeyPrompt"))}</p>`));
+  const form = el(`
+    <div class="card">
+      <div class="field">
+        <label>${escapeHtml(t("dashboard.keyLabel"))}</label>
+        <input type="text" id="dashboard-key-input" class="input-full" autocomplete="off" spellcheck="false" />
+      </div>
+      <button id="dashboard-key-submit">${escapeHtml(t("dashboard.unlock"))}</button>
+    </div>
+  `);
+  const submit = () =>
+    withError(async () => {
+      const key = form.querySelector("#dashboard-key-input").value.trim();
+      if (!key) throw new Error(t("dashboard.keyRequired"));
+      await tryDashboardKey(key);
+    });
+  form.querySelector("#dashboard-key-submit").addEventListener("click", submit);
+  form.querySelector("#dashboard-key-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") submit();
+  });
+  wrap.appendChild(form);
+  return wrap;
+}
+
+async function bootDashboard() {
+  state.dashboardMode = true;
+  const params = new URLSearchParams(window.location.search);
+  const keyFromQuery = params.get("key");
+  if (keyFromQuery) {
+    // Don't leave the secret sitting in the URL (browser history, anyone
+    // glancing at the address bar on a shared screen) once it's stored.
+    window.history.replaceState({}, "", "/dashboard");
+  }
+  const key = keyFromQuery || localStorage.getItem(DASHBOARD_KEY_STORAGE);
+  if (key) {
+    await tryDashboardKey(key);
+  } else {
+    render();
+  }
+}
+
+// ---- Settings: dashboard setup (parents only) -----------------------------------------------------
+
+let dashboardConfigLoadInFlight = false;
+function triggerDashboardConfigLoad() {
+  if (dashboardConfigLoadInFlight || state.dashboardConfig !== null) return;
+  dashboardConfigLoadInFlight = true;
+  call("GetDashboardConfig", { familyId: state.familyId })
+    .then((resp) => {
+      state.dashboardConfig = resp;
+    })
+    .catch((e) => {
+      state.dashboardConfig = { enabled: false };
+      state.error = e.message || String(e);
+    })
+    .finally(() => {
+      dashboardConfigLoadInFlight = false;
+      if (state.tab === "settings") render();
+    });
+}
+
+function renderDashboardSettingsSection() {
+  const card = el(`<div class="card"><h2>${escapeHtml(t("dashboard.settingsHeading"))}</h2></div>`);
+  card.appendChild(el(`<p>${escapeHtml(t("dashboard.settingsDesc"))}</p>`));
+
+  if (state.dashboardConfig === null) {
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("dashboard.loading"))}</p>`));
+    triggerDashboardConfigLoad();
+    return card;
+  }
+
+  if (state.dashboardConfig.enabled) {
+    const url = `${window.location.origin}/dashboard?key=${encodeURIComponent(state.dashboardConfig.dashboardKey)}`;
+    card.appendChild(el(`
+      <div class="field">
+        <label>${escapeHtml(t("dashboard.urlLabel"))}</label>
+        <input type="text" class="input-full" readonly value="${escapeHtml(url)}" onclick="this.select()" />
+      </div>
+      <div class="field">
+        <label>${escapeHtml(t("dashboard.keyLabel"))}</label>
+        <input type="text" class="input-full" readonly value="${escapeHtml(state.dashboardConfig.dashboardKey)}" onclick="this.select()" />
+      </div>
+    `));
+    const actions = el(`<div class="actions"></div>`);
+    const regenBtn = el(`<button class="secondary">${escapeHtml(t("dashboard.regenerate"))}</button>`);
+    regenBtn.addEventListener("click", () =>
+      withError(async () => {
+        const resp = await call("SetupDashboard", { familyId: state.familyId });
+        state.dashboardConfig = { enabled: true, dashboardKey: resp.dashboardKey };
+      })
+    );
+    const disableBtn = el(`<button class="danger">${escapeHtml(t("dashboard.disable"))}</button>`);
+    disableBtn.addEventListener("click", () =>
+      withError(async () => {
+        await call("DisableDashboard", { familyId: state.familyId });
+        state.dashboardConfig = { enabled: false, dashboardKey: "" };
+      })
+    );
+    actions.appendChild(regenBtn);
+    actions.appendChild(disableBtn);
+    card.appendChild(actions);
+  } else {
+    const setupBtn = el(`<button>${escapeHtml(t("dashboard.setup"))}</button>`);
+    setupBtn.addEventListener("click", () =>
+      withError(async () => {
+        const resp = await call("SetupDashboard", { familyId: state.familyId });
+        state.dashboardConfig = { enabled: true, dashboardKey: resp.dashboardKey };
+      })
+    );
+    card.appendChild(setupBtn);
+  }
+  return card;
+}
+
 // ---- boot -----------------------------------------------------
 
-withError(async () => {
-  await loadAuth();
-  if (isAuth0Mode()) {
+if (isDashboardRoute()) {
+  bootDashboard();
+} else {
+  withError(async () => {
+    await loadAuth();
+    if (isAuth0Mode()) {
     // A login may be bound to more than one family (e.g. a child who's a
     // member of two households). Always resolve this from the server on
     // boot rather than trusting stale localStorage, since a different
@@ -2002,4 +2209,5 @@ withError(async () => {
   } catch (e) {
     console.warn("push config unavailable:", e);
   }
-});
+  });
+}

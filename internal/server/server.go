@@ -98,7 +98,32 @@ func (s *Server) requireMembership(ctx context.Context, familyID string) error {
 // mode. Used to keep family-management actions (adding members, managing
 // tasks, inviting people, paying out) restricted to parents now that
 // children can have their own login and API access.
+//
+// A request authorized by a dashboard key (see dashboard.go) is handled
+// explicitly here rather than falling into the "no identity" branch below:
+// it satisfies a plain membership check (len(allowed) == 0) for exactly the
+// family the key belongs to, since that's what the Today dashboard's own
+// nested calls (ListTaskOccurrences calling ListTasks/ListUsers) need — but
+// it never satisfies a role-restricted check. That's deliberate defense in
+// depth. The HTTP layer (DashboardOrAuth) already keeps a dashboard-keyed
+// request from ever reaching any RPC other than the few the dashboard
+// actually uses, but should a future code path ever hand this function a
+// dashboard-only context for something else — say, by calling this RPC's
+// Go implementation directly, as the nested calls above do — falling into
+// "no identity ⇒ local-testing mode ⇒ no restriction" would silently grant
+// a leaked dashboard key every parent-only power in the app. Rejecting
+// role-restricted checks outright closes that off at the source instead of
+// relying solely on the perimeter check.
 func (s *Server) requireRole(ctx context.Context, familyID string, allowed ...v1.UserRole) error {
+	if dashFamilyID, ok := dashboardFamilyFromContext(ctx); ok {
+		if dashFamilyID != familyID {
+			return connect.NewError(connect.CodePermissionDenied, errors.New("dashboard access does not extend to this family"))
+		}
+		if len(allowed) == 0 {
+			return nil
+		}
+		return connect.NewError(connect.CodePermissionDenied, errors.New("dashboard access does not extend to this action"))
+	}
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
 		return nil
@@ -928,12 +953,14 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 }
 
 func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v1.ListTaskOccurrencesRequest]) (*connect.Response[v1.ListTaskOccurrencesResponse], error) {
-	familyID := req.Msg.GetFamilyId()
+	familyID := s.resolvedFamilyID(ctx, req.Msg.GetFamilyId())
 	if familyID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id is required"))
 	}
-	if err := s.requireMembership(ctx, familyID); err != nil {
-		return nil, err
+	if !s.authorizedForDashboard(ctx, familyID) {
+		if err := s.requireMembership(ctx, familyID); err != nil {
+			return nil, err
+		}
 	}
 	childFilter, err := s.selfFilterForChild(ctx, familyID, req.Msg.GetChildId())
 	if err != nil {
@@ -1081,11 +1108,13 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	if err != nil {
 		return nil, err
 	}
-	if err := s.requireMembership(ctx, task.FamilyId); err != nil {
-		return nil, err
-	}
-	if err := s.requireSelfOrParent(ctx, task.FamilyId, childID); err != nil {
-		return nil, err
+	if !s.authorizedForDashboard(ctx, task.FamilyId) {
+		if err := s.requireMembership(ctx, task.FamilyId); err != nil {
+			return nil, err
+		}
+		if err := s.requireSelfOrParent(ctx, task.FamilyId, childID); err != nil {
+			return nil, err
+		}
 	}
 
 	var childFamilyID, childName string
@@ -1140,11 +1169,13 @@ func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.Unc
 	if err != nil {
 		return nil, err
 	}
-	if err := s.requireMembership(ctx, task.FamilyId); err != nil {
-		return nil, err
-	}
-	if err := s.requireSelfOrParent(ctx, task.FamilyId, childID); err != nil {
-		return nil, err
+	if !s.authorizedForDashboard(ctx, task.FamilyId) {
+		if err := s.requireMembership(ctx, task.FamilyId); err != nil {
+			return nil, err
+		}
+		if err := s.requireSelfOrParent(ctx, task.FamilyId, childID); err != nil {
+			return nil, err
+		}
 	}
 	if _, err := s.db.ExecContext(ctx,
 		`DELETE FROM task_completions WHERE task_id = ? AND child_id = ? AND due_date = ?`,
@@ -1364,12 +1395,14 @@ func (s *Server) GetChildSummary(ctx context.Context, req *connect.Request[v1.Ge
 }
 
 func (s *Server) ListChildSummaries(ctx context.Context, req *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error) {
-	familyID := req.Msg.GetFamilyId()
+	familyID := s.resolvedFamilyID(ctx, req.Msg.GetFamilyId())
 	if familyID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id is required"))
 	}
-	if err := s.requireMembership(ctx, familyID); err != nil {
-		return nil, err
+	if !s.authorizedForDashboard(ctx, familyID) {
+		if err := s.requireMembership(ctx, familyID); err != nil {
+			return nil, err
+		}
 	}
 	childFilter, err := s.selfFilterForChild(ctx, familyID, "")
 	if err != nil {

@@ -42,6 +42,15 @@ const (
 	// ChoresServiceDeleteFamilyProcedure is the fully-qualified name of the ChoresService's
 	// DeleteFamily RPC.
 	ChoresServiceDeleteFamilyProcedure = "/chores.v1.ChoresService/DeleteFamily"
+	// ChoresServiceGetDashboardConfigProcedure is the fully-qualified name of the ChoresService's
+	// GetDashboardConfig RPC.
+	ChoresServiceGetDashboardConfigProcedure = "/chores.v1.ChoresService/GetDashboardConfig"
+	// ChoresServiceSetupDashboardProcedure is the fully-qualified name of the ChoresService's
+	// SetupDashboard RPC.
+	ChoresServiceSetupDashboardProcedure = "/chores.v1.ChoresService/SetupDashboard"
+	// ChoresServiceDisableDashboardProcedure is the fully-qualified name of the ChoresService's
+	// DisableDashboard RPC.
+	ChoresServiceDisableDashboardProcedure = "/chores.v1.ChoresService/DisableDashboard"
 	// ChoresServiceCreateUserProcedure is the fully-qualified name of the ChoresService's CreateUser
 	// RPC.
 	ChoresServiceCreateUserProcedure = "/chores.v1.ChoresService/CreateUser"
@@ -119,6 +128,9 @@ type ChoresServiceClient interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
 	ListFamilies(context.Context, *connect.Request[v1.ListFamiliesRequest]) (*connect.Response[v1.ListFamiliesResponse], error)
 	DeleteFamily(context.Context, *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error)
+	GetDashboardConfig(context.Context, *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error)
+	SetupDashboard(context.Context, *connect.Request[v1.SetupDashboardRequest]) (*connect.Response[v1.SetupDashboardResponse], error)
+	DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error)
 	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
 	LeaveFamily(context.Context, *connect.Request[v1.LeaveFamilyRequest]) (*connect.Response[v1.LeaveFamilyResponse], error)
@@ -172,6 +184,24 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+ChoresServiceDeleteFamilyProcedure,
 			connect.WithSchema(choresServiceMethods.ByName("DeleteFamily")),
+			connect.WithClientOptions(opts...),
+		),
+		getDashboardConfig: connect.NewClient[v1.GetDashboardConfigRequest, v1.GetDashboardConfigResponse](
+			httpClient,
+			baseURL+ChoresServiceGetDashboardConfigProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("GetDashboardConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		setupDashboard: connect.NewClient[v1.SetupDashboardRequest, v1.SetupDashboardResponse](
+			httpClient,
+			baseURL+ChoresServiceSetupDashboardProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("SetupDashboard")),
+			connect.WithClientOptions(opts...),
+		),
+		disableDashboard: connect.NewClient[v1.DisableDashboardRequest, v1.DisableDashboardResponse](
+			httpClient,
+			baseURL+ChoresServiceDisableDashboardProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("DisableDashboard")),
 			connect.WithClientOptions(opts...),
 		),
 		createUser: connect.NewClient[v1.CreateUserRequest, v1.CreateUserResponse](
@@ -326,6 +356,9 @@ type choresServiceClient struct {
 	createFamily        *connect.Client[v1.CreateFamilyRequest, v1.CreateFamilyResponse]
 	listFamilies        *connect.Client[v1.ListFamiliesRequest, v1.ListFamiliesResponse]
 	deleteFamily        *connect.Client[v1.DeleteFamilyRequest, v1.DeleteFamilyResponse]
+	getDashboardConfig  *connect.Client[v1.GetDashboardConfigRequest, v1.GetDashboardConfigResponse]
+	setupDashboard      *connect.Client[v1.SetupDashboardRequest, v1.SetupDashboardResponse]
+	disableDashboard    *connect.Client[v1.DisableDashboardRequest, v1.DisableDashboardResponse]
 	createUser          *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
 	listUsers           *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
 	leaveFamily         *connect.Client[v1.LeaveFamilyRequest, v1.LeaveFamilyResponse]
@@ -365,6 +398,21 @@ func (c *choresServiceClient) ListFamilies(ctx context.Context, req *connect.Req
 // DeleteFamily calls chores.v1.ChoresService.DeleteFamily.
 func (c *choresServiceClient) DeleteFamily(ctx context.Context, req *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error) {
 	return c.deleteFamily.CallUnary(ctx, req)
+}
+
+// GetDashboardConfig calls chores.v1.ChoresService.GetDashboardConfig.
+func (c *choresServiceClient) GetDashboardConfig(ctx context.Context, req *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error) {
+	return c.getDashboardConfig.CallUnary(ctx, req)
+}
+
+// SetupDashboard calls chores.v1.ChoresService.SetupDashboard.
+func (c *choresServiceClient) SetupDashboard(ctx context.Context, req *connect.Request[v1.SetupDashboardRequest]) (*connect.Response[v1.SetupDashboardResponse], error) {
+	return c.setupDashboard.CallUnary(ctx, req)
+}
+
+// DisableDashboard calls chores.v1.ChoresService.DisableDashboard.
+func (c *choresServiceClient) DisableDashboard(ctx context.Context, req *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error) {
+	return c.disableDashboard.CallUnary(ctx, req)
 }
 
 // CreateUser calls chores.v1.ChoresService.CreateUser.
@@ -492,6 +540,9 @@ type ChoresServiceHandler interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
 	ListFamilies(context.Context, *connect.Request[v1.ListFamiliesRequest]) (*connect.Response[v1.ListFamiliesResponse], error)
 	DeleteFamily(context.Context, *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error)
+	GetDashboardConfig(context.Context, *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error)
+	SetupDashboard(context.Context, *connect.Request[v1.SetupDashboardRequest]) (*connect.Response[v1.SetupDashboardResponse], error)
+	DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error)
 	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
 	LeaveFamily(context.Context, *connect.Request[v1.LeaveFamilyRequest]) (*connect.Response[v1.LeaveFamilyResponse], error)
@@ -541,6 +592,24 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		ChoresServiceDeleteFamilyProcedure,
 		svc.DeleteFamily,
 		connect.WithSchema(choresServiceMethods.ByName("DeleteFamily")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceGetDashboardConfigHandler := connect.NewUnaryHandler(
+		ChoresServiceGetDashboardConfigProcedure,
+		svc.GetDashboardConfig,
+		connect.WithSchema(choresServiceMethods.ByName("GetDashboardConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceSetupDashboardHandler := connect.NewUnaryHandler(
+		ChoresServiceSetupDashboardProcedure,
+		svc.SetupDashboard,
+		connect.WithSchema(choresServiceMethods.ByName("SetupDashboard")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceDisableDashboardHandler := connect.NewUnaryHandler(
+		ChoresServiceDisableDashboardProcedure,
+		svc.DisableDashboard,
+		connect.WithSchema(choresServiceMethods.ByName("DisableDashboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	choresServiceCreateUserHandler := connect.NewUnaryHandler(
@@ -695,6 +764,12 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceListFamiliesHandler.ServeHTTP(w, r)
 		case ChoresServiceDeleteFamilyProcedure:
 			choresServiceDeleteFamilyHandler.ServeHTTP(w, r)
+		case ChoresServiceGetDashboardConfigProcedure:
+			choresServiceGetDashboardConfigHandler.ServeHTTP(w, r)
+		case ChoresServiceSetupDashboardProcedure:
+			choresServiceSetupDashboardHandler.ServeHTTP(w, r)
+		case ChoresServiceDisableDashboardProcedure:
+			choresServiceDisableDashboardHandler.ServeHTTP(w, r)
 		case ChoresServiceCreateUserProcedure:
 			choresServiceCreateUserHandler.ServeHTTP(w, r)
 		case ChoresServiceListUsersProcedure:
@@ -762,6 +837,18 @@ func (UnimplementedChoresServiceHandler) ListFamilies(context.Context, *connect.
 
 func (UnimplementedChoresServiceHandler) DeleteFamily(context.Context, *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.DeleteFamily is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) GetDashboardConfig(context.Context, *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.GetDashboardConfig is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) SetupDashboard(context.Context, *connect.Request[v1.SetupDashboardRequest]) (*connect.Response[v1.SetupDashboardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.SetupDashboard is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.DisableDashboard is not implemented"))
 }
 
 func (UnimplementedChoresServiceHandler) CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {

@@ -90,11 +90,26 @@ func main() {
 	mux.HandleFunc("/auth/me", authMgr.MeHandler)
 
 	path, handler := choresv1connect.NewChoresServiceHandler(svc, server.JSONCodecOption())
-	mux.Handle(path, authMgr.RequireAuth(handler))
+	mux.Handle(path, svc.DashboardOrAuth(authMgr, handler))
 
 	mux.Handle("/invite/accept", authMgr.RequirePage(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		acceptInvitationHandler(w, r, svc)
 	})))
+
+	// The kiosk dashboard is its own entry point, deliberately never behind
+	// the Auth0 login gate — it authorizes itself with a per-family
+	// dashboard key instead (typed in or carried in ?key=, handled entirely
+	// client-side; see web/app.js). It's the same app shell as "/", just
+	// reached without a session.
+	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		data, err := web.FS.ReadFile("index.html")
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(data)
+	})
 
 	mux.Handle("/", authMgr.Gate(http.FileServerFS(web.FS), http.HandlerFunc(loginPageHandler)))
 

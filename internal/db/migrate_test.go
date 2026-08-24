@@ -222,3 +222,48 @@ func TestOpen_MigratesTaskRepeatColumns(t *testing.T) {
 		t.Fatalf("expected repeat_interval_weeks to default to 1, got %d", intervalWeeks)
 	}
 }
+
+func TestOpen_MigratesDashboardKeyColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old-dashboard.db")
+
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open seed db: %v", err)
+	}
+	if _, err := seed.Exec(oldUsersSchema); err != nil {
+		t.Fatalf("apply old schema: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO families (id, name, created_at) VALUES ('fam1', 'Old Family', '2024-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatalf("close seed db: %v", err)
+	}
+
+	conn, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open on pre-existing database: %v", err)
+	}
+	defer conn.Close()
+
+	var key sql.NullString
+	if err := conn.QueryRow(`SELECT dashboard_key FROM families WHERE id = 'fam1'`).Scan(&key); err != nil {
+		t.Fatalf("query migrated family: %v", err)
+	}
+	if key.Valid {
+		t.Fatalf("expected dashboard_key to default to NULL, got %q", key.String)
+	}
+
+	if _, err := conn.Exec(
+		`INSERT INTO families (id, name, created_at, dashboard_key) VALUES ('fam2', 'Family Two', '2024-01-01T00:00:00Z', 'secret-key')`,
+	); err != nil {
+		t.Fatalf("insert family with a dashboard_key: %v", err)
+	}
+	if _, err := conn.Exec(
+		`INSERT INTO families (id, name, created_at, dashboard_key) VALUES ('fam3', 'Family Three', '2024-01-01T00:00:00Z', 'secret-key')`,
+	); err == nil {
+		t.Fatal("expected a duplicate dashboard_key across families to be rejected")
+	}
+}

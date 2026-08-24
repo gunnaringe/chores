@@ -1110,3 +1110,216 @@ func TestDeleteFamily_RemovesEverything(t *testing.T) {
 		t.Fatalf("expected NotFound deleting an already-deleted family, got %v", err)
 	}
 }
+
+// dashboardTestContext resolves key the same way DashboardOrAuth does over
+// HTTP and returns a context carrying that resolution, for tests that need
+// to exercise dashboard-authorized RPC calls without a real HTTP round trip.
+func dashboardTestContext(t *testing.T, s *Server, key string) context.Context {
+	t.Helper()
+	familyID, ok := s.familyIDForDashboardKey(key)
+	if !ok {
+		t.Fatalf("dashboard key %q did not resolve to a family", key)
+	}
+	return newContextWithDashboardFamily(context.Background(), familyID)
+}
+
+func TestDashboardKey_ReadsAndCompletesTasksForTheWholeFamily(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	childA, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Alice", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser A: %v", err)
+	}
+	childB, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Bob", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser B: %v", err)
+	}
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{childA.Msg.User.Id, childB.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	setup, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("SetupDashboard: %v", err)
+	}
+	if setup.Msg.DashboardKey == "" {
+		t.Fatal("expected a non-empty dashboard key")
+	}
+	cfg, err := s.GetDashboardConfig(ctx, connect.NewRequest(&v1.GetDashboardConfigRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("GetDashboardConfig: %v", err)
+	}
+	if !cfg.Msg.Enabled || cfg.Msg.DashboardKey != setup.Msg.DashboardKey {
+		t.Fatalf("expected GetDashboardConfig to report the key just set up, got %+v", cfg.Msg)
+	}
+
+	dashCtx := dashboardTestContext(t, s, setup.Msg.DashboardKey)
+
+	// Sees every child's summary, not filtered to one — the request
+	// deliberately carries no family_id at all, since a dashboard key
+	// resolves it server-side.
+	summaries, err := s.ListChildSummaries(dashCtx, connect.NewRequest(&v1.ListChildSummariesRequest{}))
+	if err != nil {
+		t.Fatalf("ListChildSummaries via dashboard: %v", err)
+	}
+	if len(summaries.Msg.Summaries) != 2 {
+		t.Fatalf("expected summaries for both children, got %+v", summaries.Msg.Summaries)
+	}
+
+	today := scheduling.FormatDate(time.Now())
+	occ, err := s.ListTaskOccurrences(dashCtx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{StartDate: today, EndDate: today}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences via dashboard: %v", err)
+	}
+	if len(occ.Msg.Occurrences) != 2 {
+		t.Fatalf("expected one occurrence per assigned child, got %+v", occ.Msg.Occurrences)
+	}
+
+	// Can mark either child's task done and undo it, like a parent can.
+	if _, err := s.CompleteTask(dashCtx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: childA.Msg.User.Id, DueDate: today,
+	})); err != nil {
+		t.Fatalf("CompleteTask via dashboard: %v", err)
+	}
+	if _, err := s.UncompleteTask(dashCtx, connect.NewRequest(&v1.UncompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: childA.Msg.User.Id, DueDate: today,
+	})); err != nil {
+		t.Fatalf("UncompleteTask via dashboard: %v", err)
+	}
+
+	// A wrong key resolves to nothing.
+	if _, ok := s.familyIDForDashboardKey("not-a-real-key"); ok {
+		t.Fatal("expected an unknown dashboard key to not resolve")
+	}
+}
+
+// TestDashboardKey_NeverUnlocksParentOnlyActions is the critical security
+// property of the whole feature: a context carrying nothing but dashboard
+// authorization for a family must not be able to do anything beyond what
+// the Today dashboard itself does, even when the RPC is called directly
+// (as ListTaskOccurrences's own nested ListTasks/ListUsers calls do,
+// bypassing the HTTP-layer allowlist that's the outer defense).
+func TestDashboardKey_NeverUnlocksParentOnlyActions(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	setup, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("SetupDashboard: %v", err)
+	}
+	dashCtx := dashboardTestContext(t, s, setup.Msg.DashboardKey)
+
+	if _, err := s.CreateTask(dashCtx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Sneaky task", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *", PriceCents: 100,
+	})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied creating a task via dashboard access, got %v", err)
+	}
+	if _, err := s.CreateUser(dashCtx, connect.NewRequest(&v1.CreateUserRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Intruder", Role: v1.UserRole_USER_ROLE_PARENT,
+	})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied adding a family member via dashboard access, got %v", err)
+	}
+	if _, err := s.CreatePayout(dashCtx, connect.NewRequest(&v1.CreatePayoutRequest{
+		ChildId: child.Msg.User.Id, FullPayout: true,
+	})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied creating a payout via dashboard access, got %v", err)
+	}
+	if _, err := s.DeleteFamily(dashCtx, connect.NewRequest(&v1.DeleteFamilyRequest{FamilyId: fam.Msg.Family.Id})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied deleting the family via dashboard access, got %v", err)
+	}
+	if _, err := s.SetupDashboard(dashCtx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: fam.Msg.Family.Id})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied regenerating the dashboard key via dashboard access itself, got %v", err)
+	}
+}
+
+func TestDashboardKey_ScopedToItsOwnFamily(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	famA, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family A"}))
+	if err != nil {
+		t.Fatalf("CreateFamily A: %v", err)
+	}
+	famB, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family B"}))
+	if err != nil {
+		t.Fatalf("CreateFamily B: %v", err)
+	}
+	childB, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: famB.Msg.Family.Id, Name: "Kid B", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser B: %v", err)
+	}
+	taskB, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: famB.Msg.Family.Id, Title: "Chore B", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{childB.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask B: %v", err)
+	}
+
+	setupA, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: famA.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("SetupDashboard A: %v", err)
+	}
+	dashCtxA := dashboardTestContext(t, s, setupA.Msg.DashboardKey)
+
+	// Family A's dashboard key can't be used to complete family B's task.
+	if _, err := s.CompleteTask(dashCtxA, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: taskB.Msg.Task.Id, ChildId: childB.Msg.User.Id, DueDate: "2024-01-01",
+	})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied completing another family's task via a mismatched dashboard key, got %v", err)
+	}
+}
+
+func TestDisableDashboard_RevokesTheKey(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	setup, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("SetupDashboard: %v", err)
+	}
+	if _, err := s.DisableDashboard(ctx, connect.NewRequest(&v1.DisableDashboardRequest{FamilyId: fam.Msg.Family.Id})); err != nil {
+		t.Fatalf("DisableDashboard: %v", err)
+	}
+	if _, ok := s.familyIDForDashboardKey(setup.Msg.DashboardKey); ok {
+		t.Fatal("expected the key to stop resolving after DisableDashboard")
+	}
+	cfg, err := s.GetDashboardConfig(ctx, connect.NewRequest(&v1.GetDashboardConfigRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("GetDashboardConfig: %v", err)
+	}
+	if cfg.Msg.Enabled {
+		t.Fatalf("expected the dashboard to report disabled, got %+v", cfg.Msg)
+	}
+
+	// Regenerating (SetupDashboard again) replaces the key outright — the
+	// old one must not still work.
+	setup2, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("SetupDashboard (regenerate): %v", err)
+	}
+	if setup2.Msg.DashboardKey == setup.Msg.DashboardKey {
+		t.Fatal("expected regenerating to produce a different key")
+	}
+}

@@ -9,8 +9,8 @@ import (
 	"log"
 	"net/http"
 
-	webpush "github.com/SherClockHolmes/webpush-go"
 	"connectrpc.com/connect"
+	webpush "github.com/SherClockHolmes/webpush-go"
 
 	v1 "github.com/gunnaringe/chores/gen/chores/v1"
 )

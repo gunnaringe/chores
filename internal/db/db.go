@@ -38,6 +38,19 @@ func Open(path string) (*sql.DB, error) {
 // app pick them up too. SQLite has no "ADD COLUMN IF NOT EXISTS", so each
 // addition is guarded by checking PRAGMA table_info first.
 func migrate(db *sql.DB) error {
+	familyCols, err := columnSet(db, "families")
+	if err != nil {
+		return err
+	}
+	if !familyCols["dashboard_key"] {
+		if _, err := db.Exec(`ALTER TABLE families ADD COLUMN dashboard_key TEXT`); err != nil {
+			return fmt.Errorf("add families.dashboard_key: %w", err)
+		}
+	}
+	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_families_dashboard_key ON families(dashboard_key)`); err != nil {
+		return fmt.Errorf("create idx_families_dashboard_key: %w", err)
+	}
+
 	userCols, err := columnSet(db, "users")
 	if err != nil {
 		return err

@@ -208,6 +208,27 @@ a single click — each opens an inline "type a word to confirm" prompt
 losing a family member's history, your own membership, or a whole family is
 much harder to walk back than most things a confirm button guards.
 
+## Kiosk dashboard
+
+A parent can turn a shared or wall-mounted device (a tablet on the fridge,
+say) into a read/complete-only view of the family's Today tab, without it
+ever going through login. From the Settings page's Dashboard section, "Set
+up dashboard" generates a per-family secret key and a URL
+(`/dashboard?key=...`); opening that URL on the kiosk device unlocks it
+immediately, and the key is then remembered in that browser's
+`localStorage` so it survives reloads without needing the query string
+again (which is stripped from the address bar right after first use).
+Without a `?key=`, `/dashboard` instead prompts for the key to be typed in.
+
+A dashboard key is a bearer credential scoped to exactly one family and to
+four actions: list children's daily status, list today's task occurrences,
+and complete/uncomplete a task. It cannot see or touch anything else —
+family membership, task definitions, payouts, other families' data, and
+every other RPC in the API reject a dashboard-only request the same way
+they'd reject an anonymous one. "Regenerate key" invalidates the old key
+immediately (any device still using it falls back to the key prompt) and
+"Disable dashboard" turns the feature off until set up again.
+
 ## Installing as an app (PWA)
 
 The web UI is an installable Progressive Web App: `web/manifest.webmanifest`

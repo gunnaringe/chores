@@ -167,6 +167,36 @@ message ListFamiliesResponse {
   repeated Family families = 1;
 }
 
+// Reports whether the family's Today-tab kiosk dashboard is set up, and its
+// key if so — a parent can come back and view/share it again, unlike an
+// invitation token, which is only ever returned once.
+message GetDashboardConfigRequest {
+  string family_id = 1;
+}
+message GetDashboardConfigResponse {
+  bool enabled = 1;
+  // Empty when not enabled.
+  string dashboard_key = 2;
+}
+
+// Generates a new dashboard key for the family, replacing any existing one
+// (which immediately stops working — a kiosk showing the old key has to be
+// re-entered). The key is a bearer credential: whoever has it can view the
+// Today tab and mark tasks done for any child in the family, with no login
+// of their own. See internal/server/dashboard.go for exactly what it does
+// and doesn't unlock.
+message SetupDashboardRequest {
+  string family_id = 1;
+}
+message SetupDashboardResponse {
+  string dashboard_key = 1;
+}
+
+message DisableDashboardRequest {
+  string family_id = 1;
+}
+message DisableDashboardResponse {}
+
 // Deletes the family outright: every user, task, completion, payout,
 // invitation, and push subscription tied to it, via cascading foreign
 // keys. Any parent in the family may do this — there's no "last parent"
@@ -467,6 +497,9 @@ service ChoresService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
   rpc DeleteFamily(DeleteFamilyRequest) returns (DeleteFamilyResponse);
+  rpc GetDashboardConfig(GetDashboardConfigRequest) returns (GetDashboardConfigResponse);
+  rpc SetupDashboard(SetupDashboardRequest) returns (SetupDashboardResponse);
+  rpc DisableDashboard(DisableDashboardRequest) returns (DisableDashboardResponse);
 
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);

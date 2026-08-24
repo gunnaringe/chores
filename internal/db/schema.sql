@@ -7,7 +7,14 @@
 CREATE TABLE IF NOT EXISTS families (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    -- A secret bearer token for the family's Today-tab kiosk dashboard
+    -- (see internal/server/dashboard.go). NULL means the dashboard hasn't
+    -- been set up. Its uniqueness is enforced by idx_families_dashboard_key
+    -- in migrate(), not inline here — SQLite's ALTER TABLE ADD COLUMN can't
+    -- add a UNIQUE column, so both the fresh-create and migrated-database
+    -- paths need to go through the same index-based route anyway.
+    dashboard_key TEXT
 );
 
 CREATE TABLE IF NOT EXISTS users (
