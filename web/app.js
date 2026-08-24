@@ -253,8 +253,12 @@ async function loadFamilyData() {
   });
   state.occurrences = occResp.occurrences || [];
 
-  const invResp = await call("ListInvitations", { familyId: state.familyId });
-  state.invitations = invResp.invitations || [];
+  // Parent-only RPC — a bound child hitting it gets PermissionDenied, and
+  // invitations aren't shown anywhere in the child view anyway.
+  if (isParent()) {
+    const invResp = await call("ListInvitations", { familyId: state.familyId });
+    state.invitations = invResp.invitations || [];
+  }
 
   // The History tab's today/yesterday/this-week groups are cheap (at most a
   // week of rows) and stay fresh via the same auto-refresh as everything

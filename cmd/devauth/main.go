@@ -2,9 +2,14 @@
 // development and testing: it mimics Auth0's specific endpoint shape
 // (/authorize, /oauth/token, /userinfo, /v2/logout) closely enough that
 // cmd/chores's AUTH0_DOMAIN can just point at it instead of a real tenant.
-// It always logs in as one canned, configurable identity, with no login UI
-// at all — the whole point is a zero-friction stand-in for local testing,
-// not a realistic auth experience.
+// It logs in as one of a small set of canned, configurable identities, with
+// no real login UI — the whole point is a zero-friction stand-in for local
+// testing, not a realistic auth experience. By default it offers two —
+// a test parent and a test child — since testing an invite flow (a parent
+// inviting a child, the child logging in with their own separate identity
+// to accept it) needs two distinct logins, not just one. With exactly one
+// identity configured, /authorize skips straight to it with no picker at
+// all, same as if there were only ever one.
 //
 // Run it alongside chores, e.g.:
 //
@@ -19,6 +24,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"flag"
+	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"net/url"
@@ -36,7 +43,7 @@ type identity struct {
 type config struct {
 	clientID     string
 	clientSecret string
-	identity     identity
+	identities   []identity
 }
 
 const (
@@ -44,19 +51,49 @@ const (
 	tokenTTL = time.Hour
 )
 
-// store is a single in-memory map of issued codes/tokens to their expiry,
-// guarded by a mutex — this is a throwaway single-process test tool, no
-// persistence needed. There's only ever one canned identity, so a code or
-// token existing (and unexpired) is all that matters; nothing needs to map
-// to a specific identity value.
+// identityFlag implements flag.Value for a repeatable -identity flag, each
+// occurrence in "sub|name|email" form.
+type identityFlag struct{ values []identity }
+
+func (f *identityFlag) String() string {
+	parts := make([]string, len(f.values))
+	for i, id := range f.values {
+		parts[i] = id.Sub + "|" + id.Name + "|" + id.Email
+	}
+	return strings.Join(parts, ",")
+}
+
+func (f *identityFlag) Set(s string) error {
+	parts := strings.SplitN(s, "|", 3)
+	if len(parts) != 3 {
+		return fmt.Errorf("want sub|name|email, got %q", s)
+	}
+	f.values = append(f.values, identity{Sub: parts[0], Name: parts[1], Email: parts[2]})
+	return nil
+}
+
+// codeEntry/tokenEntry pair an issued code/token with which of the
+// configured identities it resolves to, plus its expiry.
+type codeEntry struct {
+	identity identity
+	expires  time.Time
+}
+type tokenEntry struct {
+	identity identity
+	expires  time.Time
+}
+
+// store is a single in-memory map of issued codes/tokens, guarded by a
+// mutex — this is a throwaway single-process test tool, no persistence
+// needed.
 type store struct {
 	mu     sync.Mutex
-	codes  map[string]time.Time
-	tokens map[string]time.Time
+	codes  map[string]codeEntry
+	tokens map[string]tokenEntry
 }
 
 func newStore() *store {
-	return &store{codes: map[string]time.Time{}, tokens: map[string]time.Time{}}
+	return &store{codes: map[string]codeEntry{}, tokens: map[string]tokenEntry{}}
 }
 
 func randomToken() (string, error) {
@@ -70,19 +107,19 @@ func randomToken() (string, error) {
 // sweepLocked drops expired entries from both maps. Callers must hold mu.
 func (s *store) sweepLocked() {
 	now := time.Now()
-	for k, exp := range s.codes {
-		if now.After(exp) {
+	for k, e := range s.codes {
+		if now.After(e.expires) {
 			delete(s.codes, k)
 		}
 	}
-	for k, exp := range s.tokens {
-		if now.After(exp) {
+	for k, e := range s.tokens {
+		if now.After(e.expires) {
 			delete(s.tokens, k)
 		}
 	}
 }
 
-func (s *store) issueCode() (string, error) {
+func (s *store) issueCode(id identity) (string, error) {
 	code, err := randomToken()
 	if err != nil {
 		return "", err
@@ -90,21 +127,24 @@ func (s *store) issueCode() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sweepLocked()
-	s.codes[code] = time.Now().Add(codeTTL)
+	s.codes[code] = codeEntry{identity: id, expires: time.Now().Add(codeTTL)}
 	return code, nil
 }
 
-// consumeCode reports whether code was valid and unexpired, deleting it
-// either way (single-use).
-func (s *store) consumeCode(code string) bool {
+// consumeCode returns the identity a valid, unexpired code was issued for,
+// deleting it either way (single-use).
+func (s *store) consumeCode(code string) (identity, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	exp, ok := s.codes[code]
+	e, ok := s.codes[code]
 	delete(s.codes, code)
-	return ok && time.Now().Before(exp)
+	if !ok || time.Now().After(e.expires) {
+		return identity{}, false
+	}
+	return e.identity, true
 }
 
-func (s *store) issueToken() (string, error) {
+func (s *store) issueToken(id identity) (string, error) {
 	tok, err := randomToken()
 	if err != nil {
 		return "", err
@@ -112,22 +152,30 @@ func (s *store) issueToken() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sweepLocked()
-	s.tokens[tok] = time.Now().Add(tokenTTL)
+	s.tokens[tok] = tokenEntry{identity: id, expires: time.Now().Add(tokenTTL)}
 	return tok, nil
 }
 
-func (s *store) validToken(tok string) bool {
+func (s *store) lookupToken(tok string) (identity, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	exp, ok := s.tokens[tok]
-	return ok && time.Now().Before(exp)
+	e, ok := s.tokens[tok]
+	if !ok || time.Now().After(e.expires) {
+		return identity{}, false
+	}
+	return e.identity, true
 }
 
-// handleAuthorize is GET /authorize. There's no login UI — client_id is
-// checked (a mismatch is a loud plain-text error, since a misconfigured
-// client shouldn't silently appear to work) and the browser is redirected
-// straight back to redirect_uri with a fresh code, as if a real user
-// instantly logged in and approved the request.
+// handleAuthorize is GET /authorize. client_id is checked (a mismatch is a
+// loud plain-text error, since a misconfigured client shouldn't silently
+// appear to work). With exactly one identity configured, the browser is
+// redirected straight back to redirect_uri with a fresh code, as if a real
+// user instantly logged in and approved the request — no picker at all.
+// With more than one, an explicit choice is needed: either an "identity="
+// param already naming one (so a picker link, or a scripted test, can
+// resolve directly), or — if neither — a minimal page listing them as
+// plain links, each just resubmitting this same request with "identity="
+// added.
 func handleAuthorize(cfg config, st *store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -144,12 +192,23 @@ func handleAuthorize(cfg config, st *store) http.HandlerFunc {
 			http.Error(w, "devauth: only response_type=code is supported", http.StatusBadRequest)
 			return
 		}
+
+		chosen, ok := resolveIdentity(cfg.identities, q.Get("identity"))
+		if !ok {
+			http.Error(w, "devauth: unknown identity", http.StatusBadRequest)
+			return
+		}
+		if chosen == nil {
+			renderIdentityPicker(w, cfg.identities, r.URL)
+			return
+		}
+
 		dest, err := url.Parse(redirectURI)
 		if err != nil {
 			http.Error(w, "devauth: invalid redirect_uri", http.StatusBadRequest)
 			return
 		}
-		code, err := st.issueCode()
+		code, err := st.issueCode(*chosen)
 		if err != nil {
 			http.Error(w, "devauth: failed to issue code", http.StatusInternalServerError)
 			return
@@ -162,6 +221,42 @@ func handleAuthorize(cfg config, st *store) http.HandlerFunc {
 		dest.RawQuery = dq.Encode()
 		http.Redirect(w, r, dest.String(), http.StatusFound)
 	}
+}
+
+// resolveIdentity picks which configured identity /authorize should use:
+// requestedSub (if non-empty) must name one exactly (ok=false if it
+// doesn't); otherwise a single configured identity is used automatically,
+// or nil is returned (still ok) to signal "show the picker" when there's
+// more than one and none was named.
+func resolveIdentity(identities []identity, requestedSub string) (*identity, bool) {
+	if requestedSub != "" {
+		for i := range identities {
+			if identities[i].Sub == requestedSub {
+				return &identities[i], true
+			}
+		}
+		return nil, false
+	}
+	if len(identities) == 1 {
+		return &identities[0], true
+	}
+	return nil, true
+}
+
+func renderIdentityPicker(w http.ResponseWriter, identities []identity, original *url.URL) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, `<!doctype html><meta charset="utf-8"><title>devauth</title>`+
+		`<body style="font-family:sans-serif;max-width:420px;margin:80px auto;line-height:1.6;">`+
+		`<h1>devauth</h1><p>Choose which test identity to log in as:</p><ul>`)
+	for _, id := range identities {
+		q := original.Query()
+		q.Set("identity", id.Sub)
+		link := *original
+		link.RawQuery = q.Encode()
+		fmt.Fprintf(w, `<li><a href="%s">%s</a> — %s</li>`,
+			html.EscapeString(link.String()), html.EscapeString(id.Name), html.EscapeString(id.Email))
+	}
+	fmt.Fprint(w, `</ul></body>`)
 }
 
 // handleToken is POST /oauth/token. golang.org/x/oauth2's Exchange, as used
@@ -191,11 +286,12 @@ func handleToken(cfg config, st *store) http.HandlerFunc {
 			writeJSONError(w, http.StatusBadRequest, "unsupported_grant_type")
 			return
 		}
-		if !st.consumeCode(r.FormValue("code")) {
+		id, ok := st.consumeCode(r.FormValue("code"))
+		if !ok {
 			writeJSONError(w, http.StatusBadRequest, "invalid_grant")
 			return
 		}
-		token, err := st.issueToken()
+		token, err := st.issueToken(id)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "server_error")
 			return
@@ -208,20 +304,25 @@ func handleToken(cfg config, st *store) http.HandlerFunc {
 	}
 }
 
-// handleUserinfo is GET /userinfo — the one canned identity for any
-// unexpired bearer token.
-func handleUserinfo(cfg config, st *store) http.HandlerFunc {
+// handleUserinfo is GET /userinfo — resolves the bearer token back to
+// whichever identity was chosen at /authorize time.
+func handleUserinfo(st *store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		token, ok := strings.CutPrefix(auth, "Bearer ")
-		if !ok || !st.validToken(token) {
+		if !ok {
+			writeJSONError(w, http.StatusUnauthorized, "invalid_token")
+			return
+		}
+		id, ok := st.lookupToken(token)
+		if !ok {
 			writeJSONError(w, http.StatusUnauthorized, "invalid_token")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"sub":   cfg.identity.Sub,
-			"name":  cfg.identity.Name,
-			"email": cfg.identity.Email,
+			"sub":   id.Sub,
+			"name":  id.Name,
+			"email": id.Email,
 		})
 	}
 }
@@ -252,30 +353,40 @@ func main() {
 	addr := flag.String("addr", ":9999", "address to listen on")
 	clientID := flag.String("client-id", "", "client id chores must be configured with (required)")
 	clientSecret := flag.String("client-secret", "", "client secret chores must be configured with (required)")
-	sub := flag.String("sub", "devauth|local-test", "canned identity's stable subject id")
-	name := flag.String("name", "Test Parent", "canned identity's display name")
-	email := flag.String("email", "test@example.com", "canned identity's email")
+	var identities identityFlag
+	flag.Var(&identities, "identity", `a canned test identity as "sub|name|email" (repeatable; defaults to a test parent + a test child if none given, so both roles can log in)`)
 	flag.Parse()
 
 	if *clientID == "" || *clientSecret == "" {
 		log.Fatal("devauth: -client-id and -client-secret are required")
 	}
+	if len(identities.values) == 0 {
+		identities.values = []identity{
+			{Sub: "devauth|local-parent", Name: "Test Parent", Email: "parent@example.com"},
+			{Sub: "devauth|local-child", Name: "Test Child", Email: "child@example.com"},
+		}
+	}
 
 	cfg := config{
 		clientID:     *clientID,
 		clientSecret: *clientSecret,
-		identity:     identity{Sub: *sub, Name: *name, Email: *email},
+		identities:   identities.values,
 	}
 	st := newStore()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/authorize", handleAuthorize(cfg, st))
 	mux.HandleFunc("/oauth/token", handleToken(cfg, st))
-	mux.HandleFunc("/userinfo", handleUserinfo(cfg, st))
+	mux.HandleFunc("/userinfo", handleUserinfo(st))
 	mux.HandleFunc("/v2/logout", handleLogout())
 
 	log.Printf("devauth: listening on %s", *addr)
-	log.Printf("devauth: client_id=%s canned identity: sub=%s name=%q email=%s", cfg.clientID, cfg.identity.Sub, cfg.identity.Name, cfg.identity.Email)
+	for _, id := range cfg.identities {
+		log.Printf("devauth: identity available: sub=%s name=%q email=%s", id.Sub, id.Name, id.Email)
+	}
+	if len(cfg.identities) > 1 {
+		log.Printf("devauth: more than one identity configured — /authorize will show a picker each login")
+	}
 	log.Printf("devauth: point chores at this with:")
 	log.Printf("  AUTH0_DOMAIN=http://localhost%s AUTH0_CLIENT_ID=%s AUTH0_CLIENT_SECRET=%s AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback", *addr, cfg.clientID, cfg.clientSecret)
 	if err := http.ListenAndServe(*addr, mux); err != nil {

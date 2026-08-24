@@ -159,10 +159,13 @@ no way to run the app open, unauthenticated.
 
 `cmd/devauth` is a tiny, self-contained OAuth2 identity provider (stdlib
 Go, no external dependencies) that mimics Auth0's specific endpoint shape
-closely enough that `AUTH0_DOMAIN` can just point at it. It always logs in
-as one canned, configurable identity, with no login UI at all — it exists
-purely to exercise the real login code path in local dev/tests without
-needing a real tenant. Run it alongside `chores`:
+closely enough that `AUTH0_DOMAIN` can just point at it. It exists purely
+to exercise the real login code path in local dev/tests without needing a
+real tenant — there's no real login UI, just a choice of which canned test
+identity to log in as. By default it offers two, a test parent and a test
+child, since testing an invite (a parent inviting a child, then the child
+logging in with their *own* separate identity to accept it) needs two
+distinct logins, not one. Run it alongside `chores`:
 
 ```bash
 go run ./cmd/devauth -client-id=devclient -client-secret=devsecret
@@ -175,8 +178,11 @@ AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
 ```
 
 (`devauth` prints this exact pair of commands, with its actual flags
-substituted in, on startup.) `-sub`/`-name`/`-email` customize the canned
-identity if you need a specific one.
+substituted in, on startup.) Clicking "Log in" now lands on a plain page
+listing the available identities — pick one to continue. Pass one or more
+`-identity="sub|name|email"` flags to replace the two defaults with your
+own set (a single `-identity` skips the picker entirely, going straight to
+that one identity, same as the old single-identity behavior).
 
 ### Setting up Auth0
 
