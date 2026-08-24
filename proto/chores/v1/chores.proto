@@ -223,6 +223,17 @@ message ListUsersResponse {
   repeated User users = 1;
 }
 
+// Renaming is self-service only — a bound login can rename its own user
+// row and no one else's, even a parent renaming a child. In local-testing
+// mode (no login at all) this is unrestricted, same as other actions there.
+message UpdateUserRequest {
+  string user_id = 1;
+  string name = 2;
+}
+message UpdateUserResponse {
+  User user = 1;
+}
+
 // A parent removing themselves from the family. Only ever themselves — a
 // bound login can't leave on another parent's behalf — and only when at
 // least one other parent will remain, so a family is never left without
@@ -503,6 +514,7 @@ service ChoresService {
 
   rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
   rpc LeaveFamily(LeaveFamilyRequest) returns (LeaveFamilyResponse);
   rpc RemoveChild(RemoveChildRequest) returns (RemoveChildResponse);
 

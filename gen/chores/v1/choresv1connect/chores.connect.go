@@ -56,6 +56,9 @@ const (
 	ChoresServiceCreateUserProcedure = "/chores.v1.ChoresService/CreateUser"
 	// ChoresServiceListUsersProcedure is the fully-qualified name of the ChoresService's ListUsers RPC.
 	ChoresServiceListUsersProcedure = "/chores.v1.ChoresService/ListUsers"
+	// ChoresServiceUpdateUserProcedure is the fully-qualified name of the ChoresService's UpdateUser
+	// RPC.
+	ChoresServiceUpdateUserProcedure = "/chores.v1.ChoresService/UpdateUser"
 	// ChoresServiceLeaveFamilyProcedure is the fully-qualified name of the ChoresService's LeaveFamily
 	// RPC.
 	ChoresServiceLeaveFamilyProcedure = "/chores.v1.ChoresService/LeaveFamily"
@@ -133,6 +136,7 @@ type ChoresServiceClient interface {
 	DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error)
 	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
 	LeaveFamily(context.Context, *connect.Request[v1.LeaveFamilyRequest]) (*connect.Response[v1.LeaveFamilyResponse], error)
 	RemoveChild(context.Context, *connect.Request[v1.RemoveChildRequest]) (*connect.Response[v1.RemoveChildResponse], error)
 	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
@@ -214,6 +218,12 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+ChoresServiceListUsersProcedure,
 			connect.WithSchema(choresServiceMethods.ByName("ListUsers")),
+			connect.WithClientOptions(opts...),
+		),
+		updateUser: connect.NewClient[v1.UpdateUserRequest, v1.UpdateUserResponse](
+			httpClient,
+			baseURL+ChoresServiceUpdateUserProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("UpdateUser")),
 			connect.WithClientOptions(opts...),
 		),
 		leaveFamily: connect.NewClient[v1.LeaveFamilyRequest, v1.LeaveFamilyResponse](
@@ -361,6 +371,7 @@ type choresServiceClient struct {
 	disableDashboard    *connect.Client[v1.DisableDashboardRequest, v1.DisableDashboardResponse]
 	createUser          *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
 	listUsers           *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	updateUser          *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
 	leaveFamily         *connect.Client[v1.LeaveFamilyRequest, v1.LeaveFamilyResponse]
 	removeChild         *connect.Client[v1.RemoveChildRequest, v1.RemoveChildResponse]
 	createTask          *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
@@ -423,6 +434,11 @@ func (c *choresServiceClient) CreateUser(ctx context.Context, req *connect.Reque
 // ListUsers calls chores.v1.ChoresService.ListUsers.
 func (c *choresServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
 	return c.listUsers.CallUnary(ctx, req)
+}
+
+// UpdateUser calls chores.v1.ChoresService.UpdateUser.
+func (c *choresServiceClient) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return c.updateUser.CallUnary(ctx, req)
 }
 
 // LeaveFamily calls chores.v1.ChoresService.LeaveFamily.
@@ -545,6 +561,7 @@ type ChoresServiceHandler interface {
 	DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error)
 	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
 	LeaveFamily(context.Context, *connect.Request[v1.LeaveFamilyRequest]) (*connect.Response[v1.LeaveFamilyResponse], error)
 	RemoveChild(context.Context, *connect.Request[v1.RemoveChildRequest]) (*connect.Response[v1.RemoveChildResponse], error)
 	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
@@ -622,6 +639,12 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		ChoresServiceListUsersProcedure,
 		svc.ListUsers,
 		connect.WithSchema(choresServiceMethods.ByName("ListUsers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceUpdateUserHandler := connect.NewUnaryHandler(
+		ChoresServiceUpdateUserProcedure,
+		svc.UpdateUser,
+		connect.WithSchema(choresServiceMethods.ByName("UpdateUser")),
 		connect.WithHandlerOptions(opts...),
 	)
 	choresServiceLeaveFamilyHandler := connect.NewUnaryHandler(
@@ -774,6 +797,8 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceCreateUserHandler.ServeHTTP(w, r)
 		case ChoresServiceListUsersProcedure:
 			choresServiceListUsersHandler.ServeHTTP(w, r)
+		case ChoresServiceUpdateUserProcedure:
+			choresServiceUpdateUserHandler.ServeHTTP(w, r)
 		case ChoresServiceLeaveFamilyProcedure:
 			choresServiceLeaveFamilyHandler.ServeHTTP(w, r)
 		case ChoresServiceRemoveChildProcedure:
@@ -857,6 +882,10 @@ func (UnimplementedChoresServiceHandler) CreateUser(context.Context, *connect.Re
 
 func (UnimplementedChoresServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.ListUsers is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.UpdateUser is not implemented"))
 }
 
 func (UnimplementedChoresServiceHandler) LeaveFamily(context.Context, *connect.Request[v1.LeaveFamilyRequest]) (*connect.Response[v1.LeaveFamilyResponse], error) {

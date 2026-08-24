@@ -60,6 +60,20 @@ p { color: var(--muted); margin: 0 0 12px; }
   border-bottom: 1px solid var(--border);
 }
 .row:last-child { border-bottom: none; }
+.row.expandable { cursor: pointer; }
+.row.expandable:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.row .chevron { color: var(--muted); flex: none; }
+/* The panel a .row.expandable reveals when toggled open — indented and
+   set off from the row above it so it reads as "belonging to" that row
+   rather than as the next item in the list. */
+.row-detail {
+  padding: 4px 0 16px 12px;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid var(--border);
+  margin-left: 4px;
+}
+.row-detail:last-child { border-bottom: none; }
+.row-detail .field:first-child { margin-top: 10px; }
 /* The first child is usually a text block and the rest are buttons/controls.
    Letting the text grow and giving it a wrap point (rather than a fixed
    width) means a row degrades gracefully as its container narrows: buttons

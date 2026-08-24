@@ -133,7 +133,6 @@ const state = {
   auth: null,
   membership: null, // { bound, memberships: [{ user, family }] }
   invitations: [],
-  lastInviteLink: null,
   editingTaskId: null,
   pushConfig: null, // { vapidPublicKey }
   historyRecent: [], // completions from this Monday through today
@@ -543,6 +542,31 @@ function renderOnboarding() {
     })
   );
   wrap.appendChild(form);
+
+  const joinForm = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("onboarding.joinHeading"))}</h2>
+      <div class="field">
+        <label>${escapeHtml(t("onboarding.joinCodeLabel"))}</label>
+        <input type="text" id="onboard-join-code" />
+      </div>
+      <button type="button" id="onboard-join-btn" class="secondary">${escapeHtml(t("onboarding.joinBtn"))}</button>
+    </div>
+  `);
+  joinForm.querySelector("#onboard-join-btn").addEventListener("click", () =>
+    withError(async () => {
+      const code = joinForm.querySelector("#onboard-join-code").value.trim();
+      if (!code) throw new Error(t("onboarding.joinCodeRequired"));
+      await call("AcceptInvitation", { token: code });
+      await loadMembership();
+      if (state.membership.bound && state.membership.memberships.length) {
+        selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
+        await loadFamilyData();
+      }
+    })
+  );
+  wrap.appendChild(joinForm);
+
   return wrap;
 }
 
@@ -1377,6 +1401,36 @@ async function afterLeavingFamily() {
 let confirmingRemoveChildId = null;
 let confirmingLeaveFamily = false;
 let confirmingDeleteFamily = false;
+// Which row of the family members list is expanded: a user id, the
+// sentinel "__add__" for the "add a family member" row, the sentinel
+// "__join__" for the "join a family" row, or null if none is.
+let expandedFamilyRow = null;
+// The most recently created invite's code — shown once, right in the
+// add-member row that created it, same as the dashboard key is.
+let lastCreatedInviteCode = null;
+
+function toggleFamilyRow(key) {
+  expandedFamilyRow = expandedFamilyRow === key ? null : key;
+  render();
+}
+
+function renderExpandableRow(label, key, buildDetail) {
+  const expanded = expandedFamilyRow === key;
+  const header = el(`
+    <div class="row expandable">
+      <span>${label}</span>
+      <span class="material-symbols-outlined chevron">${expanded ? "expand_less" : "expand_more"}</span>
+    </div>
+  `);
+  header.addEventListener("click", () => toggleFamilyRow(key));
+  const frag = [header];
+  if (expanded) {
+    const detail = el(`<div class="row-detail"></div>`);
+    buildDetail(detail);
+    frag.push(detail);
+  }
+  return frag;
+}
 
 function renderFamilyTab() {
   const wrap = el(`<div></div>`);
@@ -1389,85 +1443,193 @@ function renderFamilyTab() {
     const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ` <span class="pill">${escapeHtml(t("familyTab.invitePending"))}</span>` : "";
     const isYou = u.id === state.userId;
     const youTag = isYou ? ` · ${escapeHtml(t("familyTab.you"))}` : "";
+    // A co-parent (not you) has nothing to manage here — no rename, no
+    // remove, no leave — so their row doesn't expand at all.
+    const canExpand = isYou || u.role === "USER_ROLE_CHILD";
+    const label = `<span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>`;
 
-    if (u.role === "USER_ROLE_CHILD" && confirmingRemoveChildId === u.id) {
-      const row = el(`<div class="row"><span>${escapeHtml(u.name)} <span class="pill child">${escapeHtml(roleLabel(u.role))}</span></span></div>`);
-      row.appendChild(
-        renderTypeToConfirm(
+    if (!canExpand) {
+      card.appendChild(el(`<div class="row">${label}</div>`));
+      return;
+    }
+
+    renderExpandableRow(label, u.id, (detail) => {
+      if (isYou) {
+        if (u.role === "USER_ROLE_PARENT" && confirmingLeaveFamily) {
+          const confirmArea = renderTypeToConfirm(
+            t("familyTab.leaveWord"),
+            t("familyTab.leaveConfirmHint", { family: familyName, word: t("familyTab.leaveWord") }),
+            t("familyTab.leave"),
+            () =>
+              withError(async () => {
+                confirmingLeaveFamily = false;
+                await call("LeaveFamily", { userId: u.id });
+                await afterLeavingFamily();
+              })
+          );
+          confirmArea.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+            confirmingLeaveFamily = false;
+            render();
+          });
+          detail.appendChild(confirmArea);
+          return;
+        }
+
+        const renameField = el(`
+          <div class="field">
+            <label>${escapeHtml(t("familyTab.renameLabel"))}</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="text" class="input-full" style="width:auto;flex:1 1 160px;" value="${escapeHtml(u.name)}" />
+              <button type="button" data-action="save-name">${escapeHtml(t("familyTab.save"))}</button>
+            </div>
+          </div>
+        `);
+        const nameInput = renameField.querySelector("input");
+        renameField.querySelector('[data-action="save-name"]').addEventListener("click", () =>
+          withError(async () => {
+            const name = nameInput.value.trim();
+            if (!name) throw new Error(t("addUser.nameRequired"));
+            await call("UpdateUser", { userId: u.id, name });
+            await loadFamilyData();
+          })
+        );
+        detail.appendChild(renameField);
+
+        if (u.role === "USER_ROLE_PARENT") {
+          const leaveBtn = el(`<button type="button" class="secondary" style="margin-top:10px;">${escapeHtml(t("familyTab.leave"))}</button>`);
+          leaveBtn.addEventListener("click", () => {
+            confirmingLeaveFamily = true;
+            render();
+          });
+          detail.appendChild(leaveBtn);
+        }
+        return;
+      }
+
+      // u.role === "USER_ROLE_CHILD" — the only other case canExpand allows.
+      if (confirmingRemoveChildId === u.id) {
+        const confirmArea = renderTypeToConfirm(
           t("familyTab.removeWord"),
           t("familyTab.removeConfirmHint", { name: u.name, word: t("familyTab.removeWord") }),
           t("familyTab.remove"),
           () =>
             withError(async () => {
               confirmingRemoveChildId = null;
+              expandedFamilyRow = null;
               await call("RemoveChild", { childId: u.id });
               await loadFamilyData();
             })
-        )
-      );
-      row.querySelector('[data-action="cancel"]').addEventListener("click", () => {
-        confirmingRemoveChildId = null;
-        render();
-      });
-      card.appendChild(row);
-      return;
-    }
-
-    if (u.role === "USER_ROLE_PARENT" && isYou && confirmingLeaveFamily) {
-      const row = el(`<div class="row"><span>${escapeHtml(u.name)} <span class="pill parent">${escapeHtml(roleLabel(u.role))}</span>${youTag}</span></div>`);
-      row.appendChild(
-        renderTypeToConfirm(
-          t("familyTab.leaveWord"),
-          t("familyTab.leaveConfirmHint", { family: familyName, word: t("familyTab.leaveWord") }),
-          t("familyTab.leave"),
-          () =>
-            withError(async () => {
-              confirmingLeaveFamily = false;
-              await call("LeaveFamily", { userId: u.id });
-              await afterLeavingFamily();
-            })
-        )
-      );
-      row.querySelector('[data-action="cancel"]').addEventListener("click", () => {
-        confirmingLeaveFamily = false;
-        render();
-      });
-      card.appendChild(row);
-      return;
-    }
-
-    const action =
-      u.role === "USER_ROLE_CHILD"
-        ? `<button type="button" class="secondary" data-action="remove">${escapeHtml(t("familyTab.remove"))}</button>`
-        : isYou
-          ? `<button type="button" class="secondary" data-action="leave">${escapeHtml(t("familyTab.leave"))}</button>`
-          : "";
-    const row = el(`
-      <div class="row">
-        <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>
-        ${action}
-      </div>
-    `);
-    const removeBtn = row.querySelector('[data-action="remove"]');
-    if (removeBtn) {
-      removeBtn.addEventListener("click", () => {
-        confirmingRemoveChildId = u.id;
-        render();
-      });
-    }
-    const leaveBtn = row.querySelector('[data-action="leave"]');
-    if (leaveBtn) {
-      leaveBtn.addEventListener("click", () => {
-        confirmingLeaveFamily = true;
-        render();
-      });
-    }
-    card.appendChild(row);
+        );
+        confirmArea.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+          confirmingRemoveChildId = null;
+          render();
+        });
+        detail.appendChild(confirmArea);
+      } else {
+        const removeBtn = el(`<button type="button" class="danger">${escapeHtml(t("familyTab.remove"))}</button>`);
+        removeBtn.addEventListener("click", () => {
+          confirmingRemoveChildId = u.id;
+          render();
+        });
+        detail.appendChild(removeBtn);
+      }
+    }).forEach((n) => card.appendChild(n));
   });
+
+  renderExpandableRow(`+ ${escapeHtml(t("addUser.heading"))}`, "__add__", (detail) => {
+    detail.appendChild(el(`
+      <div class="field">
+        <label>${escapeHtml(t("addUser.nameLabel"))}</label>
+        <input type="text" class="input-full" id="new-member-name" placeholder="${escapeHtml(t("addUser.namePlaceholder"))}" />
+      </div>
+    `));
+    detail.appendChild(el(`
+      <div class="field">
+        <label>${escapeHtml(t("addUser.roleLabel"))}</label>
+        <select id="new-member-role">
+          <option value="USER_ROLE_PARENT">${escapeHtml(t("role.parent"))}</option>
+          <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
+        </select>
+      </div>
+    `));
+    if (isAuth0Mode()) {
+      detail.appendChild(el(`
+        <div class="field">
+          <label>${escapeHtml(t("invitations.theirEmailLabel"))}</label>
+          <input type="text" id="new-member-email" />
+        </div>
+      `));
+    }
+
+    const actions = el(`<div class="actions"></div>`);
+    const addBtn = el(`<button type="button">${escapeHtml(t("addUser.add"))}</button>`);
+    addBtn.addEventListener("click", () =>
+      withError(async () => {
+        const name = detail.querySelector("#new-member-name").value.trim();
+        const role = detail.querySelector("#new-member-role").value;
+        if (!name) throw new Error(t("addUser.nameRequired"));
+        await call("CreateUser", { familyId: state.familyId, name, role });
+        lastCreatedInviteCode = null;
+        expandedFamilyRow = null;
+        await loadFamilyData();
+      })
+    );
+    actions.appendChild(addBtn);
+    if (isAuth0Mode()) {
+      const inviteBtn = el(`<button type="button" class="secondary">${escapeHtml(t("invitations.createBtn"))}</button>`);
+      inviteBtn.addEventListener("click", () =>
+        withError(async () => {
+          const name = detail.querySelector("#new-member-name").value.trim();
+          const role = detail.querySelector("#new-member-role").value;
+          const email = detail.querySelector("#new-member-email").value.trim();
+          if (!name) throw new Error(t("addUser.nameRequired"));
+          const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
+          lastCreatedInviteCode = resp.token;
+          await loadFamilyData();
+        })
+      );
+      actions.appendChild(inviteBtn);
+    }
+    detail.appendChild(actions);
+
+    if (isAuth0Mode()) {
+      detail.appendChild(el(`<p class="hint" style="margin-top:10px;">${escapeHtml(t("invitations.inviteDesc"))}</p>`));
+      if (lastCreatedInviteCode) {
+        detail.appendChild(el(`
+          <div class="field">
+            <label>${escapeHtml(t("invitations.codeLabel"))}</label>
+            <input type="text" class="input-full" readonly value="${escapeHtml(lastCreatedInviteCode)}" onclick="this.select()" />
+          </div>
+        `));
+      }
+    }
+  }).forEach((n) => card.appendChild(n));
+
+  renderExpandableRow(`+ ${escapeHtml(t("familyTab.joinHeading"))}`, "__join__", (detail) => {
+    detail.appendChild(el(`<p class="hint">${escapeHtml(t("familyTab.joinDesc"))}</p>`));
+    detail.appendChild(el(`
+      <div class="field">
+        <label>${escapeHtml(t("familyTab.joinCodeLabel"))}</label>
+        <input type="text" class="input-full" id="join-family-code" />
+      </div>
+    `));
+    const joinBtn = el(`<button type="button">${escapeHtml(t("familyTab.joinBtn"))}</button>`);
+    joinBtn.addEventListener("click", () =>
+      withError(async () => {
+        const code = detail.querySelector("#join-family-code").value.trim();
+        if (!code) throw new Error(t("familyTab.joinCodeRequired"));
+        await call("AcceptInvitation", { token: code });
+        expandedFamilyRow = null;
+        await loadMembership();
+        render();
+      })
+    );
+    detail.appendChild(joinBtn);
+  }).forEach((n) => card.appendChild(n));
+
   wrap.appendChild(card);
-  wrap.appendChild(renderAddUserForm());
   if (isAuth0Mode()) {
-    wrap.appendChild(renderInvitationsSection());
+    wrap.appendChild(renderPendingInvitationsList());
   }
   wrap.appendChild(renderDashboardSettingsSection());
 
@@ -1507,79 +1669,32 @@ function renderFamilyTab() {
   return wrap;
 }
 
-function renderInvitationsSection() {
-  const wrap = el(`<div></div>`);
-
+// The "create invite" form itself now lives inline in the family members
+// list's "+ Add family member" row (see renderFamilyTab) — this is just the
+// list of invites still awaiting a response, with a way to revoke one.
+function renderPendingInvitationsList() {
   const pending = state.invitations.filter((i) => !i.acceptedAt);
   const listCard = el(`<div class="card"><h2>${escapeHtml(t("invitations.pendingHeading"))}</h2></div>`);
   if (!pending.length) {
     listCard.appendChild(el(`<p class="empty">${escapeHtml(t("invitations.none"))}</p>`));
-  } else {
-    pending.forEach((inv) => {
-      const row = el(`
-        <div class="row">
-          <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${escapeHtml(roleLabel(inv.role))}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
-          <button class="danger" data-id="${inv.id}">${escapeHtml(t("invitations.revoke"))}</button>
-        </div>
-      `);
-      row.querySelector("button").addEventListener("click", () =>
-        withError(async () => {
-          await call("RevokeInvitation", { invitationId: inv.id });
-          await loadFamilyData();
-        })
-      );
-      listCard.appendChild(row);
-    });
+    return listCard;
   }
-  wrap.appendChild(listCard);
-
-  const form = el(`
-    <div class="card">
-      <h2>${escapeHtml(t("invitations.inviteHeading"))}</h2>
-      <p style="margin-top:-4px;">${escapeHtml(t("invitations.inviteDesc"))}</p>
-      <div class="field">
-        <label>${escapeHtml(t("invitations.theirNameLabel"))}</label>
-        <input type="text" id="invite-name" placeholder="${escapeHtml(t("invitations.theirNamePlaceholder"))}" />
+  pending.forEach((inv) => {
+    const row = el(`
+      <div class="row">
+        <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${escapeHtml(roleLabel(inv.role))}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
+        <button class="danger" data-id="${inv.id}">${escapeHtml(t("invitations.revoke"))}</button>
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label>${escapeHtml(t("invitations.roleLabel"))}</label>
-          <select id="invite-role">
-            <option value="USER_ROLE_PARENT">${escapeHtml(t("role.parent"))}</option>
-            <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>${escapeHtml(t("invitations.theirEmailLabel"))}</label>
-          <input type="text" id="invite-email" />
-        </div>
-      </div>
-      <button id="invite-create-btn">${escapeHtml(t("invitations.createBtn"))}</button>
-    </div>
-  `);
-  form.querySelector("#invite-create-btn").addEventListener("click", () =>
-    withError(async () => {
-      const name = form.querySelector("#invite-name").value.trim();
-      const role = form.querySelector("#invite-role").value;
-      const email = form.querySelector("#invite-email").value.trim();
-      if (!name) throw new Error(t("invitations.nameRequired"));
-      const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
-      state.lastInviteLink = window.location.origin + resp.acceptPath;
-      await loadFamilyData();
-    })
-  );
-  if (state.lastInviteLink) {
-    form.appendChild(
-      el(`
-        <div class="field" style="margin-top:12px;">
-          <label>${escapeHtml(t("invitations.shareLabel"))}</label>
-          <input type="text" readonly value="${escapeHtml(state.lastInviteLink)}" onclick="this.select()" />
-        </div>
-      `)
+    `);
+    row.querySelector("button").addEventListener("click", () =>
+      withError(async () => {
+        await call("RevokeInvitation", { invitationId: inv.id });
+        await loadFamilyData();
+      })
     );
-  }
-  wrap.appendChild(form);
-  return wrap;
+    listCard.appendChild(row);
+  });
+  return listCard;
 }
 
 // ---- History tab (parents): today/yesterday/this week, with an
@@ -1948,6 +2063,8 @@ function renderSettingsTab() {
     confirmingRemoveChildId = null;
     confirmingLeaveFamily = false;
     confirmingDeleteFamily = false;
+    expandedFamilyRow = null;
+    lastCreatedInviteCode = null;
     render();
   });
   wrap.appendChild(backBtn);

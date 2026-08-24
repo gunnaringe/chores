@@ -551,6 +551,43 @@ func (s *Server) ListUsers(ctx context.Context, req *connect.Request[v1.ListUser
 	return connect.NewResponse(&v1.ListUsersResponse{Users: users}), nil
 }
 
+// UpdateUser renames a user. It's self-service only — even a parent can't
+// rename anyone else this way — so it's gated on a role check first (which,
+// unlike a bare requireMembership, also closes it to a dashboard key; see
+// requireRole's doc comment) and then an explicit "is this actually you"
+// check against the caller's own bound identity.
+func (s *Server) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	userID := req.Msg.GetUserId()
+	name := strings.TrimSpace(req.Msg.GetName())
+	if userID == "" || name == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("user_id and name are required"))
+	}
+	target, err := s.getUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requireRole(ctx, target.FamilyId, v1.UserRole_USER_ROLE_PARENT, v1.UserRole_USER_ROLE_CHILD); err != nil {
+		return nil, err
+	}
+	if identity, ok := s.currentIdentity(ctx); ok {
+		bound, err := s.boundUserInFamily(ctx, identity, target.FamilyId)
+		if err != nil {
+			return nil, err
+		}
+		if bound == nil || bound.Id != userID {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("you can only rename yourself"))
+		}
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE users SET name = ? WHERE id = ?`, name, userID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update user: %w", err))
+	}
+	updated, err := s.getUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&v1.UpdateUserResponse{User: updated}), nil
+}
+
 // countParents returns how many parent rows familyID currently has —
 // used to stop the last one from leaving (deleting the family instead is
 // how you get rid of the last parent).
@@ -1736,13 +1773,13 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitations require auth0 login to be enabled"))
 	}
 
-	var invID, familyID, userID, role, expiresAtStr string
+	var invID, familyID, userID, expiresAtStr string
 	var acceptedAt sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT i.id, i.family_id, i.user_id, u.role, i.expires_at, i.accepted_at
-		 FROM invitations i JOIN users u ON u.id = i.user_id
+		`SELECT i.id, i.family_id, i.user_id, i.expires_at, i.accepted_at
+		 FROM invitations i
 		 WHERE i.token = ?`, token,
-	).Scan(&invID, &familyID, &userID, &role, &expiresAtStr, &acceptedAt)
+	).Scan(&invID, &familyID, &userID, &expiresAtStr, &acceptedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("invitation not found"))
 	}
@@ -1760,20 +1797,14 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitation has expired"))
 	}
 
-	// Parents stay limited to one family via this flow. Children can be
-	// members of several families (e.g. split households), but not the same
-	// family twice.
+	// A login can be bound to the same family only once — otherwise both
+	// parents and children can belong to as many families as they've been
+	// invited into (e.g. a parent co-running two households, or a child
+	// split between them).
 	var existing string
-	if role == "parent" {
-		err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&existing)
-		if err == nil {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you already belong to a family"))
-		}
-	} else {
-		err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&existing)
-		if err == nil {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you are already a member of this family"))
-		}
+	err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&existing)
+	if err == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you are already a member of this family"))
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeInternal, err)

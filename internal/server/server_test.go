@@ -149,6 +149,56 @@ func TestFamilyScoping_CrossFamilyAccessDenied(t *testing.T) {
 	}
 }
 
+func TestUpdateUser_SelfOnly(t *testing.T) {
+	s := newTestServer(t)
+	ctxParent1 := withIdentity("auth0|parent1")
+	ctxParent2 := withIdentity("auth0|parent2")
+
+	fam, err := s.CreateFamily(ctxParent1, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Parent One"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	inv, err := s.CreateInvitation(ctxParent1, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Parent Two", Role: v1.UserRole_USER_ROLE_PARENT,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxParent2, connect.NewRequest(&v1.AcceptInvitationRequest{Token: inv.Msg.Token})); err != nil {
+		t.Fatalf("AcceptInvitation: %v", err)
+	}
+	users, err := s.ListUsers(ctxParent1, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	var p1ID, p2ID string
+	for _, u := range users.Msg.Users {
+		if u.Name == "Parent One" {
+			p1ID = u.Id
+		} else if u.Name == "Parent Two" {
+			p2ID = u.Id
+		}
+	}
+	if p1ID == "" || p2ID == "" {
+		t.Fatalf("expected to find both parents, got %+v", users.Msg.Users)
+	}
+
+	// Renaming yourself succeeds.
+	renamed, err := s.UpdateUser(ctxParent1, connect.NewRequest(&v1.UpdateUserRequest{UserId: p1ID, Name: "Parent One Renamed"}))
+	if err != nil {
+		t.Fatalf("UpdateUser self: %v", err)
+	}
+	if renamed.Msg.User.Name != "Parent One Renamed" {
+		t.Fatalf("expected renamed name, got %q", renamed.Msg.User.Name)
+	}
+
+	// Renaming the other parent is rejected, even though both are parents in
+	// the same family.
+	if _, err := s.UpdateUser(ctxParent1, connect.NewRequest(&v1.UpdateUserRequest{UserId: p2ID, Name: "Hijacked"})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied renaming another parent, got %v", err)
+	}
+}
+
 func TestInvitationFlow(t *testing.T) {
 	s := newTestServer(t)
 	ctxParent := withIdentity("auth0|parent1")
@@ -738,6 +788,66 @@ func TestChild_CanBeMemberOfMultipleFamilies(t *testing.T) {
 		TaskId: taskA.Msg.Task.Id, ChildId: kidBUserID, DueDate: "2024-01-01",
 	})); err == nil {
 		t.Fatal("expected completing family A's task using the family B user id to fail")
+	}
+}
+
+// TestParent_CanBeMemberOfMultipleFamilies covers a parent co-running two
+// households: unlike the old rule, accepting a second family's parent
+// invitation must succeed, and only re-joining the *same* family is
+// rejected.
+func TestParent_CanBeMemberOfMultipleFamilies(t *testing.T) {
+	s := newTestServer(t)
+	ctxParentA := withIdentity("auth0|parentA")
+	ctxParentB := withIdentity("auth0|parentB")
+	ctxDad := withIdentity("auth0|dad")
+
+	famA, err := s.CreateFamily(ctxParentA, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family A", ParentName: "Parent A"}))
+	if err != nil {
+		t.Fatalf("CreateFamily A: %v", err)
+	}
+	famB, err := s.CreateFamily(ctxParentB, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family B", ParentName: "Parent B"}))
+	if err != nil {
+		t.Fatalf("CreateFamily B: %v", err)
+	}
+
+	invA, err := s.CreateInvitation(ctxParentA, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: famA.Msg.Family.Id, Name: "Dad", Role: v1.UserRole_USER_ROLE_PARENT,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation A: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxDad, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invA.Msg.Token})); err != nil {
+		t.Fatalf("AcceptInvitation A: %v", err)
+	}
+
+	invB, err := s.CreateInvitation(ctxParentB, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: famB.Msg.Family.Id, Name: "Dad", Role: v1.UserRole_USER_ROLE_PARENT,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation B: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxDad, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invB.Msg.Token})); err != nil {
+		t.Fatalf("expected the same parent login to accept a second family's parent invitation, got: %v", err)
+	}
+
+	membership, err := s.GetMyMembership(ctxDad, connect.NewRequest(&v1.GetMyMembershipRequest{}))
+	if err != nil {
+		t.Fatalf("GetMyMembership: %v", err)
+	}
+	if len(membership.Msg.Memberships) != 2 {
+		t.Fatalf("expected 2 memberships, got %d: %+v", len(membership.Msg.Memberships), membership.Msg.Memberships)
+	}
+
+	// Re-joining the same family (a second, separate invite to family A) must
+	// still be rejected.
+	invA2, err := s.CreateInvitation(ctxParentA, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: famA.Msg.Family.Id, Name: "Dad Again", Role: v1.UserRole_USER_ROLE_PARENT,
+	}))
+	if err != nil {
+		t.Fatalf("CreateInvitation A2: %v", err)
+	}
+	if _, err := s.AcceptInvitation(ctxDad, connect.NewRequest(&v1.AcceptInvitationRequest{Token: invA2.Msg.Token})); codeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("expected FailedPrecondition re-joining the same family, got %v", err)
 	}
 }
 

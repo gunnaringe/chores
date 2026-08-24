@@ -62,12 +62,11 @@ that space would otherwise sit unused.
 - Balance tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
-- A child can belong to more than one family at once (e.g. a child who
-  splits time between two households, each running its own independent
-  chores/allowance) — when a login is bound to more than one family, it's
-  asked which household to open, with a "Switch household" control to
-  change later. A parent's login, by contrast, is always scoped to exactly
-  one family.
+- A login — parent or child — can belong to more than one family at once
+  (e.g. a child who splits time between two households, or a parent
+  co-running two, each running its own independent chores/allowance) — when
+  a login is bound to more than one family, it's asked which household to
+  open, with a "Switch household" control to change later.
 - The page auto-refreshes every 5 minutes (so a completion made from another
   device or family member's session shows up without a manual reload),
   pausing automatically while a form on the page has focus so it never wipes
@@ -174,24 +173,45 @@ profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
 don't survive a server restart. `/auth/logout` clears the session and signs
 out of Auth0 too.
 
+### The family members list
+
+The Family section of the Settings page lists every member as a collapsed
+row; tapping one expands it to show what can be done with it, which depends
+on whose row it is:
+
+- **Your own row** — rename yourself, and (parents only) leave the family.
+- **A child's row** — remove them, which cascades away their task
+  assignments, completion history, and payout history along with them.
+- **A co-parent's row** — nothing. It's shown so you know who's in the
+  family, but there's nothing to manage from someone else's row.
+
+Two more rows sit at the bottom of the same list, expanding the same way:
+
+- **"+ Add a family member"** — add someone directly, with no login of
+  their own (the usual way to add a child too young to have an account); or,
+  when Auth0 is enabled, send them an invite instead (see below).
+- **"+ Join a family"** — enter an invite code someone else sent you, to
+  become a member of their family too. A login — parent or child — can
+  accept invites into more than one family; the only thing rejected is
+  accepting the same family's invite twice with a login already bound
+  there. That's what makes both the "lives in two households" case and a
+  parent co-running two families work. (This only works once Auth0 is
+  enabled, same as sending an invite does; a family you already belong to
+  will also reject a second acceptance the normal way.)
+
 ### Inviting a family member
 
-From the Family section of the Settings page, a parent can create an invite
-link for another parent (e.g. the other guardian) or for a child old enough
-to have their own Auth0 account. The link is a one-time, unguessable token
-(`/invite/accept?token=...`) — whoever opens it, after logging into their
-own Auth0 account, is bound to that slot in the same family, with the role
-the invite was created for. The token is shown once at creation time; a
-parent can revoke an invite before it's accepted, which also removes the
-unclaimed slot it created. Accepting an invite isn't restricted to any
-particular email address — possession of the link is what grants access, so
-only share it with the intended person.
-
-A parent login can only ever be bound to one family this way — accepting a
-second parent invite with a login that already belongs somewhere is
-rejected. A child invite has no such limit: the same login can accept
-invites into more than one family, which is exactly the "lives in two
-households" case.
+Sending an invite (from the "+ Add a family member" row, once Auth0 is
+enabled) creates a one-time invite code for another parent (e.g. the other
+guardian) or for a child old enough to have their own Auth0 account.
+Whoever enters that code in the "+ Join a family" row — after logging into
+their own Auth0 account — is bound to that slot in the same family, with
+the role the invite was created for. The code is shown once, right where it
+was created; a parent can revoke an invite before it's accepted (from the
+"Pending invitations" list), which also removes the unclaimed slot it
+created. Accepting an invite isn't restricted to any particular email
+address — possession of the code is what grants access, so only share it
+with the intended person.
 
 ### Leaving, removing a child, or deleting the family
 
