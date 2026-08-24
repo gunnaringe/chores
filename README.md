@@ -36,17 +36,25 @@ that space would otherwise sit unused.
   every other week and beyond, counted from the date the task was created),
   or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
   every month) for anything the other two can't express.
-- A parent's Home tab is a daily dashboard: for each child, today's tasks
-  and their completion status, what they've earned today, and their
-  outstanding balance — all at a glance. Managing tasks (add/edit/pause/
-  delete) lives on its own Tasks tab, and payouts/balance history live on
-  their own Accounting tab, since those are different activities done at
-  different times. Switching to a specific child's own restricted view (via
-  "Switch user") is a separate action, mainly useful for previewing what a
-  kid sees, or for a parent marking a chore done on behalf of a child who
-  doesn't have their own login.
-- Children mark their own assigned tasks done for a given day, and see only
-  their own accounting.
+- A parent gets four tabs. **Today** is a daily dashboard: for each child,
+  today's tasks and their completion status, what they've earned today, and
+  their outstanding balance — all at a glance. **Tasks** manages task
+  definitions (add/edit/pause/delete). **Accounting** handles payouts and
+  balance history. **History** is a browsable log of every completion,
+  grouped into Today / Yesterday / Earlier this week / Later — the "Later"
+  group loads a page at a time as you ask for more, rather than pulling a
+  family's entire history up front — plus a search box that matches by task
+  title or child name across the whole history. Switching to a specific
+  child's own restricted view (via "Switch user") is a separate action,
+  mainly useful for previewing what a kid sees, or for a parent marking a
+  chore done on behalf of a child who doesn't have their own login — that
+  switcher only ever offers children and yourself, never another parent, so
+  one parent's login can't casually end up "being" a co-parent.
+- A child gets a single page, no tabs: their own checklist for today, with
+  what they've earned today, this week, and their current balance shown
+  right above it. There's no separate balance/payout page or family-member
+  list for a child to get lost in — those are parent-only concerns, tucked
+  into the Accounting tab and the Settings page respectively.
 - Accounting tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
@@ -59,10 +67,12 @@ that space would otherwise sit unused.
 - The page auto-refreshes every 5 minutes (so a completion made from another
   device or family member's session shows up without a manual reload),
   pausing automatically while a form on the page has focus so it never wipes
-  out something you're mid-typing. This — and Web Push notifications, sent
-  to every other subscribed device in the family whenever a task is
-  completed — can each be turned off from the Settings page (the button
-  next to "Switch user" in the top bar).
+  out something you're mid-typing. This, Web Push notifications (sent to
+  every other subscribed device in the family whenever a task is completed),
+  and — for a parent — managing family members and invitations, all live on
+  the Settings page (the button next to "Switch user" in the top bar), since
+  none of them are things you look at often enough to deserve their own
+  always-visible tab.
 
 ### Push notifications
 

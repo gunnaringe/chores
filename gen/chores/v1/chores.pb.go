@@ -565,9 +565,15 @@ type TaskCompletion struct {
 	ChildId  string                 `protobuf:"bytes,3,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
 	FamilyId string                 `protobuf:"bytes,4,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
 	// The calendar date (YYYY-MM-DD) the task instance was due/completed for.
-	DueDate       string                 `protobuf:"bytes,5,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
-	AmountCents   int64                  `protobuf:"varint,6,opt,name=amount_cents,json=amountCents,proto3" json:"amount_cents,omitempty"`
-	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	DueDate     string                 `protobuf:"bytes,5,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
+	AmountCents int64                  `protobuf:"varint,6,opt,name=amount_cents,json=amountCents,proto3" json:"amount_cents,omitempty"`
+	CompletedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	// Denormalized at read time from the task/child rows as they are *now*
+	// (not as they were when completed), so History never needs a second
+	// round trip to resolve names — and still renders sensibly for a task
+	// that's since been renamed or paused.
+	TaskTitle     string `protobuf:"bytes,8,opt,name=task_title,json=taskTitle,proto3" json:"task_title,omitempty"`
+	ChildName     string `protobuf:"bytes,9,opt,name=child_name,json=childName,proto3" json:"child_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -649,6 +655,20 @@ func (x *TaskCompletion) GetCompletedAt() *timestamppb.Timestamp {
 		return x.CompletedAt
 	}
 	return nil
+}
+
+func (x *TaskCompletion) GetTaskTitle() string {
+	if x != nil {
+		return x.TaskTitle
+	}
+	return ""
+}
+
+func (x *TaskCompletion) GetChildName() string {
+	if x != nil {
+		return x.ChildName
+	}
+	return ""
 }
 
 type Payout struct {
@@ -752,8 +772,13 @@ type ChildSummary struct {
 	TotalPaidOutCents     int64                  `protobuf:"varint,5,opt,name=total_paid_out_cents,json=totalPaidOutCents,proto3" json:"total_paid_out_cents,omitempty"`
 	LastPayoutAt          *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_payout_at,json=lastPayoutAt,proto3" json:"last_payout_at,omitempty"`
 	EarnedTodayCents      int64                  `protobuf:"varint,7,opt,name=earned_today_cents,json=earnedTodayCents,proto3" json:"earned_today_cents,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Sum of completions due since the current calendar week's Monday
+	// (through today), matching the Monday-first week the UI shows
+	// elsewhere — distinct from earned_last_7_days_cents, which is a
+	// rolling window rather than a calendar week.
+	EarnedThisWeekCents int64 `protobuf:"varint,8,opt,name=earned_this_week_cents,json=earnedThisWeekCents,proto3" json:"earned_this_week_cents,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ChildSummary) Reset() {
@@ -831,6 +856,13 @@ func (x *ChildSummary) GetLastPayoutAt() *timestamppb.Timestamp {
 func (x *ChildSummary) GetEarnedTodayCents() int64 {
 	if x != nil {
 		return x.EarnedTodayCents
+	}
+	return 0
+}
+
+func (x *ChildSummary) GetEarnedThisWeekCents() int64 {
+	if x != nil {
+		return x.EarnedThisWeekCents
 	}
 	return 0
 }
@@ -2135,9 +2167,18 @@ func (*UncompleteTaskResponse) Descriptor() ([]byte, []int) {
 }
 
 type ListTaskCompletionsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FamilyId      string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
-	ChildId       string                 `protobuf:"bytes,2,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"` // optional filter
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	FamilyId  string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	ChildId   string                 `protobuf:"bytes,2,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`       // optional filter
+	StartDate string                 `protobuf:"bytes,3,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // optional inclusive lower bound on due_date
+	EndDate   string                 `protobuf:"bytes,4,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`       // optional inclusive upper bound on due_date
+	// Case-insensitive substring match against the task's title or the
+	// child's name. Optional; when set, start_date/end_date are typically
+	// left unset so the search spans the family's whole history.
+	Search string `protobuf:"bytes,5,opt,name=search,proto3" json:"search,omitempty"`
+	// Page size; the server applies a default and a max if unset or <= 0.
+	Limit         int32 `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32 `protobuf:"varint,7,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2186,9 +2227,47 @@ func (x *ListTaskCompletionsRequest) GetChildId() string {
 	return ""
 }
 
+func (x *ListTaskCompletionsRequest) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *ListTaskCompletionsRequest) GetEndDate() string {
+	if x != nil {
+		return x.EndDate
+	}
+	return ""
+}
+
+func (x *ListTaskCompletionsRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListTaskCompletionsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListTaskCompletionsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
 type ListTaskCompletionsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Completions   []*TaskCompletion      `protobuf:"bytes,1,rep,name=completions,proto3" json:"completions,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Completions []*TaskCompletion      `protobuf:"bytes,1,rep,name=completions,proto3" json:"completions,omitempty"`
+	// True if more completions exist beyond this page (offset + limit) —
+	// drives the History tab's "load more" button for older entries.
+	HasMore       bool `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2228,6 +2307,13 @@ func (x *ListTaskCompletionsResponse) GetCompletions() []*TaskCompletion {
 		return x.Completions
 	}
 	return nil
+}
+
+func (x *ListTaskCompletionsResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
 }
 
 type GetChildSummaryRequest struct {
@@ -3639,7 +3725,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"daysOfWeek\x122\n" +
 	"\x15repeat_interval_weeks\x18\r \x01(\x05R\x13repeatIntervalWeeks\x12\x1d\n" +
 	"\n" +
-	"start_date\x18\x0e \x01(\tR\tstartDate\"\xee\x01\n" +
+	"start_date\x18\x0e \x01(\tR\tstartDate\"\xac\x02\n" +
 	"\x0eTaskCompletion\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
@@ -3647,7 +3733,11 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\tfamily_id\x18\x04 \x01(\tR\bfamilyId\x12\x19\n" +
 	"\bdue_date\x18\x05 \x01(\tR\adueDate\x12!\n" +
 	"\famount_cents\x18\x06 \x01(\x03R\vamountCents\x12=\n" +
-	"\fcompleted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"\xe3\x01\n" +
+	"\fcompleted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x1d\n" +
+	"\n" +
+	"task_title\x18\b \x01(\tR\ttaskTitle\x12\x1d\n" +
+	"\n" +
+	"child_name\x18\t \x01(\tR\tchildName\"\xe3\x01\n" +
 	"\x06Payout\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bchild_id\x18\x02 \x01(\tR\achildId\x12\x1b\n" +
@@ -3657,7 +3747,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"fullPayout\x12\x12\n" +
 	"\x04note\x18\x06 \x01(\tR\x04note\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe1\x02\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x96\x03\n" +
 	"\fChildSummary\x12%\n" +
 	"\x05child\x18\x01 \x01(\v2\x0f.chores.v1.UserR\x05child\x126\n" +
 	"\x18earned_last_7_days_cents\x18\x02 \x01(\x03R\x14earnedLast7DaysCents\x12#\n" +
@@ -3665,7 +3755,8 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x12total_earned_cents\x18\x04 \x01(\x03R\x10totalEarnedCents\x12/\n" +
 	"\x14total_paid_out_cents\x18\x05 \x01(\x03R\x11totalPaidOutCents\x12@\n" +
 	"\x0elast_payout_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastPayoutAt\x12,\n" +
-	"\x12earned_today_cents\x18\a \x01(\x03R\x10earnedTodayCents\"\xe3\x01\n" +
+	"\x12earned_today_cents\x18\a \x01(\x03R\x10earnedTodayCents\x123\n" +
+	"\x16earned_this_week_cents\x18\b \x01(\x03R\x13earnedThisWeekCents\"\xe3\x01\n" +
 	"\x0eTaskOccurrence\x12#\n" +
 	"\x04task\x18\x01 \x01(\v2\x0f.chores.v1.TaskR\x04task\x12\x19\n" +
 	"\bdue_date\x18\x02 \x01(\tR\adueDate\x12\x1c\n" +
@@ -3761,12 +3852,19 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bchild_id\x18\x02 \x01(\tR\achildId\x12\x19\n" +
 	"\bdue_date\x18\x03 \x01(\tR\adueDate\"\x18\n" +
-	"\x16UncompleteTaskResponse\"T\n" +
+	"\x16UncompleteTaskResponse\"\xd4\x01\n" +
 	"\x1aListTaskCompletionsRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x19\n" +
-	"\bchild_id\x18\x02 \x01(\tR\achildId\"Z\n" +
+	"\bchild_id\x18\x02 \x01(\tR\achildId\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x03 \x01(\tR\tstartDate\x12\x19\n" +
+	"\bend_date\x18\x04 \x01(\tR\aendDate\x12\x16\n" +
+	"\x06search\x18\x05 \x01(\tR\x06search\x12\x14\n" +
+	"\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\a \x01(\x05R\x06offset\"u\n" +
 	"\x1bListTaskCompletionsResponse\x12;\n" +
-	"\vcompletions\x18\x01 \x03(\v2\x19.chores.v1.TaskCompletionR\vcompletions\"3\n" +
+	"\vcompletions\x18\x01 \x03(\v2\x19.chores.v1.TaskCompletionR\vcompletions\x12\x19\n" +
+	"\bhas_more\x18\x02 \x01(\bR\ahasMore\"3\n" +
 	"\x16GetChildSummaryRequest\x12\x19\n" +
 	"\bchild_id\x18\x01 \x01(\tR\achildId\"L\n" +
 	"\x17GetChildSummaryResponse\x121\n" +

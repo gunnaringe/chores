@@ -74,6 +74,12 @@ p { color: var(--muted); margin: 0 0 12px; }
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 12px;
+}
+.input-full { width: 100%; }
 button, select, input, textarea {
   font: inherit;
   border-radius: 8px;
@@ -163,6 +169,19 @@ label {
 }
 .checkbtn.done { background: var(--green); border-color: var(--green); }
 .checkbtn.todo { background: transparent; color: var(--muted); }
+/* A fixed-width icon button — used for pause/resume so toggling between
+   the two doesn't change the button's width and shove its neighbors
+   sideways, the way swapping "Pause" for "Gjenoppta"/"Resume" text did. */
+.btn-icon {
+  width: 40px;
+  padding: 8px 0;
+  text-align: center;
+  flex: none;
+}
+.btn-icon .material-symbols-outlined {
+  font-size: 20px;
+  vertical-align: middle;
+}
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .child-toggles {
   display: flex;

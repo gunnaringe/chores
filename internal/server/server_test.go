@@ -740,3 +740,159 @@ func TestChild_CanBeMemberOfMultipleFamilies(t *testing.T) {
 		t.Fatal("expected completing family A's task using the family B user id to fail")
 	}
 }
+
+func TestChildSummary_EarnedThisWeek(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	monday := mondayOfWeek(time.Now())
+	inWeek := scheduling.FormatDate(monday)
+	beforeWeek := scheduling.FormatDate(monday.AddDate(0, 0, -1)) // last Sunday: the prior week
+
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: inWeek,
+	})); err != nil {
+		t.Fatalf("CompleteTask (in week): %v", err)
+	}
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: task.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: beforeWeek,
+	})); err != nil {
+		t.Fatalf("CompleteTask (before week): %v", err)
+	}
+
+	resp, err := s.GetChildSummary(ctx, connect.NewRequest(&v1.GetChildSummaryRequest{ChildId: child.Msg.User.Id}))
+	if err != nil {
+		t.Fatalf("GetChildSummary: %v", err)
+	}
+	if got := resp.Msg.Summary.EarnedThisWeekCents; got != 100 {
+		t.Fatalf("expected earned_this_week_cents to count only this Monday's completion (100), got %d", got)
+	}
+	if got := resp.Msg.Summary.TotalEarnedCents; got != 200 {
+		t.Fatalf("expected total_earned_cents to count both completions (200), got %d", got)
+	}
+}
+
+func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	childA, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Alice", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser A: %v", err)
+	}
+	childB, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Bob", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser B: %v", err)
+	}
+	dishes, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{childA.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask Dishes: %v", err)
+	}
+	laundry, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Laundry", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 200, ChildIds: []string{childB.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask Laundry: %v", err)
+	}
+
+	dates := []string{"2024-01-01", "2024-01-02", "2024-01-03"}
+	for _, d := range dates {
+		if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+			TaskId: dishes.Msg.Task.Id, ChildId: childA.Msg.User.Id, DueDate: d,
+		})); err != nil {
+			t.Fatalf("CompleteTask Dishes %s: %v", d, err)
+		}
+	}
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: laundry.Msg.Task.Id, ChildId: childB.Msg.User.Id, DueDate: "2024-01-01",
+	})); err != nil {
+		t.Fatalf("CompleteTask Laundry: %v", err)
+	}
+
+	// Search by task title (case-insensitive substring).
+	resp, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{FamilyId: fam.Msg.Family.Id, Search: "dish"}))
+	if err != nil {
+		t.Fatalf("ListTaskCompletions search by title: %v", err)
+	}
+	if len(resp.Msg.Completions) != 3 {
+		t.Fatalf("expected 3 Dishes completions matching %q, got %d", "dish", len(resp.Msg.Completions))
+	}
+	for _, c := range resp.Msg.Completions {
+		if c.TaskTitle != "Dishes" || c.ChildName != "Alice" {
+			t.Fatalf("expected denormalized task_title/child_name on results, got %+v", c)
+		}
+	}
+
+	// Search by child name.
+	resp, err = s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{FamilyId: fam.Msg.Family.Id, Search: "bob"}))
+	if err != nil {
+		t.Fatalf("ListTaskCompletions search by child name: %v", err)
+	}
+	if len(resp.Msg.Completions) != 1 || resp.Msg.Completions[0].TaskTitle != "Laundry" {
+		t.Fatalf("expected exactly the Laundry completion for Bob, got %+v", resp.Msg.Completions)
+	}
+
+	// Pagination over the 3 Dishes completions (ordered by due_date DESC):
+	// a page of 2 reports has_more, and the next page picks up the rest.
+	page1, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{
+		FamilyId: fam.Msg.Family.Id, ChildId: childA.Msg.User.Id, Limit: 2, Offset: 0,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskCompletions page 1: %v", err)
+	}
+	if len(page1.Msg.Completions) != 2 || !page1.Msg.HasMore {
+		t.Fatalf("expected page 1 to have 2 results and has_more=true, got %d results has_more=%v", len(page1.Msg.Completions), page1.Msg.HasMore)
+	}
+	if page1.Msg.Completions[0].DueDate != "2024-01-03" || page1.Msg.Completions[1].DueDate != "2024-01-02" {
+		t.Fatalf("expected page 1 in due_date DESC order, got %+v", page1.Msg.Completions)
+	}
+
+	page2, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{
+		FamilyId: fam.Msg.Family.Id, ChildId: childA.Msg.User.Id, Limit: 2, Offset: 2,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskCompletions page 2: %v", err)
+	}
+	if len(page2.Msg.Completions) != 1 || page2.Msg.HasMore {
+		t.Fatalf("expected page 2 to have the last result and has_more=false, got %d results has_more=%v", len(page2.Msg.Completions), page2.Msg.HasMore)
+	}
+	if page2.Msg.Completions[0].DueDate != "2024-01-01" {
+		t.Fatalf("expected the last remaining completion to be 2024-01-01, got %+v", page2.Msg.Completions[0])
+	}
+
+	// start_date/end_date bound the range (used for the "recent" bucket:
+	// today/yesterday/this week).
+	ranged, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-02", EndDate: "2024-01-03",
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskCompletions ranged: %v", err)
+	}
+	if len(ranged.Msg.Completions) != 2 {
+		t.Fatalf("expected 2 completions in [2024-01-02, 2024-01-03], got %d: %+v", len(ranged.Msg.Completions), ranged.Msg.Completions)
+	}
+}

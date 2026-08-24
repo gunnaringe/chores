@@ -1050,6 +1050,25 @@ func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.Unc
 	return connect.NewResponse(&v1.UncompleteTaskResponse{}), nil
 }
 
+const (
+	defaultCompletionsLimit = 20
+	maxCompletionsLimit     = 100
+)
+
+func scanCompletionWithNames(row rowScanner) (*v1.TaskCompletion, error) {
+	var c v1.TaskCompletion
+	var completedAt string
+	if err := row.Scan(&c.Id, &c.TaskId, &c.ChildId, &c.FamilyId, &c.DueDate, &c.AmountCents, &completedAt, &c.TaskTitle, &c.ChildName); err != nil {
+		return nil, err
+	}
+	t, err := parseTime(completedAt)
+	if err != nil {
+		return nil, err
+	}
+	c.CompletedAt = timestampPB(t)
+	return &c, nil
+}
+
 func (s *Server) ListTaskCompletions(ctx context.Context, req *connect.Request[v1.ListTaskCompletionsRequest]) (*connect.Response[v1.ListTaskCompletionsResponse], error) {
 	familyID := req.Msg.GetFamilyId()
 	if familyID == "" {
@@ -1062,14 +1081,45 @@ func (s *Server) ListTaskCompletions(ctx context.Context, req *connect.Request[v
 	if err != nil {
 		return nil, err
 	}
-	query := `SELECT id, task_id, child_id, family_id, due_date, amount_cents, completed_at
-	           FROM task_completions WHERE family_id = ?`
+
+	limit := int(req.Msg.GetLimit())
+	if limit <= 0 {
+		limit = defaultCompletionsLimit
+	}
+	if limit > maxCompletionsLimit {
+		limit = maxCompletionsLimit
+	}
+	offset := int(req.Msg.GetOffset())
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := `SELECT tc.id, tc.task_id, tc.child_id, tc.family_id, tc.due_date, tc.amount_cents, tc.completed_at, t.title, u.name
+	           FROM task_completions tc
+	           JOIN tasks t ON t.id = tc.task_id
+	           JOIN users u ON u.id = tc.child_id
+	           WHERE tc.family_id = ?`
 	args := []any{familyID}
 	if childFilter != "" {
-		query += ` AND child_id = ?`
+		query += ` AND tc.child_id = ?`
 		args = append(args, childFilter)
 	}
-	query += ` ORDER BY due_date DESC`
+	if start := req.Msg.GetStartDate(); start != "" {
+		query += ` AND tc.due_date >= ?`
+		args = append(args, start)
+	}
+	if end := req.Msg.GetEndDate(); end != "" {
+		query += ` AND tc.due_date <= ?`
+		args = append(args, end)
+	}
+	if search := strings.TrimSpace(req.Msg.GetSearch()); search != "" {
+		query += ` AND (LOWER(t.title) LIKE '%' || LOWER(?) || '%' OR LOWER(u.name) LIKE '%' || LOWER(?) || '%')`
+		args = append(args, search, search)
+	}
+	query += ` ORDER BY tc.due_date DESC, tc.completed_at DESC LIMIT ? OFFSET ?`
+	// Fetch one extra row to know whether another page exists, without a
+	// separate COUNT(*) query.
+	args = append(args, limit+1, offset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -1079,21 +1129,39 @@ func (s *Server) ListTaskCompletions(ctx context.Context, req *connect.Request[v
 
 	var completions []*v1.TaskCompletion
 	for rows.Next() {
-		c, err := scanCompletion(rows)
+		c, err := scanCompletionWithNames(rows)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		completions = append(completions, c)
 	}
-	return connect.NewResponse(&v1.ListTaskCompletionsResponse{Completions: completions}), nil
+	if err := rows.Err(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	hasMore := len(completions) > limit
+	if hasMore {
+		completions = completions[:limit]
+	}
+	return connect.NewResponse(&v1.ListTaskCompletionsResponse{Completions: completions, HasMore: hasMore}), nil
 }
 
 // ---- Accounting -----------------------------------------------------
 
+// mondayOfWeek returns the calendar date (midnight, t's own location) of
+// the Monday on or before t — the Monday-first week boundary the UI shows
+// elsewhere, as opposed to a rolling 7-day window.
+func mondayOfWeek(t time.Time) time.Time {
+	t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	daysSinceMonday := (int(t.Weekday()) + 6) % 7 // Mon=0 .. Sun=6
+	return t.AddDate(0, 0, -daysSinceMonday)
+}
+
 func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildSummary, error) {
-	var totalEarned, earnedLast7Days, earnedToday, totalPaidOut sql.NullInt64
+	var totalEarned, earnedLast7Days, earnedToday, earnedThisWeek, totalPaidOut sql.NullInt64
 	sevenDaysAgo := formatTime(nowUTC().AddDate(0, 0, -7))
 	today := scheduling.FormatDate(nowUTC())
+	startOfWeek := scheduling.FormatDate(mondayOfWeek(nowUTC()))
 
 	if err := s.db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ?`,
@@ -1111,6 +1179,12 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND due_date = ?`,
 		child.Id, today,
 	).Scan(&earnedToday); err != nil {
+		return nil, err
+	}
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND due_date >= ?`,
+		child.Id, startOfWeek,
+	).Scan(&earnedThisWeek); err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx,
@@ -1132,6 +1206,7 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 		Child:                 child,
 		EarnedLast_7DaysCents: earnedLast7Days.Int64,
 		EarnedTodayCents:      earnedToday.Int64,
+		EarnedThisWeekCents:   earnedThisWeek.Int64,
 		TotalEarnedCents:      totalEarned.Int64,
 		TotalPaidOutCents:     totalPaidOut.Int64,
 		BalanceCents:          totalEarned.Int64 - totalPaidOut.Int64,

@@ -104,6 +104,12 @@ message TaskCompletion {
   string due_date = 5;
   int64 amount_cents = 6;
   google.protobuf.Timestamp completed_at = 7;
+  // Denormalized at read time from the task/child rows as they are *now*
+  // (not as they were when completed), so History never needs a second
+  // round trip to resolve names — and still renders sensibly for a task
+  // that's since been renamed or paused.
+  string task_title = 8;
+  string child_name = 9;
 }
 
 message Payout {
@@ -124,6 +130,11 @@ message ChildSummary {
   int64 total_paid_out_cents = 5;
   google.protobuf.Timestamp last_payout_at = 6;
   int64 earned_today_cents = 7;
+  // Sum of completions due since the current calendar week's Monday
+  // (through today), matching the Monday-first week the UI shows
+  // elsewhere — distinct from earned_last_7_days_cents, which is a
+  // rolling window rather than a calendar week.
+  int64 earned_this_week_cents = 8;
 }
 
 // Represents one occurrence of a recurring task, for one of the children it
@@ -263,9 +274,21 @@ message UncompleteTaskResponse {}
 message ListTaskCompletionsRequest {
   string family_id = 1;
   string child_id = 2; // optional filter
+  string start_date = 3; // optional inclusive lower bound on due_date
+  string end_date = 4;   // optional inclusive upper bound on due_date
+  // Case-insensitive substring match against the task's title or the
+  // child's name. Optional; when set, start_date/end_date are typically
+  // left unset so the search spans the family's whole history.
+  string search = 5;
+  // Page size; the server applies a default and a max if unset or <= 0.
+  int32 limit = 6;
+  int32 offset = 7;
 }
 message ListTaskCompletionsResponse {
   repeated TaskCompletion completions = 1;
+  // True if more completions exist beyond this page (offset + limit) —
+  // drives the History tab's "load more" button for older entries.
+  bool has_more = 2;
 }
 
 message GetChildSummaryRequest {

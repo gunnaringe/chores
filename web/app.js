@@ -39,6 +39,28 @@ const todayStr = () => {
   return local.toISOString().slice(0, 10);
 };
 
+// One day before a "YYYY-MM-DD" string, computed from its Y/M/D components
+// (not by parsing it as a Date, which would be UTC-midnight and risk an
+// off-by-one in a timezone behind UTC — same reasoning as formatDateStr).
+function dayBeforeStr(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  const tz = dt.getTimezoneOffset();
+  const local = new Date(dt.getTime() - tz * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+// Monday of the current calendar week, matching the Monday-first week the
+// UI shows elsewhere (as opposed to a rolling 7-day window).
+function mondayOfWeekStr() {
+  const d = new Date();
+  const daysSinceMonday = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+  d.setDate(d.getDate() - daysSinceMonday);
+  const tz = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - tz * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 // Display order is Monday-first; `code` stays the standard cron
 // day-of-week numbering (0=Sunday..6=Saturday) that scheduling.go expects,
 // so this only reorders how days are shown, not how schedules are stored.
@@ -103,9 +125,31 @@ const state = {
   lastInviteLink: null,
   editingTaskId: null,
   pushConfig: null, // { vapidPublicKey }
+  historyRecent: [], // completions from this Monday through today
+  historyLater: [], // accumulated older pages, oldest loaded last
+  historyLaterOffset: 0,
+  historyLaterHasMore: true,
+  historyLaterLoaded: false,
+  historySearchQuery: "",
+  historySearchResults: null, // null = not searching; array once a search has run
+  historySearchOffset: 0,
+  historySearchHasMore: false,
 };
 
+function resetHistoryState() {
+  state.historyRecent = [];
+  state.historyLater = [];
+  state.historyLaterOffset = 0;
+  state.historyLaterHasMore = true;
+  state.historyLaterLoaded = false;
+  state.historySearchQuery = "";
+  state.historySearchResults = null;
+  state.historySearchOffset = 0;
+  state.historySearchHasMore = false;
+}
+
 function setFamilyId(id) {
+  if (id !== state.familyId) resetHistoryState();
   state.familyId = id;
   if (id) localStorage.setItem("chores.familyId", id);
   else localStorage.removeItem("chores.familyId");
@@ -114,6 +158,30 @@ function setUserId(id) {
   state.userId = id;
   if (id) localStorage.setItem("chores.userId", id);
   else localStorage.removeItem("chores.userId");
+}
+
+// The parent identity this browser is anchored to for the current family —
+// used to stop the user picker from ever offering "continue as" a *different*
+// parent (no impersonating a co-parent), while still allowing switching to
+// any child (the picker's actual intended use: previewing a kid's view, or
+// marking a chore done on their behalf) and switching back to yourself.
+// In auth0 mode this is simply your bound identity — there's nothing to
+// persist, since login already pins you to exactly one user per family. In
+// disabled/local-testing mode there's no login at all, so the first parent
+// ever picked on this browser for this family is remembered in localStorage
+// and never overwritten.
+function getHomeUserId() {
+  if (isAuth0Mode()) {
+    const m = state.membership && state.membership.memberships && state.membership.memberships.find((x) => x.family.id === state.familyId);
+    return m && m.user.role === "USER_ROLE_PARENT" ? m.user.id : null;
+  }
+  if (!state.familyId) return null;
+  return localStorage.getItem(`chores.homeUserId.${state.familyId}`);
+}
+function anchorHomeUserId(userId, role) {
+  if (isAuth0Mode() || role !== "USER_ROLE_PARENT" || !state.familyId) return;
+  const key = `chores.homeUserId.${state.familyId}`;
+  if (!localStorage.getItem(key)) localStorage.setItem(key, userId);
 }
 
 function currentUser() {
@@ -192,6 +260,19 @@ async function loadFamilyData() {
   if (isAuth0Mode()) {
     const invResp = await call("ListInvitations", { familyId: state.familyId });
     state.invitations = invResp.invitations || [];
+  }
+
+  // The History tab's today/yesterday/this-week groups are cheap (at most a
+  // week of rows) and stay fresh via the same auto-refresh as everything
+  // else; the paginated "later" bucket and search results are loaded
+  // separately, on demand, only while that tab is actually open.
+  if (isParent()) {
+    const histResp = await call("ListTaskCompletions", {
+      familyId: state.familyId,
+      startDate: mondayOfWeekStr(),
+      endDate: todayStr(),
+    });
+    state.historyRecent = histResp.completions || [];
   }
 }
 
@@ -285,23 +366,24 @@ function render() {
     return;
   }
 
-  // Parents get a dashboard-style "Home" tab (today's status per child, at
-  // a glance) plus separate tabs for managing tasks and for payouts/full
-  // accounting — those are different activities done at different times,
-  // not one big page. Children keep their original, simpler tabs.
+  // Parents get a dashboard-style "Today" tab (today's status per child, at
+  // a glance) plus separate tabs for managing tasks, payouts/accounting, and
+  // browsing history — those are different activities done at different
+  // times, not one big page. A child has exactly one thing to do here
+  // (their own tasks, with their own earnings shown right there), so they
+  // get no tab bar at all rather than a bar with a single button on it.
   const parentMode = isParent();
-  const tabDefs = parentMode
-    ? [
-        { key: "home", label: t("tabs.home") },
-        { key: "tasks", label: t("tabs.tasks") },
-        { key: "accounting", label: t("tabs.accounting") },
-        { key: "family", label: t("tabs.family") },
-      ]
-    : [
-        { key: "tasks", label: t("tabs.tasks") },
-        { key: "accounting", label: t("tabs.accounting") },
-        { key: "family", label: t("tabs.family") },
-      ];
+  if (!parentMode) {
+    app.appendChild(renderChildTasksTab());
+    return;
+  }
+
+  const tabDefs = [
+    { key: "home", label: t("tabs.today") },
+    { key: "tasks", label: t("tabs.tasks") },
+    { key: "accounting", label: t("tabs.accounting") },
+    { key: "history", label: t("tabs.history") },
+  ];
   const activeTab = tabDefs.some((d) => d.key === state.tab) ? state.tab : tabDefs[0].key;
 
   const tabs = el(
@@ -318,10 +400,10 @@ function render() {
   );
   app.appendChild(tabs);
 
-  if (parentMode && activeTab === "home") app.appendChild(renderHomeTab());
-  else if (activeTab === "tasks") app.appendChild(parentMode ? renderTasksManagementTab() : renderChildOccurrences());
+  if (activeTab === "home") app.appendChild(renderTodayTab());
+  else if (activeTab === "tasks") app.appendChild(renderTasksManagementTab());
   else if (activeTab === "accounting") app.appendChild(renderAccountingTab());
-  else app.appendChild(renderFamilyTab());
+  else app.appendChild(renderHistoryTab());
 }
 
 function escapeHtml(s) {
@@ -507,6 +589,7 @@ function renderFamilyPicker() {
       if (yourName) {
         const userResp = await call("CreateUser", { familyId: resp.family.id, name: yourName, role: "USER_ROLE_PARENT" });
         setUserId(userResp.user.id);
+        anchorHomeUserId(userResp.user.id, "USER_ROLE_PARENT");
       }
       await loadFamilyData();
     })
@@ -537,9 +620,16 @@ function renderUserPicker() {
     });
   }
 
+  // Never offer "continue as" a parent other than the one this browser is
+  // already anchored to for this family — switching to any child is still
+  // fine (that's what the switcher is actually for), and so is switching
+  // back to yourself. See getHomeUserId's comment for the full rationale.
+  const homeUserId = getHomeUserId();
+  const pickable = state.users.filter((u) => u.role !== "USER_ROLE_PARENT" || !homeUserId || u.id === homeUserId);
+
   const card = el(`<div class="card"></div>`);
-  if (state.users.length) {
-    state.users.forEach((u) => {
+  if (pickable.length) {
+    pickable.forEach((u) => {
       const row = el(`
         <div class="row">
           <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span></span>
@@ -549,6 +639,7 @@ function renderUserPicker() {
       row.querySelector("button").addEventListener("click", () =>
         withError(async () => {
           setUserId(u.id);
+          anchorHomeUserId(u.id, u.role);
           await loadFamilyData();
         })
       );
@@ -637,9 +728,9 @@ function renderTopbar() {
   return bar;
 }
 
-// ---- Home tab (parents): today's status per child, at a glance -----------------------------------------------------
+// ---- Today tab (parents): today's status per child, at a glance -----------------------------------------------------
 
-function renderHomeTab() {
+function renderTodayTab() {
   const wrap = el(`<div></div>`);
   if (!state.summaries.length) {
     wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("accounting.noChildren"))}</p></div>`));
@@ -690,7 +781,30 @@ function renderHomeTab() {
   return wrap;
 }
 
-// ---- Tasks tab (children): today's checklist -----------------------------------------------------
+// ---- Tasks tab (children): today's checklist + earnings -----------------------------------------------------
+//
+// A child has nowhere else to go in the app — no separate balance or family
+// page — so this single view carries both their checklist and the numbers
+// (earned today, earned this week, current balance) that used to live on a
+// dedicated Accounting tab.
+
+function renderChildTasksTab() {
+  const wrap = el(`<div></div>`);
+  const summary = state.summaries.find((s) => s.child.id === state.userId);
+  if (summary) {
+    wrap.appendChild(el(`
+      <div class="card">
+        <div class="grid-3">
+          <div class="stat"><div class="value">kr ${money(summary.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+          <div class="stat"><div class="value">kr ${money(summary.earnedThisWeekCents)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
+          <div class="stat"><div class="value">kr ${money(summary.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+        </div>
+      </div>
+    `));
+  }
+  wrap.appendChild(renderChildOccurrences());
+  return wrap;
+}
 
 function renderChildOccurrences() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("childTasks.heading"))}</h2></div>`);
@@ -760,7 +874,7 @@ function renderTaskList() {
         </div>
         <div class="actions">
           <button class="secondary" data-action="edit">${escapeHtml(t("taskList.edit"))}</button>
-          <button class="secondary" data-action="toggle">${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}</button>
+          <button class="secondary btn-icon" data-action="toggle" title="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}"><span class="material-symbols-outlined">${t_.active === false ? "play_arrow" : "pause"}</span></button>
           <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
         </div>
       </div>
@@ -1053,7 +1167,7 @@ function renderTaskForm(existingTask) {
 
 function renderAccountingTab() {
   const wrap = el(`<div></div>`);
-  const summaries = isParent() ? state.summaries : state.summaries.filter((s) => s.child.id === state.userId);
+  const summaries = state.summaries;
 
   if (!summaries.length) {
     wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("accounting.noChildren"))}</p></div>`));
@@ -1070,47 +1184,45 @@ function renderAccountingTab() {
         </div>
       </div>
     `);
-    if (isParent()) {
-      const payoutForm = el(`
-        <div class="card">
-          <h3>${escapeHtml(t("accounting.payoutHeading"))}</h3>
-          <div class="field">
-            <label>${escapeHtml(t("accounting.amountLabel"))}</label>
-            <input type="number" min="0" step="0.5" id="payout-amount-${s.child.id}" value="${(Number(s.balanceCents || 0) / 100).toFixed(2)}" />
-          </div>
-          <div class="field">
-            <label>${escapeHtml(t("accounting.noteLabel"))}</label>
-            <input type="text" id="payout-note-${s.child.id}" />
-          </div>
-          <div class="actions">
-            <button data-action="full">${escapeHtml(t("accounting.payFull"))}</button>
-            <button class="secondary" data-action="partial">${escapeHtml(t("accounting.payPartial"))}</button>
-          </div>
+    const payoutForm = el(`
+      <div class="card">
+        <h3>${escapeHtml(t("accounting.payoutHeading"))}</h3>
+        <div class="field">
+          <label>${escapeHtml(t("accounting.amountLabel"))}</label>
+          <input type="number" min="0" step="0.5" id="payout-amount-${s.child.id}" value="${(Number(s.balanceCents || 0) / 100).toFixed(2)}" />
         </div>
-      `);
-      payoutForm.querySelector('[data-action="full"]').addEventListener("click", () =>
-        withError(async () => {
-          const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
-          await call("CreatePayout", { childId: s.child.id, fullPayout: true, note });
-          await loadFamilyData();
-        })
-      );
-      payoutForm.querySelector('[data-action="partial"]').addEventListener("click", () =>
-        withError(async () => {
-          const amountKr = parseFloat(payoutForm.querySelector(`#payout-amount-${s.child.id}`).value || "0");
-          const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
-          if (!(amountKr > 0)) throw new Error(t("accounting.amountPositive"));
-          await call("CreatePayout", {
-            childId: s.child.id,
-            fullPayout: false,
-            amountCents: Math.round(amountKr * 100),
-            note,
-          });
-          await loadFamilyData();
-        })
-      );
-      card.appendChild(payoutForm);
-    }
+        <div class="field">
+          <label>${escapeHtml(t("accounting.noteLabel"))}</label>
+          <input type="text" id="payout-note-${s.child.id}" />
+        </div>
+        <div class="actions">
+          <button data-action="full">${escapeHtml(t("accounting.payFull"))}</button>
+          <button class="secondary" data-action="partial">${escapeHtml(t("accounting.payPartial"))}</button>
+        </div>
+      </div>
+    `);
+    payoutForm.querySelector('[data-action="full"]').addEventListener("click", () =>
+      withError(async () => {
+        const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
+        await call("CreatePayout", { childId: s.child.id, fullPayout: true, note });
+        await loadFamilyData();
+      })
+    );
+    payoutForm.querySelector('[data-action="partial"]').addEventListener("click", () =>
+      withError(async () => {
+        const amountKr = parseFloat(payoutForm.querySelector(`#payout-amount-${s.child.id}`).value || "0");
+        const note = payoutForm.querySelector(`#payout-note-${s.child.id}`).value.trim();
+        if (!(amountKr > 0)) throw new Error(t("accounting.amountPositive"));
+        await call("CreatePayout", {
+          childId: s.child.id,
+          fullPayout: false,
+          amountCents: Math.round(amountKr * 100),
+          note,
+        });
+        await loadFamilyData();
+      })
+    );
+    card.appendChild(payoutForm);
 
     const history = state.payouts.filter((p) => p.childId === s.child.id);
     const histCard = el(`<div class="card"><h3>${escapeHtml(t("accounting.historyHeading"))}</h3></div>`);
@@ -1138,7 +1250,7 @@ function renderAccountingTab() {
   return wrap;
 }
 
-// ---- Family tab -----------------------------------------------------
+// ---- Family (shown inside Settings, parents only) -----------------------------------------------------
 
 function renderFamilyTab() {
   const wrap = el(`<div></div>`);
@@ -1156,10 +1268,8 @@ function renderFamilyTab() {
     );
   });
   wrap.appendChild(card);
-  if (isParent()) {
-    wrap.appendChild(renderAddUserForm());
-  }
-  if (isAuth0Mode() && isParent()) {
+  wrap.appendChild(renderAddUserForm());
+  if (isAuth0Mode()) {
     wrap.appendChild(renderInvitationsSection());
   }
   return wrap;
@@ -1237,6 +1347,181 @@ function renderInvitationsSection() {
     );
   }
   wrap.appendChild(form);
+  return wrap;
+}
+
+// ---- History tab (parents): today/yesterday/this week, with an
+// incrementally-loaded "later" bucket and a search box -----------------------------------------------------
+
+const HISTORY_PAGE_SIZE = 20;
+
+async function loadHistoryLater(reset) {
+  if (reset) {
+    state.historyLater = [];
+    state.historyLaterOffset = 0;
+    state.historyLaterHasMore = true;
+  }
+  if (!state.historyLaterHasMore) return;
+  const resp = await call("ListTaskCompletions", {
+    familyId: state.familyId,
+    endDate: dayBeforeStr(mondayOfWeekStr()),
+    limit: HISTORY_PAGE_SIZE,
+    offset: state.historyLaterOffset,
+  });
+  const page = resp.completions || [];
+  state.historyLater = state.historyLater.concat(page);
+  state.historyLaterOffset += page.length;
+  state.historyLaterHasMore = !!resp.hasMore;
+}
+
+let historyLaterLoadInFlight = false;
+function triggerHistoryLaterLoad() {
+  if (historyLaterLoadInFlight || state.historyLaterLoaded) return;
+  historyLaterLoadInFlight = true;
+  loadHistoryLater(true)
+    .catch((e) => {
+      state.error = e.message || String(e);
+    })
+    .finally(() => {
+      state.historyLaterLoaded = true;
+      historyLaterLoadInFlight = false;
+      if (state.tab === "history") render();
+    });
+}
+
+async function loadHistorySearch(reset) {
+  if (reset) {
+    state.historySearchResults = [];
+    state.historySearchOffset = 0;
+    state.historySearchHasMore = true;
+  }
+  const resp = await call("ListTaskCompletions", {
+    familyId: state.familyId,
+    search: state.historySearchQuery.trim(),
+    limit: HISTORY_PAGE_SIZE,
+    offset: state.historySearchOffset,
+  });
+  const page = resp.completions || [];
+  state.historySearchResults = (state.historySearchResults || []).concat(page);
+  state.historySearchOffset += page.length;
+  state.historySearchHasMore = !!resp.hasMore;
+}
+
+// Re-rendering rebuilds the whole DOM, which would normally steal focus
+// (and the cursor position) right out from under whatever the user is
+// typing — a plain withError() call would make the search box unusable.
+// Restoring focus by id after the rebuild is what makes search-as-you-type
+// tolerable here.
+function rerenderPreservingFocus() {
+  const active = document.activeElement;
+  const id = active && active.id;
+  const selStart = id && "selectionStart" in active ? active.selectionStart : null;
+  const selEnd = id && "selectionEnd" in active ? active.selectionEnd : null;
+  render();
+  if (!id) return;
+  const restored = document.getElementById(id);
+  if (!restored) return;
+  restored.focus();
+  if (selStart !== null && restored.setSelectionRange) {
+    try {
+      restored.setSelectionRange(selStart, selEnd);
+    } catch (_) {}
+  }
+}
+
+let historySearchDebounceTimer = null;
+
+function onHistorySearchInput(query) {
+  state.historySearchQuery = query;
+  clearTimeout(historySearchDebounceTimer);
+  historySearchDebounceTimer = setTimeout(() => {
+    (async () => {
+      state.error = null;
+      try {
+        if (!query.trim()) {
+          state.historySearchResults = null;
+        } else {
+          await loadHistorySearch(true);
+        }
+      } catch (e) {
+        state.error = e.message || String(e);
+      }
+      rerenderPreservingFocus();
+    })();
+  }, 300);
+}
+
+function renderHistoryRow(c) {
+  return el(`
+    <div class="row">
+      <span>${escapeHtml(c.childName)} — ${escapeHtml(c.taskTitle)}<div class="task-meta">${escapeHtml(formatDateStr(c.dueDate))}</div></span>
+      <strong>kr ${money(c.amountCents)}</strong>
+    </div>
+  `);
+}
+
+function renderHistoryGroup(heading, completions) {
+  const card = el(`<div class="card"><h2>${escapeHtml(heading)}</h2></div>`);
+  if (!completions.length) {
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("history.empty"))}</p>`));
+  } else {
+    completions.forEach((c) => card.appendChild(renderHistoryRow(c)));
+  }
+  return card;
+}
+
+function renderHistoryTab() {
+  const wrap = el(`<div></div>`);
+
+  const searchCard = el(`
+    <div class="card">
+      <div class="field" style="margin-bottom:0;">
+        <input type="text" id="history-search" class="input-full" placeholder="${escapeHtml(t("history.searchPlaceholder"))}" />
+      </div>
+    </div>
+  `);
+  const searchInput = searchCard.querySelector("#history-search");
+  searchInput.value = state.historySearchQuery;
+  searchInput.addEventListener("input", (e) => onHistorySearchInput(e.target.value));
+  wrap.appendChild(searchCard);
+
+  if (state.historySearchResults !== null) {
+    wrap.appendChild(renderHistoryGroup(t("history.searchResultsHeading"), state.historySearchResults));
+    if (state.historySearchResults.length && state.historySearchHasMore) {
+      const btn = el(`<button class="secondary">${escapeHtml(t("history.loadMore"))}</button>`);
+      btn.addEventListener("click", () => withError(() => loadHistorySearch(false)));
+      wrap.appendChild(btn);
+    }
+    return wrap;
+  }
+
+  const today = todayStr();
+  const yesterday = dayBeforeStr(today);
+  const monday = mondayOfWeekStr();
+  const todays = state.historyRecent.filter((c) => c.dueDate === today);
+  const yesterdays = state.historyRecent.filter((c) => c.dueDate === yesterday);
+  const restOfWeek = state.historyRecent.filter((c) => c.dueDate !== today && c.dueDate !== yesterday && c.dueDate >= monday);
+
+  wrap.appendChild(renderHistoryGroup(t("history.todayHeading"), todays));
+  wrap.appendChild(renderHistoryGroup(t("history.yesterdayHeading"), yesterdays));
+  wrap.appendChild(renderHistoryGroup(t("history.thisWeekHeading"), restOfWeek));
+
+  triggerHistoryLaterLoad();
+  const laterCard = el(`<div class="card"><h2>${escapeHtml(t("history.laterHeading"))}</h2></div>`);
+  if (!state.historyLaterLoaded) {
+    laterCard.appendChild(el(`<p class="empty">${escapeHtml(t("history.loading"))}</p>`));
+  } else if (!state.historyLater.length) {
+    laterCard.appendChild(el(`<p class="empty">${escapeHtml(t("history.empty"))}</p>`));
+  } else {
+    state.historyLater.forEach((c) => laterCard.appendChild(renderHistoryRow(c)));
+  }
+  wrap.appendChild(laterCard);
+  if (state.historyLaterLoaded && state.historyLaterHasMore) {
+    const btn = el(`<button class="secondary">${escapeHtml(t("history.loadMore"))}</button>`);
+    btn.addEventListener("click", () => withError(() => loadHistoryLater(false)));
+    wrap.appendChild(btn);
+  }
+
   return wrap;
 }
 
@@ -1403,6 +1688,13 @@ function renderSettingsTab() {
     notifCard.appendChild(btn);
   }
   wrap.appendChild(notifCard);
+
+  // Managing who's in the family, and inviting new members, isn't something
+  // you do often — and isn't relevant to a child at all — so it lives here
+  // rather than as its own always-visible tab.
+  if (isParent()) {
+    wrap.appendChild(renderFamilyTab());
+  }
 
   return wrap;
 }
