@@ -396,6 +396,7 @@ function render() {
       state.tab = b.dataset.tab;
       state.editingTaskId = null;
       confirmingDeleteCompletionId = null;
+      confirmingDeleteTaskId = null;
       render();
     })
   );
@@ -858,6 +859,12 @@ function renderTasksManagementTab() {
   return wrap;
 }
 
+// Which task (by id) is showing its inline "are you sure" state, if any —
+// same module-level, reset-on-navigation pattern as
+// confirmingDeleteCompletionId in the History tab, so both delete flows
+// look and behave identically.
+let confirmingDeleteTaskId = null;
+
 function renderTaskList() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("taskList.heading"))}</h2></div>`);
   if (!state.tasks.length) {
@@ -867,6 +874,7 @@ function renderTaskList() {
   const usersById = new Map(state.users.map((u) => [u.id, u]));
   state.tasks.forEach((t_) => {
     const assignedNames = (t_.childIds || []).map((id) => (usersById.get(id) ? usersById.get(id).name : "?")).join(", ");
+    const confirmingDelete = confirmingDeleteTaskId === t_.id;
     const row = el(`
       <div class="row">
         <div>
@@ -874,44 +882,72 @@ function renderTaskList() {
           <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
         </div>
         <div class="actions">
-          <button class="secondary" data-action="edit">${escapeHtml(t("taskList.edit"))}</button>
-          <button class="secondary btn-icon" data-action="toggle" title="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}"><span class="material-symbols-outlined">${t_.active === false ? "play_arrow" : "pause"}</span></button>
-          <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>
+          ${
+            confirmingDelete
+              ? `<button class="danger" data-action="confirm-delete">${escapeHtml(t("history.confirmDelete"))}</button>
+                 <button type="button" class="secondary" data-action="cancel-delete">${escapeHtml(t("taskList.cancel"))}</button>`
+              : `<button class="secondary" data-action="edit">${escapeHtml(t("taskList.edit"))}</button>
+                 <button class="secondary btn-icon" data-action="toggle" title="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}"><span class="material-symbols-outlined">${t_.active === false ? "play_arrow" : "pause"}</span></button>
+                 <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>`
+          }
         </div>
       </div>
     `);
 
-    row.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      state.editingTaskId = t_.id;
-      render();
-    });
-    row.querySelector('[data-action="toggle"]').addEventListener("click", () =>
-      withError(async () => {
-        await call("UpdateTask", {
-          taskId: t_.id,
-          title: t_.title,
-          description: t_.description,
-          priceCents: t_.priceCents,
-          schedule: t_.schedule,
-          repeatMode: t_.repeatMode,
-          daysOfWeek: t_.daysOfWeek,
-          repeatIntervalWeeks: t_.repeatIntervalWeeks,
-          startDate: t_.startDate,
-          active: t_.active === false,
-          childIds: t_.childIds,
-          icon: t_.icon,
-        });
-        await loadFamilyData();
-      })
-    );
-    row.querySelector('[data-action="delete"]').addEventListener("click", () =>
-      withError(async () => {
-        if (!confirm(t("taskList.confirmDelete", { title: t_.title }))) return;
-        await call("DeleteTask", { taskId: t_.id });
-        if (state.editingTaskId === t_.id) state.editingTaskId = null;
-        await loadFamilyData();
-      })
-    );
+    const editBtn = row.querySelector('[data-action="edit"]');
+    if (editBtn) {
+      editBtn.addEventListener("click", () => {
+        state.editingTaskId = t_.id;
+        render();
+      });
+    }
+    const toggleBtn = row.querySelector('[data-action="toggle"]');
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () =>
+        withError(async () => {
+          await call("UpdateTask", {
+            taskId: t_.id,
+            title: t_.title,
+            description: t_.description,
+            priceCents: t_.priceCents,
+            schedule: t_.schedule,
+            repeatMode: t_.repeatMode,
+            daysOfWeek: t_.daysOfWeek,
+            repeatIntervalWeeks: t_.repeatIntervalWeeks,
+            startDate: t_.startDate,
+            active: t_.active === false,
+            childIds: t_.childIds,
+            icon: t_.icon,
+          });
+          await loadFamilyData();
+        })
+      );
+    }
+    const deleteBtn = row.querySelector('[data-action="delete"]');
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", () => {
+        confirmingDeleteTaskId = t_.id;
+        render();
+      });
+    }
+    const confirmDeleteBtn = row.querySelector('[data-action="confirm-delete"]');
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener("click", () =>
+        withError(async () => {
+          confirmingDeleteTaskId = null;
+          await call("DeleteTask", { taskId: t_.id });
+          if (state.editingTaskId === t_.id) state.editingTaskId = null;
+          await loadFamilyData();
+        })
+      );
+    }
+    const cancelDeleteBtn = row.querySelector('[data-action="cancel-delete"]');
+    if (cancelDeleteBtn) {
+      cancelDeleteBtn.addEventListener("click", () => {
+        confirmingDeleteTaskId = null;
+        render();
+      });
+    }
     card.appendChild(row);
   });
   return card;
