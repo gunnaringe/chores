@@ -205,19 +205,13 @@ func (s *Server) CreateFamily(ctx context.Context, req *connect.Request[v1.Creat
 	}
 
 	// Creating a family also makes the caller its founding parent, bound to
-	// their login identity. Someone who already belongs to a family can't
-	// found another one with the same login.
+	// their login identity. A login can found or join any number of
+	// families (see AcceptInvitation), so there's nothing to check here —
+	// this is always a brand-new family, never one the identity could
+	// already be bound to.
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
-	}
-	var existing string
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&existing)
-	if err == nil {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you already belong to a family"))
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	id := newID()

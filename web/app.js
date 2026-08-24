@@ -354,11 +354,6 @@ function render() {
     return;
   }
 
-  if (state.tab === "createFamily") {
-    app.appendChild(renderCreateFamilyTab());
-    return;
-  }
-
   // Parents get a dashboard-style "Today" tab (today's status per child, at
   // a glance) plus separate tabs for managing tasks, payouts/accounting, and
   // browsing history — those are different activities done at different
@@ -487,12 +482,11 @@ async function joinFamilyWithCode(code) {
   await loadMembership();
 }
 
-// Shared by the onboarding screen (genuinely no family yet) and the
-// "+ new family" tab reached from an already-open family (see
-// renderCreateFamilyTab) — same two forms either way: create one, or join
-// one with an invite code. onDone runs after either succeeds, once the
-// newly created/joined family is already selected and its data loaded.
-function renderCreateAndJoinFamilyForms(onDone) {
+// The onboarding screen's two forms: create a family from scratch, or join
+// one with an invite code. Once logged in and settled into a family, the
+// same two actions live in Settings instead (renderCreateFamilySection,
+// renderJoinFamilySection) for adding another one.
+function renderCreateAndJoinFamilyForms() {
   const wrap = el(`<div></div>`);
 
   // Pre-filled from the Auth0 profile so the name stored on the family
@@ -521,7 +515,6 @@ function renderCreateAndJoinFamilyForms(onDone) {
       if (!familyName) throw new Error(t("familyPicker.nameRequired"));
       await createFamilyAndSwitchTo(familyName, parentName);
       await loadFamilyData();
-      onDone();
     })
   );
   wrap.appendChild(form);
@@ -545,7 +538,6 @@ function renderCreateAndJoinFamilyForms(onDone) {
         selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
         await loadFamilyData();
       }
-      onDone();
     })
   );
   wrap.appendChild(joinForm);
@@ -559,7 +551,7 @@ function renderOnboarding() {
     <h1>${window.APP_NAME}</h1>
     <p>${escapeHtml(t("onboarding.subtitle"))}</p>
   `));
-  wrap.appendChild(renderCreateAndJoinFamilyForms(() => {}));
+  wrap.appendChild(renderCreateAndJoinFamilyForms());
   return wrap;
 }
 
@@ -586,27 +578,6 @@ function renderHouseholdPicker() {
     card.appendChild(row);
   });
   wrap.appendChild(card);
-  return wrap;
-}
-
-// Reached via the "+" next to the family name in the topbar — the same
-// create/join forms as onboarding, just for someone who's already a member
-// of at least one family and wants another (a parent co-running two
-// households, or anyone redeeming a second invite code).
-function renderCreateFamilyTab() {
-  const wrap = el(`<div></div>`);
-  const backBtn = el(`<button class="secondary" style="margin-bottom:16px;">${escapeHtml(t("settings.back"))}</button>`);
-  backBtn.addEventListener("click", () => {
-    state.tab = isParent() ? "home" : "tasks";
-    render();
-  });
-  wrap.appendChild(backBtn);
-  wrap.appendChild(el(`<h2>${escapeHtml(t("family.createOrJoinHeading"))}</h2>`));
-  wrap.appendChild(
-    renderCreateAndJoinFamilyForms(() => {
-      state.tab = isParent() ? "home" : "tasks";
-    })
-  );
   return wrap;
 }
 
@@ -763,8 +734,6 @@ function renderTopbar() {
   `);
   const familyRow = bar.querySelector(".family-row");
   familyRow.appendChild(familyNameEl);
-  const addFamilyBtn = el(`<button type="button" class="secondary btn-icon" id="add-family" title="${escapeHtml(t("family.createOrJoinHeading"))}">+</button>`);
-  familyRow.appendChild(addFamilyBtn);
   bar.querySelector("p").prepend(userNameEl);
 
   if (familyOptions.length > 1) {
@@ -787,10 +756,6 @@ function renderTopbar() {
       })
     );
   }
-  addFamilyBtn.addEventListener("click", () => {
-    state.tab = "createFamily";
-    render();
-  });
   bar.querySelector("#open-settings").addEventListener("click", () => {
     state.tab = "settings";
     render();
@@ -2059,7 +2024,39 @@ async function disablePushNotifications() {
 // Joining a family isn't about the family currently open — it's account-
 // level, the same for a parent or a child — so it sits at the very top of
 // Settings, above everything scoped to "this" family, rather than inside
-// renderFamilyTab.
+// renderFamilyTab. Creating another family from scratch is the same kind
+// of account-level action (a parent co-running two households, or a child
+// eventually starting their own), so it sits right alongside it.
+function renderCreateFamilySection() {
+  const defaultName = (state.auth && (state.auth.name || state.auth.email)) || "";
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("familyTab.createHeading"))}</h2>
+      <p class="hint">${escapeHtml(t("familyTab.createDesc"))}</p>
+      <div class="field">
+        <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
+        <input type="text" id="create-family-your-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" value="${escapeHtml(defaultName)}" />
+      </div>
+      <div class="field">
+        <label>${escapeHtml(t("family.nameLabel"))}</label>
+        <input type="text" class="input-full" id="create-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
+      </div>
+      <button type="button" id="create-family-btn">${escapeHtml(t("family.createBtn"))}</button>
+    </div>
+  `);
+  card.querySelector("#create-family-btn").addEventListener("click", () =>
+    withError(async () => {
+      const yourName = card.querySelector("#create-family-your-name").value.trim();
+      const familyName = card.querySelector("#create-family-name").value.trim();
+      if (!familyName) throw new Error(t("familyPicker.nameRequired"));
+      await createFamilyAndSwitchTo(familyName, yourName);
+      await loadFamilyData();
+      state.tab = isParent() ? "home" : "tasks";
+    })
+  );
+  return card;
+}
+
 function renderJoinFamilySection() {
   const card = el(`
     <div class="card">
@@ -2110,6 +2107,7 @@ function renderSettingsTab() {
 
   wrap.appendChild(renderLangSwitcher());
 
+  wrap.appendChild(renderCreateFamilySection());
   wrap.appendChild(renderJoinFamilySection());
   wrap.appendChild(el(`<hr class="section-divider" />`));
 

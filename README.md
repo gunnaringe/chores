@@ -66,9 +66,9 @@ that space would otherwise sit unused.
   (e.g. a child who splits time between two households, or a parent
   co-running two, each running its own independent chores/allowance). The
   family name in the top bar becomes a dropdown once there's more than one
-  to switch between; the "+" next to it always opens a page for creating
-  another family or joining one with an invite code, whether or not you
-  already belong to one.
+  to switch between; creating another family or joining one with an invite
+  code, whether or not you already belong to one, is done from the Settings
+  page.
 - The page auto-refreshes every 5 minutes (so a completion made from another
   device or family member's session shows up without a manual reload),
   pausing automatically while a form on the page has focus so it never wipes
@@ -214,17 +214,19 @@ profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
 don't survive a server restart. `/auth/logout` clears the session and signs
 out of Auth0 too.
 
-### Joining a family
+### Creating or joining another family
 
-"Join a family" sits at the very top of the Settings page, above a divider
-that separates it from everything else there — unlike the rest of Settings,
-it isn't about the family currently open, so it's available to a parent or
-a child alike. Enter an invite code someone shared with you (see "Inviting
-a family member" below) to become a member of their family too. A login can
-accept invites into more than one family; the only thing rejected is
-accepting the same family's invite twice with a login already bound there.
-That's what makes both the "lives in two households" case and a parent
-co-running two families work.
+"Create a new family" and "Join a family" sit at the very top of the
+Settings page, above a divider that separates them from everything else
+there — unlike the rest of Settings, neither is about the family currently
+open, so both are available to a parent or a child alike. Creating one
+founds a brand-new family with you as its first parent, the same as the
+very first family you ever created or joined. Joining takes an invite code
+someone shared with you (see "Inviting a family member" below) to become a
+member of their family too. A login can found or accept invites into any
+number of families; the only thing rejected is accepting the same family's
+invite twice with a login already bound there. That's what makes both the
+"lives in two households" case and a parent co-running two families work.
 
 ### The family members list
 
