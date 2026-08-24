@@ -36,26 +36,30 @@ that space would otherwise sit unused.
   every other week and beyond, counted from the date the task was created),
   or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
   every month) for anything the other two can't express.
-- A parent gets four tabs. **Today** is a daily dashboard: for each child,
-  today's tasks and their completion status, what they've earned today, and
-  their outstanding balance — all at a glance. **Tasks** manages task
-  definitions (add/edit/pause/delete). **Accounting** handles payouts and
-  balance history. **History** is a browsable log of every completion,
+- A parent gets four tabs, in this order: **Today**, **History**, **Tasks**,
+  **Balance**. Today is a daily dashboard: for each child, today's tasks and
+  their completion status, what they've earned today, and their outstanding
+  balance — all at a glance. History is a browsable log of every completion,
   grouped into Today / Yesterday / Earlier this week / Later — the "Later"
   group loads a page at a time as you ask for more, rather than pulling a
   family's entire history up front — plus a search box that matches by task
-  title or child name across the whole history. Switching to a specific
-  child's own restricted view (via "Switch user") is a separate action,
-  mainly useful for previewing what a kid sees, or for a parent marking a
-  chore done on behalf of a child who doesn't have their own login — that
-  switcher only ever offers children and yourself, never another parent, so
-  one parent's login can't casually end up "being" a co-parent.
+  title or child name across the whole history. Every entry there can be
+  deleted (undoing that completion, e.g. one logged for the wrong child) via
+  a two-step inline confirm — no browser popup, just a "Confirm delete"
+  button that appears in place of the delete button itself. Tasks manages
+  task definitions (add/edit/pause/delete). Balance handles payouts and
+  balance history. Switching to a specific child's own restricted view (via
+  "Switch user") is a separate action, mainly useful for previewing what a
+  kid sees, or for a parent marking a chore done on behalf of a child who
+  doesn't have their own login — that switcher only ever offers children and
+  yourself, never another parent, so one parent's login can't casually end
+  up "being" a co-parent.
 - A child gets a single page, no tabs: their own checklist for today, with
   what they've earned today, this week, and their current balance shown
   right above it. There's no separate balance/payout page or family-member
   list for a child to get lost in — those are parent-only concerns, tucked
-  into the Accounting tab and the Settings page respectively.
-- Accounting tracks earnings in the last 7 days and the outstanding balance
+  into the Balance tab and the Settings page respectively.
+- Balance tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
 - A child can belong to more than one family at once (e.g. a child who

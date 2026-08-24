@@ -380,9 +380,9 @@ function render() {
 
   const tabDefs = [
     { key: "home", label: t("tabs.today") },
+    { key: "history", label: t("tabs.history") },
     { key: "tasks", label: t("tabs.tasks") },
     { key: "accounting", label: t("tabs.accounting") },
-    { key: "history", label: t("tabs.history") },
   ];
   const activeTab = tabDefs.some((d) => d.key === state.tab) ? state.tab : tabDefs[0].key;
 
@@ -395,15 +395,16 @@ function render() {
     b.addEventListener("click", () => {
       state.tab = b.dataset.tab;
       state.editingTaskId = null;
+      confirmingDeleteCompletionId = null;
       render();
     })
   );
   app.appendChild(tabs);
 
   if (activeTab === "home") app.appendChild(renderTodayTab());
+  else if (activeTab === "history") app.appendChild(renderHistoryTab());
   else if (activeTab === "tasks") app.appendChild(renderTasksManagementTab());
-  else if (activeTab === "accounting") app.appendChild(renderAccountingTab());
-  else app.appendChild(renderHistoryTab());
+  else app.appendChild(renderAccountingTab());
 }
 
 function escapeHtml(s) {
@@ -1451,13 +1452,79 @@ function onHistorySearchInput(query) {
   }, 300);
 }
 
+// Which completion (by id) is showing its inline "are you sure" state, if
+// any. Module-level rather than in `state`: it's transient UI-only, reset
+// whenever the user navigates away from a row rather than something worth
+// persisting or reacting to elsewhere.
+let confirmingDeleteCompletionId = null;
+
+// Removing a completion here is the only way to fix an old one that's no
+// longer reachable through the checklist (which only ever shows today's
+// occurrences) — e.g. one logged for the wrong child, or a duplicate.
+async function deleteCompletion(c) {
+  await call("UncompleteTask", { taskId: c.taskId, childId: c.childId, dueDate: c.dueDate });
+
+  // Removing it from whichever paginated bucket it came from, and walking
+  // that bucket's offset back by one, keeps "load more" correctly aligned
+  // with what's now actually left server-side — otherwise the next page
+  // would silently skip one row.
+  const removeFrom = (arr) => {
+    const idx = arr.findIndex((x) => x.id === c.id);
+    if (idx !== -1) arr.splice(idx, 1);
+    return idx !== -1;
+  };
+  if (removeFrom(state.historyLater)) {
+    state.historyLaterOffset = Math.max(0, state.historyLaterOffset - 1);
+  }
+  if (state.historySearchResults && removeFrom(state.historySearchResults)) {
+    state.historySearchOffset = Math.max(0, state.historySearchOffset - 1);
+  }
+
+  // Reloads historyRecent along with everything else the deletion affects —
+  // the child's earned-today/this-week figures and balance.
+  await loadFamilyData();
+}
+
 function renderHistoryRow(c) {
-  return el(`
+  const confirming = confirmingDeleteCompletionId === c.id;
+  const row = el(`
     <div class="row">
       <span>${escapeHtml(c.childName)} — ${escapeHtml(c.taskTitle)}<div class="task-meta">${escapeHtml(formatDateStr(c.dueDate))}</div></span>
-      <strong>kr ${money(c.amountCents)}</strong>
+      <div class="actions" style="align-items:center;">
+        <strong>kr ${money(c.amountCents)}</strong>
+        ${
+          confirming
+            ? `<button class="danger" data-action="confirm-delete">${escapeHtml(t("history.confirmDelete"))}</button>
+               <button type="button" class="secondary" data-action="cancel-delete">${escapeHtml(t("taskList.cancel"))}</button>`
+            : `<button type="button" class="secondary btn-icon" data-action="delete" title="${escapeHtml(t("taskList.delete"))}"><span class="material-symbols-outlined">delete</span></button>`
+        }
+      </div>
     </div>
   `);
+  const deleteBtn = row.querySelector('[data-action="delete"]');
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", () => {
+      confirmingDeleteCompletionId = c.id;
+      render();
+    });
+  }
+  const confirmBtn = row.querySelector('[data-action="confirm-delete"]');
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", () =>
+      withError(async () => {
+        confirmingDeleteCompletionId = null;
+        await deleteCompletion(c);
+      })
+    );
+  }
+  const cancelBtn = row.querySelector('[data-action="cancel-delete"]');
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      confirmingDeleteCompletionId = null;
+      render();
+    });
+  }
+  return row;
 }
 
 function renderHistoryGroup(heading, completions) {

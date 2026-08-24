@@ -60,7 +60,7 @@ const TRANSLATIONS = {
 
     "tabs.today": "Today",
     "tabs.tasks": "Tasks",
-    "tabs.accounting": "Accounting",
+    "tabs.accounting": "Balance",
     "tabs.history": "History",
 
     "householdPicker.subtitle": "You're part of more than one family. Which one do you want to open?",
@@ -74,6 +74,7 @@ const TRANSLATIONS = {
     "history.searchPlaceholder": "Search by task or name…",
     "history.searchResultsHeading": "Search results",
     "history.loadMore": "Load more",
+    "history.confirmDelete": "Confirm delete",
 
     "childTasks.heading": "Today's tasks",
     "childTasks.empty": "No tasks scheduled for today.",
@@ -225,7 +226,7 @@ const TRANSLATIONS = {
 
     "tabs.today": "I dag",
     "tabs.tasks": "Oppgaver",
-    "tabs.accounting": "Regnskap",
+    "tabs.accounting": "Saldo",
     "tabs.history": "Historikk",
 
     "householdPicker.subtitle": "Du er med i flere familier. Hvilken vil du åpne?",
@@ -239,6 +240,7 @@ const TRANSLATIONS = {
     "history.searchPlaceholder": "Søk etter oppgave eller navn…",
     "history.searchResultsHeading": "Søkeresultater",
     "history.loadMore": "Last inn mer",
+    "history.confirmDelete": "Bekreft sletting",
 
     "childTasks.heading": "Dagens oppgaver",
     "childTasks.empty": "Ingen oppgaver planlagt i dag.",
