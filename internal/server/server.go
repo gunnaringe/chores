@@ -320,6 +320,25 @@ func (s *Server) DeleteFamily(ctx context.Context, req *connect.Request[v1.Delet
 	return connect.NewResponse(&v1.DeleteFamilyResponse{}), nil
 }
 
+func (s *Server) UpdateFamily(ctx context.Context, req *connect.Request[v1.UpdateFamilyRequest]) (*connect.Response[v1.UpdateFamilyResponse], error) {
+	familyID := req.Msg.GetFamilyId()
+	name := strings.TrimSpace(req.Msg.GetName())
+	if familyID == "" || name == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id and name are required"))
+	}
+	if err := s.requireParent(ctx, familyID); err != nil {
+		return nil, err
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE families SET name = ? WHERE id = ?`, name, familyID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update family: %w", err))
+	}
+	family, err := s.getFamily(ctx, familyID)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&v1.UpdateFamilyResponse{Family: family}), nil
+}
+
 // ---- Users -----------------------------------------------------
 
 func roleToDB(role v1.UserRole) (string, error) {

@@ -48,12 +48,12 @@ that space would otherwise sit unused.
   a two-step inline confirm — no browser popup, just a "Confirm delete"
   button that appears in place of the delete button itself. Tasks manages
   task definitions (add/edit/pause/delete). Balance handles payouts and
-  balance history. Switching to a specific child's own restricted view (via
-  "Switch user") is a separate action, mainly useful for previewing what a
-  kid sees, or for a parent marking a chore done on behalf of a child who
-  doesn't have their own login — that switcher only ever offers children and
-  yourself, never another parent, so one parent's login can't casually end
-  up "being" a co-parent.
+  balance history. The top bar's user name is itself a dropdown for
+  switching to a specific child's own restricted view, mainly useful for
+  previewing what a kid sees, or for a parent marking a chore done on
+  behalf of a child who doesn't have their own login — that dropdown only
+  ever offers children and yourself, never another parent, so one parent's
+  login can't casually end up "being" a co-parent.
 - A child gets a single page, no tabs: their own checklist for today, with
   what they've earned today, this week, and their current balance shown
   right above it. There's no separate balance/payout page or family-member
@@ -64,18 +64,20 @@ that space would otherwise sit unused.
 - Parents can pay out the full balance or a partial amount.
 - A login — parent or child — can belong to more than one family at once
   (e.g. a child who splits time between two households, or a parent
-  co-running two, each running its own independent chores/allowance) — when
-  a login is bound to more than one family, it's asked which household to
-  open, with a "Switch household" control to change later.
+  co-running two, each running its own independent chores/allowance). The
+  family name in the top bar becomes a dropdown once there's more than one
+  to switch between; the "+" next to it always opens a page for creating
+  another family or joining one with an invite code, whether or not you
+  already belong to one.
 - The page auto-refreshes every 5 minutes (so a completion made from another
   device or family member's session shows up without a manual reload),
   pausing automatically while a form on the page has focus so it never wipes
-  out something you're mid-typing. This, Web Push notifications (sent to
+  out something you're mid-typing. This isn't configurable — there's no real
+  downside to it, so it's just always on. Web Push notifications (sent to
   every other subscribed device in the family whenever a task is completed),
-  and — for a parent — managing family members and invitations, all live on
-  the Settings page (the button next to "Switch user" in the top bar), since
-  none of them are things you look at often enough to deserve their own
-  always-visible tab.
+  renaming the family, and — for a parent — managing family members and
+  invitations, all live on the Settings page, since none of them are things
+  you look at often enough to deserve their own always-visible tab.
 
 ### Push notifications
 

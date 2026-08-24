@@ -43,6 +43,22 @@ p { color: var(--muted); margin: 0 0 12px; }
   flex-wrap: wrap;
   gap: 8px;
 }
+/* A <select> made to read as plain text/a heading rather than a form
+   field — used for the family name and current user in the topbar, which
+   double as "switch to a different one" dropdowns without looking like an
+   input box sitting in the middle of the page title. */
+.plain-select {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+}
+#family-switch.plain-select {
+  font-size: 1.6rem;
+  font-weight: bold;
+}
 .card {
   background: var(--card);
   border: 1px solid var(--border);

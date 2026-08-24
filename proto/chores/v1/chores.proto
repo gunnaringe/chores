@@ -207,6 +207,14 @@ message DeleteFamilyRequest {
 }
 message DeleteFamilyResponse {}
 
+message UpdateFamilyRequest {
+  string family_id = 1;
+  string name = 2;
+}
+message UpdateFamilyResponse {
+  Family family = 1;
+}
+
 message CreateUserRequest {
   string family_id = 1;
   string name = 2;
@@ -508,6 +516,7 @@ service ChoresService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
   rpc DeleteFamily(DeleteFamilyRequest) returns (DeleteFamilyResponse);
+  rpc UpdateFamily(UpdateFamilyRequest) returns (UpdateFamilyResponse);
   rpc GetDashboardConfig(GetDashboardConfigRequest) returns (GetDashboardConfigResponse);
   rpc SetupDashboard(SetupDashboardRequest) returns (SetupDashboardResponse);
   rpc DisableDashboard(DisableDashboardRequest) returns (DisableDashboardResponse);

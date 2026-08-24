@@ -28,6 +28,11 @@ const TRANSLATIONS = {
     "family.nameLabel": "Family name",
     "family.namePlaceholder": "e.g. The Smiths",
     "family.createBtn": "Create family",
+    "family.createOrJoinHeading": "New family",
+    "family.renameHeading": "Family name",
+    "family.renameNameLabel": "Family name",
+    "family.renameSave": "Save",
+    "family.renameRequired": "Family name is required",
 
     "userPicker.switchFamily": "Switch family",
     "userPicker.whoIsUsing": "Who's using the app right now?",
@@ -44,14 +49,9 @@ const TRANSLATIONS = {
     "role.parent": "Parent",
     "role.child": "Child",
 
-    "topbar.switchUser": "Switch user",
-    "topbar.switchHousehold": "Switch household",
     "topbar.settings": "Settings",
 
     "settings.back": "← Back",
-    "settings.autoRefreshHeading": "Auto-refresh",
-    "settings.autoRefreshLabel": "Automatically refresh every 5 minutes",
-    "settings.autoRefreshHint": "Keeps task status up to date if someone else marks a task done while you're looking at this page. Paused while you're typing into a form.",
     "settings.notificationsHeading": "Notifications",
     "settings.notificationsDesc": "Get a notification on this device whenever someone in the family completes a task.",
     "settings.notificationsEnable": "Enable notifications",
@@ -225,6 +225,11 @@ const TRANSLATIONS = {
     "family.nameLabel": "Familienavn",
     "family.namePlaceholder": "f.eks. Familien Hansen",
     "family.createBtn": "Opprett familie",
+    "family.createOrJoinHeading": "Ny familie",
+    "family.renameHeading": "Familienavn",
+    "family.renameNameLabel": "Familienavn",
+    "family.renameSave": "Lagre",
+    "family.renameRequired": "Familienavn er påkrevd",
 
     "userPicker.switchFamily": "Bytt familie",
     "userPicker.whoIsUsing": "Hvem bruker appen nå?",
@@ -241,14 +246,9 @@ const TRANSLATIONS = {
     "role.parent": "Forelder",
     "role.child": "Barn",
 
-    "topbar.switchUser": "Bytt bruker",
-    "topbar.switchHousehold": "Bytt husstand",
     "topbar.settings": "Innstillinger",
 
     "settings.back": "← Tilbake",
-    "settings.autoRefreshHeading": "Automatisk oppdatering",
-    "settings.autoRefreshLabel": "Oppdater automatisk hvert 5. minutt",
-    "settings.autoRefreshHint": "Holder oppgavestatusen oppdatert hvis noen andre merker en oppgave som utført mens du ser på denne siden. Settes på pause mens du skriver i et skjema.",
     "settings.notificationsHeading": "Varsler",
     "settings.notificationsDesc": "Få et varsel på denne enheten når noen i familien fullfører en oppgave.",
     "settings.notificationsEnable": "Slå på varsler",

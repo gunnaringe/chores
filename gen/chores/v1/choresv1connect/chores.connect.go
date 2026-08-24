@@ -42,6 +42,9 @@ const (
 	// ChoresServiceDeleteFamilyProcedure is the fully-qualified name of the ChoresService's
 	// DeleteFamily RPC.
 	ChoresServiceDeleteFamilyProcedure = "/chores.v1.ChoresService/DeleteFamily"
+	// ChoresServiceUpdateFamilyProcedure is the fully-qualified name of the ChoresService's
+	// UpdateFamily RPC.
+	ChoresServiceUpdateFamilyProcedure = "/chores.v1.ChoresService/UpdateFamily"
 	// ChoresServiceGetDashboardConfigProcedure is the fully-qualified name of the ChoresService's
 	// GetDashboardConfig RPC.
 	ChoresServiceGetDashboardConfigProcedure = "/chores.v1.ChoresService/GetDashboardConfig"
@@ -131,6 +134,7 @@ type ChoresServiceClient interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
 	ListFamilies(context.Context, *connect.Request[v1.ListFamiliesRequest]) (*connect.Response[v1.ListFamiliesResponse], error)
 	DeleteFamily(context.Context, *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error)
+	UpdateFamily(context.Context, *connect.Request[v1.UpdateFamilyRequest]) (*connect.Response[v1.UpdateFamilyResponse], error)
 	GetDashboardConfig(context.Context, *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error)
 	SetupDashboard(context.Context, *connect.Request[v1.SetupDashboardRequest]) (*connect.Response[v1.SetupDashboardResponse], error)
 	DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error)
@@ -188,6 +192,12 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+ChoresServiceDeleteFamilyProcedure,
 			connect.WithSchema(choresServiceMethods.ByName("DeleteFamily")),
+			connect.WithClientOptions(opts...),
+		),
+		updateFamily: connect.NewClient[v1.UpdateFamilyRequest, v1.UpdateFamilyResponse](
+			httpClient,
+			baseURL+ChoresServiceUpdateFamilyProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("UpdateFamily")),
 			connect.WithClientOptions(opts...),
 		),
 		getDashboardConfig: connect.NewClient[v1.GetDashboardConfigRequest, v1.GetDashboardConfigResponse](
@@ -366,6 +376,7 @@ type choresServiceClient struct {
 	createFamily        *connect.Client[v1.CreateFamilyRequest, v1.CreateFamilyResponse]
 	listFamilies        *connect.Client[v1.ListFamiliesRequest, v1.ListFamiliesResponse]
 	deleteFamily        *connect.Client[v1.DeleteFamilyRequest, v1.DeleteFamilyResponse]
+	updateFamily        *connect.Client[v1.UpdateFamilyRequest, v1.UpdateFamilyResponse]
 	getDashboardConfig  *connect.Client[v1.GetDashboardConfigRequest, v1.GetDashboardConfigResponse]
 	setupDashboard      *connect.Client[v1.SetupDashboardRequest, v1.SetupDashboardResponse]
 	disableDashboard    *connect.Client[v1.DisableDashboardRequest, v1.DisableDashboardResponse]
@@ -409,6 +420,11 @@ func (c *choresServiceClient) ListFamilies(ctx context.Context, req *connect.Req
 // DeleteFamily calls chores.v1.ChoresService.DeleteFamily.
 func (c *choresServiceClient) DeleteFamily(ctx context.Context, req *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error) {
 	return c.deleteFamily.CallUnary(ctx, req)
+}
+
+// UpdateFamily calls chores.v1.ChoresService.UpdateFamily.
+func (c *choresServiceClient) UpdateFamily(ctx context.Context, req *connect.Request[v1.UpdateFamilyRequest]) (*connect.Response[v1.UpdateFamilyResponse], error) {
+	return c.updateFamily.CallUnary(ctx, req)
 }
 
 // GetDashboardConfig calls chores.v1.ChoresService.GetDashboardConfig.
@@ -556,6 +572,7 @@ type ChoresServiceHandler interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
 	ListFamilies(context.Context, *connect.Request[v1.ListFamiliesRequest]) (*connect.Response[v1.ListFamiliesResponse], error)
 	DeleteFamily(context.Context, *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error)
+	UpdateFamily(context.Context, *connect.Request[v1.UpdateFamilyRequest]) (*connect.Response[v1.UpdateFamilyResponse], error)
 	GetDashboardConfig(context.Context, *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error)
 	SetupDashboard(context.Context, *connect.Request[v1.SetupDashboardRequest]) (*connect.Response[v1.SetupDashboardResponse], error)
 	DisableDashboard(context.Context, *connect.Request[v1.DisableDashboardRequest]) (*connect.Response[v1.DisableDashboardResponse], error)
@@ -609,6 +626,12 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		ChoresServiceDeleteFamilyProcedure,
 		svc.DeleteFamily,
 		connect.WithSchema(choresServiceMethods.ByName("DeleteFamily")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceUpdateFamilyHandler := connect.NewUnaryHandler(
+		ChoresServiceUpdateFamilyProcedure,
+		svc.UpdateFamily,
+		connect.WithSchema(choresServiceMethods.ByName("UpdateFamily")),
 		connect.WithHandlerOptions(opts...),
 	)
 	choresServiceGetDashboardConfigHandler := connect.NewUnaryHandler(
@@ -787,6 +810,8 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceListFamiliesHandler.ServeHTTP(w, r)
 		case ChoresServiceDeleteFamilyProcedure:
 			choresServiceDeleteFamilyHandler.ServeHTTP(w, r)
+		case ChoresServiceUpdateFamilyProcedure:
+			choresServiceUpdateFamilyHandler.ServeHTTP(w, r)
 		case ChoresServiceGetDashboardConfigProcedure:
 			choresServiceGetDashboardConfigHandler.ServeHTTP(w, r)
 		case ChoresServiceSetupDashboardProcedure:
@@ -862,6 +887,10 @@ func (UnimplementedChoresServiceHandler) ListFamilies(context.Context, *connect.
 
 func (UnimplementedChoresServiceHandler) DeleteFamily(context.Context, *connect.Request[v1.DeleteFamilyRequest]) (*connect.Response[v1.DeleteFamilyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.DeleteFamily is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) UpdateFamily(context.Context, *connect.Request[v1.UpdateFamilyRequest]) (*connect.Response[v1.UpdateFamilyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.UpdateFamily is not implemented"))
 }
 
 func (UnimplementedChoresServiceHandler) GetDashboardConfig(context.Context, *connect.Request[v1.GetDashboardConfigRequest]) (*connect.Response[v1.GetDashboardConfigResponse], error) {

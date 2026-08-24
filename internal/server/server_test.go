@@ -149,6 +149,29 @@ func TestFamilyScoping_CrossFamilyAccessDenied(t *testing.T) {
 	}
 }
 
+func TestUpdateFamily_ParentOnly(t *testing.T) {
+	s := newTestServer(t)
+	ctxParent := withIdentity("auth0|parent1")
+
+	fam, err := s.CreateFamily(ctxParent, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Parent One"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+
+	resp, err := s.UpdateFamily(ctxParent, connect.NewRequest(&v1.UpdateFamilyRequest{FamilyId: fam.Msg.Family.Id, Name: "The Renamed Sons"}))
+	if err != nil {
+		t.Fatalf("UpdateFamily: %v", err)
+	}
+	if resp.Msg.Family.Name != "The Renamed Sons" {
+		t.Fatalf("expected renamed family, got %q", resp.Msg.Family.Name)
+	}
+
+	ctxOutsider := withIdentity("auth0|outsider")
+	if _, err := s.UpdateFamily(ctxOutsider, connect.NewRequest(&v1.UpdateFamilyRequest{FamilyId: fam.Msg.Family.Id, Name: "Hijacked"})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied from a non-member, got %v", err)
+	}
+}
+
 func TestUpdateUser_SelfOnly(t *testing.T) {
 	s := newTestServer(t)
 	ctxParent1 := withIdentity("auth0|parent1")
