@@ -29,7 +29,6 @@ const TRANSLATIONS = {
     "userPicker.whoIsUsing": "Who's using the app right now?",
     "userPicker.noMembers": "No family members yet — add one below.",
     "userPicker.continue": "Continue",
-    "userPicker.notAvailable": "Not available on this device",
 
     "addUser.heading": "Add a family member",
     "addUser.nameLabel": "Name",
@@ -195,7 +194,6 @@ const TRANSLATIONS = {
     "userPicker.whoIsUsing": "Hvem bruker appen nå?",
     "userPicker.noMembers": "Ingen familiemedlemmer ennå — legg til en under.",
     "userPicker.continue": "Fortsett",
-    "userPicker.notAvailable": "Ikke tilgjengelig på denne enheten",
 
     "addUser.heading": "Legg til familiemedlem",
     "addUser.nameLabel": "Navn",

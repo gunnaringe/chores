@@ -633,9 +633,7 @@ function renderUserPicker() {
   const card = el(`<div class="card"></div>`);
   if (state.users.length) {
     state.users.forEach((u) => {
-      const action = canContinueAs(u)
-        ? `<button data-id="${u.id}">${escapeHtml(t("userPicker.continue"))}</button>`
-        : `<span class="hint">${escapeHtml(t("userPicker.notAvailable"))}</span>`;
+      const action = canContinueAs(u) ? `<button data-id="${u.id}">${escapeHtml(t("userPicker.continue"))}</button>` : "";
       const row = el(`
         <div class="row">
           <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span></span>
