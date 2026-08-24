@@ -1467,6 +1467,7 @@ function renderFamilyTab() {
   if (isAuth0Mode()) {
     wrap.appendChild(renderInvitationsSection());
   }
+  wrap.appendChild(renderDashboardSettingsSection());
 
   const dangerCard = el(`
     <div class="card">
@@ -1991,7 +1992,6 @@ function renderSettingsTab() {
   // you do often — and isn't relevant to a child at all — so it lives here
   // rather than as its own always-visible tab.
   if (isParent()) {
-    wrap.appendChild(renderDashboardSettingsSection());
     wrap.appendChild(renderFamilyTab());
   }
 
