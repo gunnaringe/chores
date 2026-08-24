@@ -622,29 +622,36 @@ function renderUserPicker() {
     });
   }
 
-  // Never offer "continue as" a parent other than the one this browser is
-  // already anchored to for this family — switching to any child is still
-  // fine (that's what the switcher is actually for), and so is switching
-  // back to yourself. See getHomeUserId's comment for the full rationale.
+  // Every family member is listed here, but "continue as" only ever works
+  // for a child, or for the one parent this browser is already anchored to
+  // for this family — a co-parent still shows up (so the picker still gives
+  // a full picture of who's in the family), just without a way to act as
+  // them. See getHomeUserId's comment for the full rationale.
   const homeUserId = getHomeUserId();
-  const pickable = state.users.filter((u) => u.role !== "USER_ROLE_PARENT" || !homeUserId || u.id === homeUserId);
+  const canContinueAs = (u) => u.role !== "USER_ROLE_PARENT" || !homeUserId || u.id === homeUserId;
 
   const card = el(`<div class="card"></div>`);
-  if (pickable.length) {
-    pickable.forEach((u) => {
+  if (state.users.length) {
+    state.users.forEach((u) => {
+      const action = canContinueAs(u)
+        ? `<button data-id="${u.id}">${escapeHtml(t("userPicker.continue"))}</button>`
+        : `<span class="hint">${escapeHtml(t("userPicker.notAvailable"))}</span>`;
       const row = el(`
         <div class="row">
           <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span></span>
-          <button data-id="${u.id}">${escapeHtml(t("userPicker.continue"))}</button>
+          ${action}
         </div>
       `);
-      row.querySelector("button").addEventListener("click", () =>
-        withError(async () => {
-          setUserId(u.id);
-          anchorHomeUserId(u.id, u.role);
-          await loadFamilyData();
-        })
-      );
+      const btn = row.querySelector("button");
+      if (btn) {
+        btn.addEventListener("click", () =>
+          withError(async () => {
+            setUserId(u.id);
+            anchorHomeUserId(u.id, u.role);
+            await loadFamilyData();
+          })
+        );
+      }
       card.appendChild(row);
     });
   } else {
