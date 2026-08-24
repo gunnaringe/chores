@@ -10,10 +10,7 @@ window.LANGUAGES = [
 
 const TRANSLATIONS = {
   en: {
-    "familyPicker.subtitle": "Pick or create a family to get started.",
     "familyPicker.open": "Open",
-    "familyPicker.noFamilies": "No families yet.",
-    "familyPicker.createHeading": "Create a family",
     "familyPicker.nameRequired": "Family name is required",
 
     "onboarding.subtitle": "Create your family to get started, or join one with an invite code.",
@@ -34,7 +31,6 @@ const TRANSLATIONS = {
     "family.renameSave": "Save",
     "family.renameRequired": "Family name is required",
 
-    "userPicker.switchFamily": "Switch family",
     "userPicker.whoIsUsing": "Who's using the app right now?",
     "userPicker.noMembers": "No family members yet — add one below.",
     "userPicker.continue": "Continue",
@@ -207,10 +203,7 @@ const TRANSLATIONS = {
     "lang.label": "Language",
   },
   nb: {
-    "familyPicker.subtitle": "Velg eller opprett en familie for å komme i gang.",
     "familyPicker.open": "Åpne",
-    "familyPicker.noFamilies": "Ingen familier ennå.",
-    "familyPicker.createHeading": "Opprett en familie",
     "familyPicker.nameRequired": "Familienavn er påkrevd",
 
     "onboarding.subtitle": "Opprett familien din for å komme i gang, eller bli med i en med en invitasjonskode.",
@@ -231,7 +224,6 @@ const TRANSLATIONS = {
     "family.renameSave": "Lagre",
     "family.renameRequired": "Familienavn er påkrevd",
 
-    "userPicker.switchFamily": "Bytt familie",
     "userPicker.whoIsUsing": "Hvem bruker appen nå?",
     "userPicker.noMembers": "Ingen familiemedlemmer ennå — legg til en under.",
     "userPicker.continue": "Fortsett",

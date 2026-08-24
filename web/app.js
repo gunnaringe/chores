@@ -181,23 +181,11 @@ function setUserId(id) {
 // parent (no impersonating a co-parent), while still allowing switching to
 // any child (the picker's actual intended use: previewing a kid's view, or
 // marking a chore done on their behalf) and switching back to yourself.
-// In auth0 mode this is simply your bound identity — there's nothing to
-// persist, since login already pins you to exactly one user per family. In
-// disabled/local-testing mode there's no login at all, so the first parent
-// ever picked on this browser for this family is remembered in localStorage
-// and never overwritten.
+// This is simply your bound identity — there's nothing to persist, since
+// login already pins you to exactly one user per family.
 function getHomeUserId() {
-  if (isAuth0Mode()) {
-    const m = state.membership && state.membership.memberships && state.membership.memberships.find((x) => x.family.id === state.familyId);
-    return m && m.user.role === "USER_ROLE_PARENT" ? m.user.id : null;
-  }
-  if (!state.familyId) return null;
-  return localStorage.getItem(`chores.homeUserId.${state.familyId}`);
-}
-function anchorHomeUserId(userId, role) {
-  if (isAuth0Mode() || role !== "USER_ROLE_PARENT" || !state.familyId) return;
-  const key = `chores.homeUserId.${state.familyId}`;
-  if (!localStorage.getItem(key)) localStorage.setItem(key, userId);
+  const m = state.membership && state.membership.memberships && state.membership.memberships.find((x) => x.family.id === state.familyId);
+  return m && m.user.role === "USER_ROLE_PARENT" ? m.user.id : null;
 }
 
 function currentUser() {
@@ -228,10 +216,6 @@ async function loadAuth() {
   state.auth = await res.json();
 }
 
-function isAuth0Mode() {
-  return !!state.auth && state.auth.mode === "auth0";
-}
-
 async function loadMembership() {
   state.membership = await call("GetMyMembership", {});
 }
@@ -240,11 +224,6 @@ function selectMembership(m) {
   state.families = [m.family];
   setFamilyId(m.family.id);
   setUserId(m.user.id);
-}
-
-async function loadFamilies() {
-  const resp = await call("ListFamilies", {});
-  state.families = resp.families || [];
 }
 
 async function loadFamilyData() {
@@ -274,10 +253,8 @@ async function loadFamilyData() {
   });
   state.occurrences = occResp.occurrences || [];
 
-  if (isAuth0Mode()) {
-    const invResp = await call("ListInvitations", { familyId: state.familyId });
-    state.invitations = invResp.invitations || [];
-  }
+  const invResp = await call("ListInvitations", { familyId: state.familyId });
+  state.invitations = invResp.invitations || [];
 
   // The History tab's today/yesterday/this-week groups are cheap (at most a
   // week of rows) and stay fresh via the same auto-refresh as everything
@@ -295,15 +272,6 @@ async function loadFamilyData() {
 
 async function loadPushConfig() {
   state.pushConfig = await call("GetPushConfig", {});
-}
-
-async function refreshAll() {
-  await loadFamilies();
-  if (state.familyId && !state.families.find((f) => f.id === state.familyId)) {
-    setFamilyId(null);
-    setUserId(null);
-  }
-  if (state.familyId) await loadFamilyData();
 }
 
 // ---- rendering -----------------------------------------------------
@@ -354,7 +322,7 @@ function render() {
     return;
   }
 
-  if (state.auth && state.auth.mode === "auth0" && state.auth.authenticated) {
+  if (state.auth && state.auth.authenticated) {
     app.appendChild(
       el(`
         <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;font-size:0.85rem;color:var(--muted);margin-bottom:8px;">
@@ -369,22 +337,16 @@ function render() {
     app.appendChild(el(`<div class="error">${escapeHtml(state.error)}</div>`));
   }
 
-  if (isAuth0Mode() && (!state.membership || !state.membership.bound)) {
+  if (!state.membership || !state.membership.bound) {
     app.appendChild(renderOnboarding());
     return;
   }
 
   // A login can be bound to more than one family (e.g. a child who's a
   // member of two households). If there's more than one and none is
-  // currently selected, ask which one to open instead of falling through
-  // to the generic (local-testing-only) family picker below.
-  if (isAuth0Mode() && state.membership.memberships.length > 1 && !state.familyId) {
+  // currently selected, ask which one to open.
+  if (state.membership.memberships.length > 1 && !state.familyId) {
     app.appendChild(renderHouseholdPicker());
-    return;
-  }
-
-  if (!state.familyId) {
-    app.appendChild(renderFamilyPicker());
     return;
   }
 
@@ -512,28 +474,14 @@ const MATERIAL_CHOICES = [
   "toys",
 ];
 
-// Creates a family and binds the caller as its founding parent — via
-// identity auto-bind in auth0 mode, or by explicitly creating and
-// selecting a parent user in local-testing mode, which has no login
-// identity for CreateFamily to auto-bind. Leaves the new family selected
-// (in auth0 mode) or set as the active family_id (local-testing mode) —
-// callers still need their own loadFamilyData() afterward.
+// Creates a family and binds the caller as its founding parent via
+// identity auto-bind. Leaves the new family selected — callers still need
+// their own loadFamilyData() afterward.
 async function createFamilyAndSwitchTo(name, yourName) {
-  if (isAuth0Mode()) {
-    await call("CreateFamily", { name, parentName: yourName });
-    await loadMembership();
-    if (state.membership.bound && state.membership.memberships.length) {
-      selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
-    }
-  } else {
-    const resp = await call("CreateFamily", { name });
-    await loadFamilies();
-    setFamilyId(resp.family.id);
-    if (yourName) {
-      const userResp = await call("CreateUser", { familyId: resp.family.id, name: yourName, role: "USER_ROLE_PARENT" });
-      setUserId(userResp.user.id);
-      anchorHomeUserId(userResp.user.id, "USER_ROLE_PARENT");
-    }
+  await call("CreateFamily", { name, parentName: yourName });
+  await loadMembership();
+  if (state.membership.bound && state.membership.memberships.length) {
+    selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
   }
 }
 
@@ -581,31 +529,29 @@ function renderCreateAndJoinFamilyForms(onDone) {
   );
   wrap.appendChild(form);
 
-  if (isAuth0Mode()) {
-    const joinForm = el(`
-      <div class="card">
-        <h2>${escapeHtml(t("onboarding.joinHeading"))}</h2>
-        <div class="field">
-          <label>${escapeHtml(t("onboarding.joinCodeLabel"))}</label>
-          <input type="text" id="onboard-join-code" />
-        </div>
-        <button type="button" id="onboard-join-btn" class="secondary">${escapeHtml(t("onboarding.joinBtn"))}</button>
+  const joinForm = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("onboarding.joinHeading"))}</h2>
+      <div class="field">
+        <label>${escapeHtml(t("onboarding.joinCodeLabel"))}</label>
+        <input type="text" id="onboard-join-code" />
       </div>
-    `);
-    joinForm.querySelector("#onboard-join-btn").addEventListener("click", () =>
-      withError(async () => {
-        const code = joinForm.querySelector("#onboard-join-code").value.trim();
-        if (!code) throw new Error(t("onboarding.joinCodeRequired"));
-        await joinFamilyWithCode(code);
-        if (state.membership.bound && state.membership.memberships.length) {
-          selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
-          await loadFamilyData();
-        }
-        onDone();
-      })
-    );
-    wrap.appendChild(joinForm);
-  }
+      <button type="button" id="onboard-join-btn" class="secondary">${escapeHtml(t("onboarding.joinBtn"))}</button>
+    </div>
+  `);
+  joinForm.querySelector("#onboard-join-btn").addEventListener("click", () =>
+    withError(async () => {
+      const code = joinForm.querySelector("#onboard-join-code").value.trim();
+      if (!code) throw new Error(t("onboarding.joinCodeRequired"));
+      await joinFamilyWithCode(code);
+      if (state.membership.bound && state.membership.memberships.length) {
+        selectMembership(state.membership.memberships[state.membership.memberships.length - 1]);
+        await loadFamilyData();
+      }
+      onDone();
+    })
+  );
+  wrap.appendChild(joinForm);
 
   return wrap;
 }
@@ -646,59 +592,6 @@ function renderHouseholdPicker() {
   return wrap;
 }
 
-function renderFamilyPicker() {
-  const wrap = el(`<div></div>`);
-  wrap.appendChild(el(`<h1>${window.APP_NAME}</h1><p>${escapeHtml(t("familyPicker.subtitle"))}</p>`));
-
-  const card = el(`<div class="card"></div>`);
-  if (state.families.length) {
-    state.families.forEach((f) => {
-      const row = el(`
-        <div class="row">
-          <span>${escapeHtml(f.name)}</span>
-          <button data-id="${f.id}">${escapeHtml(t("familyPicker.open"))}</button>
-        </div>
-      `);
-      row.querySelector("button").addEventListener("click", () =>
-        withError(async () => {
-          setFamilyId(f.id);
-          await loadFamilyData();
-        })
-      );
-      card.appendChild(row);
-    });
-  } else {
-    card.appendChild(el(`<p class="empty">${escapeHtml(t("familyPicker.noFamilies"))}</p>`));
-  }
-  wrap.appendChild(card);
-
-  const form = el(`
-    <div class="card">
-      <h2>${escapeHtml(t("familyPicker.createHeading"))}</h2>
-      <div class="field">
-        <label>${escapeHtml(t("family.nameLabel"))}</label>
-        <input type="text" id="new-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
-      </div>
-      <div class="field">
-        <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
-        <input type="text" id="new-family-your-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" />
-      </div>
-      <button id="create-family-btn">${escapeHtml(t("family.createBtn"))}</button>
-    </div>
-  `);
-  form.querySelector("#create-family-btn").addEventListener("click", () =>
-    withError(async () => {
-      const name = form.querySelector("#new-family-name").value.trim();
-      const yourName = form.querySelector("#new-family-your-name").value.trim();
-      if (!name) throw new Error(t("familyPicker.nameRequired"));
-      await createFamilyAndSwitchTo(name, yourName);
-      await loadFamilyData();
-    })
-  );
-  wrap.appendChild(form);
-  return wrap;
-}
-
 // Reached via the "+" next to the family name in the topbar — the same
 // create/join forms as onboarding, just for someone who's already a member
 // of at least one family and wants another (a parent co-running two
@@ -723,24 +616,14 @@ function renderCreateFamilyTab() {
 function renderUserPicker() {
   const wrap = el(`<div></div>`);
   const family = state.families.find((f) => f.id === state.familyId);
-  const switchFamilyBtn = isAuth0Mode() ? "" : `<button class="secondary" id="switch-family">${escapeHtml(t("userPicker.switchFamily"))}</button>`;
   wrap.appendChild(
     el(`
       <div class="topbar">
         <h1>${escapeHtml(family ? family.name : window.APP_NAME)}</h1>
-        ${switchFamilyBtn}
       </div>
       <p>${escapeHtml(t("userPicker.whoIsUsing"))}</p>
     `)
   );
-  const switchFamilyEl = wrap.querySelector("#switch-family");
-  if (switchFamilyEl) {
-    switchFamilyEl.addEventListener("click", () => {
-      setFamilyId(null);
-      setUserId(null);
-      render();
-    });
-  }
 
   // Every family member is listed here, but "continue as" only ever works
   // for a child, or for the one parent this browser is already anchored to
@@ -765,7 +648,6 @@ function renderUserPicker() {
         btn.addEventListener("click", () =>
           withError(async () => {
             setUserId(u.id);
-            anchorHomeUserId(u.id, u.role);
             await loadFamilyData();
           })
         );
@@ -824,23 +706,20 @@ function sortMembersForDisplay(users) {
 // topbar — mirrors renderUserPicker's old canContinueAs rule: a bound
 // child's login can only ever act as themselves, so this is only
 // meaningful for a bound parent (picking a child, or switching back to
-// themselves) or in local-testing mode, where there's no login binding at
-// all. Empty when switching isn't possible, in which case the topbar just
-// shows the current user's name as plain text instead of a dropdown.
+// themselves). Empty when switching isn't possible, in which case the
+// topbar just shows the current user's name as plain text instead of a
+// dropdown.
 function switchableUsers() {
-  if (isAuth0Mode() && !isParent()) return [];
+  if (!isParent()) return [];
   const homeUserId = getHomeUserId();
   const canContinueAs = (u) => u.role !== "USER_ROLE_PARENT" || !homeUserId || u.id === homeUserId;
   return sortMembersForDisplay(state.users.filter(canContinueAs));
 }
 
 // Every family the topbar's family-name dropdown can switch straight to —
-// in auth0 mode, the logins's own memberships (what "Switch household"
-// used to list); in local-testing mode, every family in the database
-// (there's no membership concept to scope it by there).
+// the login's own memberships (what "Switch household" used to list).
 function familySwitchOptions() {
-  if (isAuth0Mode()) return (state.membership && state.membership.memberships) || [];
-  return state.families.map((f) => ({ family: f, user: null }));
+  return (state.membership && state.membership.memberships) || [];
 }
 
 function renderTopbar() {
@@ -891,14 +770,8 @@ function renderTopbar() {
       withError(async () => {
         const selected = familyOptions.find((o) => o.family.id === e.target.value);
         if (!selected) return;
-        if (isAuth0Mode()) {
-          selectMembership(selected);
-          await loadFamilyData();
-        } else {
-          setFamilyId(selected.family.id);
-          setUserId(null);
-          await loadFamilyData();
-        }
+        selectMembership(selected);
+        await loadFamilyData();
       })
     );
   }
@@ -908,7 +781,6 @@ function renderTopbar() {
         const selected = userOptions.find((u) => u.id === e.target.value);
         if (!selected) return;
         setUserId(selected.id);
-        anchorHomeUserId(selected.id, selected.role);
         await loadFamilyData();
       })
     );
@@ -1515,16 +1387,18 @@ function renderTypeToConfirm(expectedWord, hint, buttonLabel, onConfirm) {
 
 // After leaving a family, removing yourself isn't possible, or deleting one
 // outright, there's nothing left to show for it here — fall back to
-// whatever the app would normally land on with no family selected
-// (household/family picker, or onboarding).
+// whatever the app would normally land on with no family selected: a
+// single remaining membership gets reselected automatically (mirroring
+// boot's own selection logic), otherwise render() naturally lands on the
+// household picker (2+ remaining) or onboarding (0 remaining).
 async function afterLeavingFamily() {
   setUserId(null);
   setFamilyId(null);
   state.tab = "home";
-  if (isAuth0Mode()) {
-    await loadMembership();
-  } else {
-    await loadFamilies();
+  await loadMembership();
+  if (state.membership.bound && state.membership.memberships.length === 1) {
+    selectMembership(state.membership.memberships[0]);
+    await loadFamilyData();
   }
 }
 
@@ -1712,14 +1586,12 @@ function renderFamilyTab() {
         </select>
       </div>
     `));
-    if (isAuth0Mode()) {
-      detail.appendChild(el(`
-        <div class="field">
-          <label>${escapeHtml(t("invitations.theirEmailLabel"))}</label>
-          <input type="text" id="new-member-email" />
-        </div>
-      `));
-    }
+    detail.appendChild(el(`
+      <div class="field">
+        <label>${escapeHtml(t("invitations.theirEmailLabel"))}</label>
+        <input type="text" id="new-member-email" />
+      </div>
+    `));
 
     const actions = el(`<div class="actions"></div>`);
     const addBtn = el(`<button type="button">${escapeHtml(t("addUser.add"))}</button>`);
@@ -1735,40 +1607,34 @@ function renderFamilyTab() {
       })
     );
     actions.appendChild(addBtn);
-    if (isAuth0Mode()) {
-      const inviteBtn = el(`<button type="button" class="secondary">${escapeHtml(t("invitations.createBtn"))}</button>`);
-      inviteBtn.addEventListener("click", () =>
-        withError(async () => {
-          const name = detail.querySelector("#new-member-name").value.trim();
-          const role = detail.querySelector("#new-member-role").value;
-          const email = detail.querySelector("#new-member-email").value.trim();
-          if (!name) throw new Error(t("addUser.nameRequired"));
-          const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
-          lastCreatedInviteCode = resp.token;
-          await loadFamilyData();
-        })
-      );
-      actions.appendChild(inviteBtn);
-    }
+    const inviteBtn = el(`<button type="button" class="secondary">${escapeHtml(t("invitations.createBtn"))}</button>`);
+    inviteBtn.addEventListener("click", () =>
+      withError(async () => {
+        const name = detail.querySelector("#new-member-name").value.trim();
+        const role = detail.querySelector("#new-member-role").value;
+        const email = detail.querySelector("#new-member-email").value.trim();
+        if (!name) throw new Error(t("addUser.nameRequired"));
+        const resp = await call("CreateInvitation", { familyId: state.familyId, name, role, email });
+        lastCreatedInviteCode = resp.token;
+        await loadFamilyData();
+      })
+    );
+    actions.appendChild(inviteBtn);
     detail.appendChild(actions);
 
-    if (isAuth0Mode()) {
-      detail.appendChild(el(`<p class="hint" style="margin-top:10px;">${escapeHtml(t("invitations.inviteDesc"))}</p>`));
-      if (lastCreatedInviteCode) {
-        detail.appendChild(el(`
-          <div class="field">
-            <label>${escapeHtml(t("invitations.codeLabel"))}</label>
-            <input type="text" class="input-full" readonly value="${escapeHtml(lastCreatedInviteCode)}" onclick="this.select()" />
-          </div>
-        `));
-      }
+    detail.appendChild(el(`<p class="hint" style="margin-top:10px;">${escapeHtml(t("invitations.inviteDesc"))}</p>`));
+    if (lastCreatedInviteCode) {
+      detail.appendChild(el(`
+        <div class="field">
+          <label>${escapeHtml(t("invitations.codeLabel"))}</label>
+          <input type="text" class="input-full" readonly value="${escapeHtml(lastCreatedInviteCode)}" onclick="this.select()" />
+        </div>
+      `));
     }
   }).forEach((n) => card.appendChild(n));
 
   wrap.appendChild(card);
-  if (isAuth0Mode()) {
-    wrap.appendChild(renderPendingInvitationsList());
-  }
+  wrap.appendChild(renderPendingInvitationsList());
   wrap.appendChild(renderDashboardSettingsSection());
 
   const dangerCard = el(`
@@ -2440,7 +2306,6 @@ if (isDashboardRoute()) {
 } else {
   withError(async () => {
     await loadAuth();
-    if (isAuth0Mode()) {
     // A login may be bound to more than one family (e.g. a child who's a
     // member of two households). Always resolve this from the server on
     // boot rather than trusting stale localStorage, since a different
@@ -2465,16 +2330,13 @@ if (isDashboardRoute()) {
       setFamilyId(null);
       setUserId(null);
     }
-  } else {
-    await refreshAll();
-  }
-  // Non-fatal: push notifications are an optional extra, so a failure here
-  // (e.g. the server has no VAPID keys yet) shouldn't surface as a
-  // page-wide error banner.
-  try {
-    await loadPushConfig();
-  } catch (e) {
-    console.warn("push config unavailable:", e);
-  }
+    // Non-fatal: push notifications are an optional extra, so a failure here
+    // (e.g. the server has no VAPID keys yet) shouldn't surface as a
+    // page-wide error banner.
+    try {
+      await loadPushConfig();
+    } catch (e) {
+      console.warn("push config unavailable:", e);
+    }
   });
 }

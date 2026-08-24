@@ -32,21 +32,20 @@ func codeOf(err error) connect.Code {
 	return connect.CodeOf(err)
 }
 
-func TestCreateFamily_DisabledMode_DoesNotAutoBind(t *testing.T) {
+// TestRequireRole_RejectsRequestsWithNoIdentity is the fail-closed
+// counterpart to the old (now-removed) local-testing-mode escape hatch: a
+// request that somehow reaches a membership-gated RPC with no login
+// identity at all, and no dashboard authorization either, must be denied —
+// never silently treated as "no restriction."
+func TestRequireRole_RejectsRequestsWithNoIdentity(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background() // no identity: local-testing mode
-
-	resp, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	owner := withIdentity("auth0|fail-closed-owner")
+	fam, err := s.CreateFamily(owner, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Mom"}))
 	if err != nil {
 		t.Fatalf("CreateFamily: %v", err)
 	}
-
-	users, err := s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: resp.Msg.Family.Id}))
-	if err != nil {
-		t.Fatalf("ListUsers: %v", err)
-	}
-	if len(users.Msg.Users) != 0 {
-		t.Fatalf("expected no auto-created user in disabled mode, got %d", len(users.Msg.Users))
+	if _, err := s.ListUsers(context.Background(), connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id})); codeOf(err) != connect.CodeUnauthenticated {
+		t.Fatalf("expected Unauthenticated calling a membership-gated RPC with no identity and no dashboard authorization, got %v", err)
 	}
 }
 
@@ -463,7 +462,7 @@ func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
 
 func TestTaskAssignment(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background() // local-testing mode: no identity, no role restrictions
+	ctx := withIdentity("auth0|task-assignment-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -543,7 +542,7 @@ func TestTaskAssignment(t *testing.T) {
 
 func TestTaskRepeatModes(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|task-repeat-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -663,7 +662,7 @@ func TestTaskRepeatModes(t *testing.T) {
 
 func TestTaskIcon(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|task-icon-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -876,7 +875,7 @@ func TestParent_CanBeMemberOfMultipleFamilies(t *testing.T) {
 
 func TestChildSummary_EarnedThisWeek(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|child-summary-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -923,7 +922,7 @@ func TestChildSummary_EarnedThisWeek(t *testing.T) {
 
 func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|list-completions-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -1032,23 +1031,24 @@ func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
 
 func TestLeaveFamily_BlocksTheLastParent(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctxMom := withIdentity("auth0|last-parent-mom")
 
-	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	fam, err := s.CreateFamily(ctxMom, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Mom"}))
 	if err != nil {
 		t.Fatalf("CreateFamily: %v", err)
 	}
-	parent, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Mom", Role: v1.UserRole_USER_ROLE_PARENT}))
+	membership, err := s.GetMyMembership(ctxMom, connect.NewRequest(&v1.GetMyMembershipRequest{}))
 	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
+		t.Fatalf("GetMyMembership: %v", err)
 	}
+	momUserID := membership.Msg.Memberships[0].User.Id
 
-	if _, err := s.LeaveFamily(ctx, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: parent.Msg.User.Id})); codeOf(err) != connect.CodeFailedPrecondition {
+	if _, err := s.LeaveFamily(ctxMom, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: momUserID})); codeOf(err) != connect.CodeFailedPrecondition {
 		t.Fatalf("expected FailedPrecondition leaving as the last parent, got %v", err)
 	}
 
 	// Still there afterward — the rejected attempt didn't partially apply.
-	users, err := s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
+	users, err := s.ListUsers(ctxMom, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -1056,15 +1056,25 @@ func TestLeaveFamily_BlocksTheLastParent(t *testing.T) {
 		t.Fatalf("expected the last parent to still be a member, got %+v", users.Msg.Users)
 	}
 
-	// A second parent joining unblocks leaving for the first.
-	dad, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Dad", Role: v1.UserRole_USER_ROLE_PARENT}))
+	// A second parent, bound to their own login (via invite, mirroring
+	// TestLeaveFamily_OnlyAsYourself), joining unblocks leaving for the
+	// first — and remains a member itself once Mom does leave, so there's
+	// still a valid identity to check the final state with.
+	ctxDad := withIdentity("auth0|last-parent-dad")
+	inv, err := s.CreateInvitation(ctxMom, connect.NewRequest(&v1.CreateInvitationRequest{
+		FamilyId: fam.Msg.Family.Id, Name: "Dad", Role: v1.UserRole_USER_ROLE_PARENT,
+	}))
 	if err != nil {
-		t.Fatalf("CreateUser Dad: %v", err)
+		t.Fatalf("CreateInvitation Dad: %v", err)
 	}
-	if _, err := s.LeaveFamily(ctx, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: parent.Msg.User.Id})); err != nil {
+	dad, err := s.AcceptInvitation(ctxDad, connect.NewRequest(&v1.AcceptInvitationRequest{Token: inv.Msg.Token}))
+	if err != nil {
+		t.Fatalf("AcceptInvitation Dad: %v", err)
+	}
+	if _, err := s.LeaveFamily(ctxMom, connect.NewRequest(&v1.LeaveFamilyRequest{UserId: momUserID})); err != nil {
 		t.Fatalf("LeaveFamily with a second parent present: %v", err)
 	}
-	users, err = s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
+	users, err = s.ListUsers(ctxDad, connect.NewRequest(&v1.ListUsersRequest{FamilyId: fam.Msg.Family.Id}))
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -1116,7 +1126,7 @@ func TestLeaveFamily_OnlyAsYourself(t *testing.T) {
 
 func TestLeaveFamily_RejectsAChildTarget(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|leave-child-target-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -1133,16 +1143,17 @@ func TestLeaveFamily_RejectsAChildTarget(t *testing.T) {
 
 func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|remove-child-tester")
 
-	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons", ParentName: "Mom"}))
 	if err != nil {
 		t.Fatalf("CreateFamily: %v", err)
 	}
-	parent, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Mom", Role: v1.UserRole_USER_ROLE_PARENT}))
+	membership, err := s.GetMyMembership(ctx, connect.NewRequest(&v1.GetMyMembershipRequest{}))
 	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
+		t.Fatalf("GetMyMembership: %v", err)
 	}
+	parentUserID := membership.Msg.Memberships[0].User.Id
 	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
 	if err != nil {
 		t.Fatalf("CreateUser child: %v", err)
@@ -1164,7 +1175,7 @@ func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
 	}
 
 	// A parent id is rejected outright.
-	if _, err := s.RemoveChild(ctx, connect.NewRequest(&v1.RemoveChildRequest{ChildId: parent.Msg.User.Id})); codeOf(err) != connect.CodeInvalidArgument {
+	if _, err := s.RemoveChild(ctx, connect.NewRequest(&v1.RemoveChildRequest{ChildId: parentUserID})); codeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument removing a parent as a child, got %v", err)
 	}
 
@@ -1176,7 +1187,7 @@ func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
-	if len(users.Msg.Users) != 1 || users.Msg.Users[0].Id != parent.Msg.User.Id {
+	if len(users.Msg.Users) != 1 || users.Msg.Users[0].Id != parentUserID {
 		t.Fatalf("expected only the parent to remain, got %+v", users.Msg.Users)
 	}
 	updatedTask, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
@@ -1204,7 +1215,7 @@ func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
 
 func TestDeleteFamily_RemovesEverything(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|delete-family-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -1238,9 +1249,13 @@ func TestDeleteFamily_RemovesEverything(t *testing.T) {
 		}
 	}
 
-	// Deleting it again is a clean NotFound, not a silent no-op.
-	if _, err := s.DeleteFamily(ctx, connect.NewRequest(&v1.DeleteFamilyRequest{FamilyId: fam.Msg.Family.Id})); codeOf(err) != connect.CodeNotFound {
-		t.Fatalf("expected NotFound deleting an already-deleted family, got %v", err)
+	// Deleting it again isn't a silent no-op. Since the family is gone,
+	// deleting it cascaded away the caller's own membership row too — so
+	// requireParent now rejects the second attempt as PermissionDenied
+	// (no longer a member of the family in question) rather than reaching
+	// far enough to report NotFound.
+	if _, err := s.DeleteFamily(ctx, connect.NewRequest(&v1.DeleteFamilyRequest{FamilyId: fam.Msg.Family.Id})); codeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expected PermissionDenied deleting an already-deleted family, got %v", err)
 	}
 }
 
@@ -1258,7 +1273,7 @@ func dashboardTestContext(t *testing.T, s *Server, key string) context.Context {
 
 func TestDashboardKey_ReadsAndCompletesTasksForTheWholeFamily(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|dashboard-read-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -1343,7 +1358,7 @@ func TestDashboardKey_ReadsAndCompletesTasksForTheWholeFamily(t *testing.T) {
 // bypassing the HTTP-layer allowlist that's the outer defense).
 func TestDashboardKey_NeverUnlocksParentOnlyActions(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|dashboard-parentonly-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -1384,21 +1399,24 @@ func TestDashboardKey_NeverUnlocksParentOnlyActions(t *testing.T) {
 
 func TestDashboardKey_ScopedToItsOwnFamily(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	// Two separate identities: CreateFamily now rejects a second family for
+	// a login already bound to one.
+	ctxA := withIdentity("auth0|dashboard-scoped-a")
+	ctxB := withIdentity("auth0|dashboard-scoped-b")
 
-	famA, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family A"}))
+	famA, err := s.CreateFamily(ctxA, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family A"}))
 	if err != nil {
 		t.Fatalf("CreateFamily A: %v", err)
 	}
-	famB, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family B"}))
+	famB, err := s.CreateFamily(ctxB, connect.NewRequest(&v1.CreateFamilyRequest{Name: "Family B"}))
 	if err != nil {
 		t.Fatalf("CreateFamily B: %v", err)
 	}
-	childB, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: famB.Msg.Family.Id, Name: "Kid B", Role: v1.UserRole_USER_ROLE_CHILD}))
+	childB, err := s.CreateUser(ctxB, connect.NewRequest(&v1.CreateUserRequest{FamilyId: famB.Msg.Family.Id, Name: "Kid B", Role: v1.UserRole_USER_ROLE_CHILD}))
 	if err != nil {
 		t.Fatalf("CreateUser B: %v", err)
 	}
-	taskB, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+	taskB, err := s.CreateTask(ctxB, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: famB.Msg.Family.Id, Title: "Chore B", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
 		PriceCents: 100, ChildIds: []string{childB.Msg.User.Id},
 	}))
@@ -1406,7 +1424,7 @@ func TestDashboardKey_ScopedToItsOwnFamily(t *testing.T) {
 		t.Fatalf("CreateTask B: %v", err)
 	}
 
-	setupA, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: famA.Msg.Family.Id}))
+	setupA, err := s.SetupDashboard(ctxA, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: famA.Msg.Family.Id}))
 	if err != nil {
 		t.Fatalf("SetupDashboard A: %v", err)
 	}
@@ -1422,7 +1440,7 @@ func TestDashboardKey_ScopedToItsOwnFamily(t *testing.T) {
 
 func TestDisableDashboard_RevokesTheKey(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|disable-dashboard-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {

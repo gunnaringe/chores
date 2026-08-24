@@ -152,10 +152,9 @@ message TaskOccurrence {
 
 message CreateFamilyRequest {
   string name = 1;
-  // When auth is enabled, the caller is automatically created as the
-  // founding parent and bound to their login identity. This is their
-  // display name; if empty, their login profile's name (or email) is used.
-  // Ignored in local-testing mode (no auth configured).
+  // The caller is automatically created as the founding parent and bound
+  // to their login identity. This is their display name; if empty, their
+  // login profile's name (or email) is used.
   string parent_name = 2;
 }
 message CreateFamilyResponse {
@@ -232,8 +231,7 @@ message ListUsersResponse {
 }
 
 // Renaming is self-service only — a bound login can rename its own user
-// row and no one else's, even a parent renaming a child. In local-testing
-// mode (no login at all) this is unrestricted, same as other actions there.
+// row and no one else's, even a parent renaming a child.
 message UpdateUserRequest {
   string user_id = 1;
   string name = 2;
@@ -412,10 +410,9 @@ message Membership {
   Family family = 2;
 }
 
-// GetMyMembership resolves the caller's login identity (when auth is
-// enabled) to every family member row it's bound to. In local-testing mode
-// (no auth configured) it always reports unbound, since there is no login
-// identity to resolve.
+// GetMyMembership resolves the caller's login identity to every family
+// member row it's bound to. A freshly logged-in identity with none yet
+// (hasn't created or joined a family) reports unbound.
 message GetMyMembershipRequest {}
 message GetMyMembershipResponse {
   bool bound = 1;

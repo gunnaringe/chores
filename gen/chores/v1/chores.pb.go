@@ -958,10 +958,9 @@ func (x *TaskOccurrence) GetChildName() string {
 type CreateFamilyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// When auth is enabled, the caller is automatically created as the
-	// founding parent and bound to their login identity. This is their
-	// display name; if empty, their login profile's name (or email) is used.
-	// Ignored in local-testing mode (no auth configured).
+	// The caller is automatically created as the founding parent and bound
+	// to their login identity. This is their display name; if empty, their
+	// login profile's name (or email) is used.
 	ParentName    string `protobuf:"bytes,2,opt,name=parent_name,json=parentName,proto3" json:"parent_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1783,8 +1782,7 @@ func (x *ListUsersResponse) GetUsers() []*User {
 }
 
 // Renaming is self-service only — a bound login can rename its own user
-// row and no one else's, even a parent renaming a child. In local-testing
-// mode (no login at all) this is unrestricted, same as other actions there.
+// row and no one else's, even a parent renaming a child.
 type UpdateUserRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -3481,10 +3479,9 @@ func (x *Membership) GetFamily() *Family {
 	return nil
 }
 
-// GetMyMembership resolves the caller's login identity (when auth is
-// enabled) to every family member row it's bound to. In local-testing mode
-// (no auth configured) it always reports unbound, since there is no login
-// identity to resolve.
+// GetMyMembership resolves the caller's login identity to every family
+// member row it's bound to. A freshly logged-in identity with none yet
+// (hasn't created or joined a family) reports unbound.
 type GetMyMembershipRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields

@@ -64,11 +64,12 @@ func timestampPB(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
-// currentIdentity returns the caller's login identity, when auth is
-// enabled and they're logged in. In local-testing mode (no auth
-// configured) it always reports false, which every access check below
-// treats as "no restriction" — preserving the original open-access
-// behavior when auth isn't in play.
+// currentIdentity returns the caller's login identity. Auth is always
+// required now, so RequireAuth guarantees this is present for every real
+// request — a false ok this deep means something bypassed that middleware
+// (e.g. a Go call straight into an RPC method, as some internal callers
+// below do) and every access check treats that as denial, never as "no
+// restriction."
 func (s *Server) currentIdentity(ctx context.Context) (auth.Identity, bool) {
 	return auth.FromContext(ctx)
 }
@@ -88,16 +89,16 @@ func (s *Server) boundUserInFamily(ctx context.Context, identity auth.Identity, 
 }
 
 // requireMembership ensures the caller is bound to a user row belonging to
-// familyID, regardless of role. A no-op in local-testing mode.
+// familyID, regardless of role.
 func (s *Server) requireMembership(ctx context.Context, familyID string) error {
 	return s.requireRole(ctx, familyID)
 }
 
 // requireRole ensures the caller is bound to familyID and, if any roles are
-// given, that their role there is one of them. A no-op in local-testing
-// mode. Used to keep family-management actions (adding members, managing
-// tasks, inviting people, paying out) restricted to parents now that
-// children can have their own login and API access.
+// given, that their role there is one of them. Used to keep
+// family-management actions (adding members, managing tasks, inviting
+// people, paying out) restricted to parents now that children can have
+// their own login and API access.
 //
 // A request authorized by a dashboard key (see dashboard.go) is handled
 // explicitly here rather than falling into the "no identity" branch below:
@@ -109,11 +110,13 @@ func (s *Server) requireMembership(ctx context.Context, familyID string) error {
 // request from ever reaching any RPC other than the few the dashboard
 // actually uses, but should a future code path ever hand this function a
 // dashboard-only context for something else — say, by calling this RPC's
-// Go implementation directly, as the nested calls above do — falling into
-// "no identity ⇒ local-testing mode ⇒ no restriction" would silently grant
-// a leaked dashboard key every parent-only power in the app. Rejecting
+// Go implementation directly, as the nested calls above do — rejecting
 // role-restricted checks outright closes that off at the source instead of
 // relying solely on the perimeter check.
+//
+// Below the dashboard case, no identity at all means denial: RequireAuth
+// guarantees every real request carries one, so a missing identity here
+// means something reached this RPC without going through it.
 func (s *Server) requireRole(ctx context.Context, familyID string, allowed ...v1.UserRole) error {
 	if dashFamilyID, ok := dashboardFamilyFromContext(ctx); ok {
 		if dashFamilyID != familyID {
@@ -126,7 +129,7 @@ func (s *Server) requireRole(ctx context.Context, familyID string, allowed ...v1
 	}
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
-		return nil
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
 	user, err := s.boundUserInFamily(ctx, identity, familyID)
 	if err != nil {
@@ -151,13 +154,14 @@ func (s *Server) requireParent(ctx context.Context, familyID string) error {
 }
 
 // requireSelfOrParent ensures a bound child can only act on their own
-// child_id within familyID — a bound parent there, or local-testing mode,
-// is unrestricted. Callers should also call requireMembership/requireParent
-// for familyID first.
+// child_id within familyID — a bound parent there is unrestricted. Callers
+// should also call requireMembership/requireParent for familyID first,
+// which makes the identity check below unreachable in practice; it stays
+// as defense in depth.
 func (s *Server) requireSelfOrParent(ctx context.Context, familyID, childID string) error {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
-		return nil
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
 	user, err := s.boundUserInFamily(ctx, identity, familyID)
 	if err != nil {
@@ -171,8 +175,12 @@ func (s *Server) requireSelfOrParent(ctx context.Context, familyID, childID stri
 
 // selfFilterForChild returns the child_id filter a list RPC should use: a
 // bound child (within familyID) is always forced to see only their own
-// data, overriding whatever was requested. Anyone else (a bound parent, or
-// local-testing mode) gets requested back unchanged.
+// data, overriding whatever was requested. A bound parent, or a
+// dashboard-authorized request (which has no login identity — the Today
+// dashboard is meant to see the whole family, unfiltered, and every caller
+// of this function runs requireMembership/dashboard-branch validation
+// first, so reaching here with no identity only ever means the latter),
+// gets requested back unchanged.
 func (s *Server) selfFilterForChild(ctx context.Context, familyID, requested string) (string, error) {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
@@ -196,19 +204,20 @@ func (s *Server) CreateFamily(ctx context.Context, req *connect.Request[v1.Creat
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
 
-	// When auth is enabled, creating a family also makes the caller its
-	// founding parent, bound to their login identity. Someone who already
-	// belongs to a family can't found another one with the same login.
-	identity, hasIdentity := s.currentIdentity(ctx)
-	if hasIdentity {
-		var existing string
-		err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&existing)
-		if err == nil {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you already belong to a family"))
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// Creating a family also makes the caller its founding parent, bound to
+	// their login identity. Someone who already belongs to a family can't
+	// found another one with the same login.
+	identity, ok := s.currentIdentity(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
+	}
+	var existing string
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ?`, identity.Sub).Scan(&existing)
+	if err == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you already belong to a family"))
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	id := newID()
@@ -220,24 +229,22 @@ func (s *Server) CreateFamily(ctx context.Context, req *connect.Request[v1.Creat
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create family: %w", err))
 	}
 
-	if hasIdentity {
-		parentName := req.Msg.GetParentName()
-		if parentName == "" {
-			parentName = identity.Name
-		}
-		if parentName == "" {
-			parentName = identity.Email
-		}
-		if parentName == "" {
-			parentName = "Parent"
-		}
-		uid := newID()
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO users (id, family_id, name, role, created_at, auth_subject, email) VALUES (?, ?, ?, 'parent', ?, ?, ?)`,
-			uid, id, parentName, formatTime(now), identity.Sub, identity.Email,
-		); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("bind founding parent: %w", err))
-		}
+	parentName := req.Msg.GetParentName()
+	if parentName == "" {
+		parentName = identity.Name
+	}
+	if parentName == "" {
+		parentName = identity.Email
+	}
+	if parentName == "" {
+		parentName = "Parent"
+	}
+	uid := newID()
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO users (id, family_id, name, role, created_at, auth_subject, email) VALUES (?, ?, ?, 'parent', ?, ?, ?)`,
+		uid, id, parentName, formatTime(now), identity.Sub, identity.Email,
+	); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("bind founding parent: %w", err))
 	}
 
 	return connect.NewResponse(&v1.CreateFamilyResponse{
@@ -246,18 +253,18 @@ func (s *Server) CreateFamily(ctx context.Context, req *connect.Request[v1.Creat
 }
 
 func (s *Server) ListFamilies(ctx context.Context, _ *connect.Request[v1.ListFamiliesRequest]) (*connect.Response[v1.ListFamiliesResponse], error) {
-	// In local-testing mode, list every family (there's no identity to scope
-	// by). Once auth is enabled, a login only ever sees the single family
-	// it's bound to.
-	query := `SELECT f.id, f.name, f.created_at FROM families f`
-	var args []any
-	if identity, ok := s.currentIdentity(ctx); ok {
-		query += ` JOIN users u ON u.family_id = f.id WHERE u.auth_subject = ?`
-		args = append(args, identity.Sub)
+	// A login only ever sees the family/families it's bound to.
+	identity, ok := s.currentIdentity(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
-	query += ` ORDER BY f.created_at`
-
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT f.id, f.name, f.created_at FROM families f
+		 JOIN users u ON u.family_id = f.id
+		 WHERE u.auth_subject = ?
+		 ORDER BY f.created_at`,
+		identity.Sub,
+	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -588,14 +595,15 @@ func (s *Server) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateU
 	if err := s.requireRole(ctx, target.FamilyId, v1.UserRole_USER_ROLE_PARENT, v1.UserRole_USER_ROLE_CHILD); err != nil {
 		return nil, err
 	}
-	if identity, ok := s.currentIdentity(ctx); ok {
-		bound, err := s.boundUserInFamily(ctx, identity, target.FamilyId)
-		if err != nil {
-			return nil, err
-		}
-		if bound == nil || bound.Id != userID {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("you can only rename yourself"))
-		}
+	// requireRole above already guarantees identity is present (it fails
+	// closed otherwise), so this check always runs.
+	identity, _ := s.currentIdentity(ctx)
+	bound, err := s.boundUserInFamily(ctx, identity, target.FamilyId)
+	if err != nil {
+		return nil, err
+	}
+	if bound == nil || bound.Id != userID {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("you can only rename yourself"))
 	}
 	if _, err := s.db.ExecContext(ctx, `UPDATE users SET name = ? WHERE id = ?`, name, userID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update user: %w", err))
@@ -636,16 +644,15 @@ func (s *Server) LeaveFamily(ctx context.Context, req *connect.Request[v1.LeaveF
 	}
 	// A bound login may only leave as itself, never on another parent's
 	// behalf — the same "no impersonating a co-parent" boundary the UI
-	// already enforces. In local-testing mode there's no identity to check
-	// against, so this is a no-op there, like every other identity check.
-	if identity, ok := s.currentIdentity(ctx); ok {
-		actingUser, err := s.boundUserInFamily(ctx, identity, target.FamilyId)
-		if err != nil {
-			return nil, err
-		}
-		if actingUser == nil || actingUser.Id != userID {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("you can only leave as yourself"))
-		}
+	// already enforces. requireParent above already guarantees identity is
+	// present (it fails closed otherwise), so this check always runs.
+	identity, _ := s.currentIdentity(ctx)
+	actingUser, err := s.boundUserInFamily(ctx, identity, target.FamilyId)
+	if err != nil {
+		return nil, err
+	}
+	if actingUser == nil || actingUser.Id != userID {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("you can only leave as yourself"))
 	}
 
 	parentCount, err := s.countParents(ctx, target.FamilyId)
@@ -1593,17 +1600,15 @@ func (s *Server) ListPayouts(ctx context.Context, req *connect.Request[v1.ListPa
 
 const invitationTTL = 7 * 24 * time.Hour
 
-// GetMyMembership resolves the caller's login identity to the family
-// member it's bound to, if any. In local-testing mode it always reports
-// unbound, since there is no login identity to resolve.
 // GetMyMembership returns every user row the caller's login identity is
 // bound to. Usually that's at most one (a parent belongs to one household),
 // but a child can be bound to several — e.g. one per household they split
-// time between.
+// time between. A freshly logged-in identity with no matching rows yet
+// (hasn't created or joined a family) legitimately reports Bound: false.
 func (s *Server) GetMyMembership(ctx context.Context, _ *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error) {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
-		return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: false}), nil
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
 
 	rows, err := s.db.QueryContext(ctx, `SELECT id FROM users WHERE auth_subject = ? ORDER BY created_at`, identity.Sub)
@@ -1656,9 +1661,6 @@ func (s *Server) CreateInvitation(ctx context.Context, req *connect.Request[v1.C
 	roleStr, err := roleToDB(req.Msg.GetRole())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("role must be parent or child: %w", err))
-	}
-	if _, ok := s.currentIdentity(ctx); !ok {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitations require auth0 login to be enabled"))
 	}
 	if err := s.requireParent(ctx, familyID); err != nil {
 		return nil, err
@@ -1789,7 +1791,7 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 	}
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitations require auth0 login to be enabled"))
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
 
 	var invID, familyID, userID, expiresAtStr string

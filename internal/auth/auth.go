@@ -1,10 +1,11 @@
-// Package auth gates access to the app behind an Auth0 login when
-// configured, or lets every request through when running in local-testing
-// mode. It intentionally does not know anything about families or users —
-// it only answers "is somebody logged in, and as which login identity" for
-// the app as a whole. Binding a login identity to a specific family member
-// is the server package's job (see internal/server); this package just
-// makes that identity available via context.
+// Package auth gates access to the app behind an OAuth2/OIDC login — always
+// required, whether that's a real Auth0 tenant or (for local dev/testing)
+// the tiny stand-in identity provider in cmd/devauth. It intentionally does
+// not know anything about families or users — it only answers "is somebody
+// logged in, and as which login identity" for the app as a whole. Binding a
+// login identity to a specific family member is the server package's job
+// (see internal/server); this package just makes that identity available
+// via context.
 package auth
 
 import (
@@ -25,19 +26,27 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Mode string
-
-const (
-	ModeDisabled Mode = "disabled"
-	ModeAuth0    Mode = "auth0"
-)
-
 type Config struct {
-	Mode         Mode
+	// Domain is the OAuth2/OIDC provider's host, e.g.
+	// "your-tenant.eu.auth0.com" — or a full "scheme://host[:port]" base
+	// URL (see baseURL) for a non-Auth0 issuer such as cmd/devauth, which
+	// has no TLS and isn't reachable via a bare domain.
 	Domain       string
 	ClientID     string
 	ClientSecret string
 	CallbackURL  string
+}
+
+// baseURL resolves domain to the base URL its OAuth2 endpoints hang off of.
+// A bare domain (the normal case — a real Auth0 tenant) gets "https://"
+// prepended, matching Auth0's own convention. A domain that already
+// specifies a scheme (e.g. "http://localhost:9999" for cmd/devauth, which
+// only ever runs over plain HTTP on localhost) is used as-is.
+func baseURL(domain string) string {
+	if strings.HasPrefix(domain, "http://") || strings.HasPrefix(domain, "https://") {
+		return strings.TrimSuffix(domain, "/")
+	}
+	return "https://" + domain
 }
 
 // Identity is the logged-in person's login-provider profile. Sub is the
@@ -62,43 +71,38 @@ const (
 	stateTTL           = 10 * time.Minute
 )
 
-// Manager implements both modes. In ModeDisabled every handler is a no-op
-// or pass-through, so callers can wire it up unconditionally.
+// Manager handles the OAuth2 login flow and session cookies. Login is
+// always required — there's no way to construct a Manager that lets
+// requests through unauthenticated.
 type Manager struct {
-	mode     Mode
-	domain   string
-	oauthCfg oauth2.Config
+	issuerBase string
+	oauthCfg   oauth2.Config
 
 	mu       sync.Mutex
 	sessions map[string]session
 }
 
 func NewManager(cfg Config) (*Manager, error) {
-	m := &Manager{
-		mode:     cfg.Mode,
-		domain:   cfg.Domain,
-		sessions: map[string]session{},
-	}
-	if cfg.Mode != ModeAuth0 {
-		return m, nil
-	}
 	if cfg.Domain == "" || cfg.ClientID == "" || cfg.ClientSecret == "" || cfg.CallbackURL == "" {
-		return nil, errors.New("auth0 mode requires a domain, client id, client secret and callback url")
+		return nil, errors.New("auth requires a domain, client id, client secret and callback url")
 	}
-	m.oauthCfg = oauth2.Config{
-		ClientID:     cfg.ClientID,
-		ClientSecret: cfg.ClientSecret,
-		RedirectURL:  cfg.CallbackURL,
-		Scopes:       []string{"openid", "profile", "email"},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  fmt.Sprintf("https://%s/authorize", cfg.Domain),
-			TokenURL: fmt.Sprintf("https://%s/oauth/token", cfg.Domain),
+	issuerBase := baseURL(cfg.Domain)
+	m := &Manager{
+		issuerBase: issuerBase,
+		sessions:   map[string]session{},
+		oauthCfg: oauth2.Config{
+			ClientID:     cfg.ClientID,
+			ClientSecret: cfg.ClientSecret,
+			RedirectURL:  cfg.CallbackURL,
+			Scopes:       []string{"openid", "profile", "email"},
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  issuerBase + "/authorize",
+				TokenURL: issuerBase + "/oauth/token",
+			},
 		},
 	}
 	return m, nil
 }
-
-func (m *Manager) Mode() Mode { return m.mode }
 
 func randomToken() (string, error) {
 	b := make([]byte, 32)
@@ -126,8 +130,9 @@ func safeReturnTo(path string) string {
 type ctxKey struct{}
 
 // FromContext returns the caller's login identity, as attached by
-// RequireAuth or RequirePage. It reports false in ModeDisabled, or for any
-// request that didn't pass through one of those middlewares.
+// RequireAuth or RequirePage. It reports false only for a request that
+// didn't pass through one of those middlewares — which callers should
+// treat as "not logged in," never as "no restriction."
 func FromContext(ctx context.Context) (Identity, bool) {
 	id, ok := ctx.Value(ctxKey{}).(Identity)
 	return id, ok
@@ -211,14 +216,10 @@ func (m *Manager) clearSession(w http.ResponseWriter, r *http.Request) {
 
 // ---- login / callback / logout -----------------------------------------------------
 
-// LoginHandler starts the Auth0 login. An optional ?returnTo=/some/path
+// LoginHandler starts the OAuth2 login. An optional ?returnTo=/some/path
 // (same-origin only) sends the browser there after a successful login
 // instead of "/" — used by the invite-accept flow to resume after login.
 func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	if m.mode != ModeAuth0 {
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
 	state, err := randomToken()
 	if err != nil {
 		http.Error(w, "failed to start login", http.StatusInternalServerError)
@@ -257,7 +258,7 @@ type userInfo struct {
 }
 
 func (m *Manager) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*userInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/userinfo", m.domain), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.issuerBase+"/userinfo", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -282,11 +283,6 @@ func (m *Manager) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*user
 }
 
 func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
-	if m.mode != ModeAuth0 {
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
-
 	stateCookie, err := r.Cookie(stateCookieName)
 	if err != nil || stateCookie.Value == "" || stateCookie.Value != r.URL.Query().Get("state") {
 		http.Error(w, "invalid login state, please try logging in again", http.StatusBadRequest)
@@ -350,20 +346,15 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Manager) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	if m.mode != ModeAuth0 {
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
 	m.clearSession(w, r)
 
 	scheme := "http"
 	if isSecure(r) {
 		scheme = "https"
 	}
-	returnTo := fmt.Sprintf("%s://%s/", scheme, r.Host)
+	returnTo := scheme + "://" + r.Host + "/"
 
-	logoutURL := fmt.Sprintf("https://%s/v2/logout?client_id=%s&returnTo=%s",
-		m.domain, url.QueryEscape(m.oauthCfg.ClientID), url.QueryEscape(returnTo))
+	logoutURL := m.issuerBase + "/v2/logout?client_id=" + url.QueryEscape(m.oauthCfg.ClientID) + "&returnTo=" + url.QueryEscape(returnTo)
 	http.Redirect(w, r, logoutURL, http.StatusFound)
 }
 
@@ -373,24 +364,14 @@ func (m *Manager) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 func (m *Manager) MeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if m.mode != ModeAuth0 {
-		json.NewEncoder(w).Encode(map[string]any{
-			"mode":          string(ModeDisabled),
-			"authenticated": true,
-		})
-		return
-	}
-
 	s, ok := m.sessionFromRequest(r)
 	if !ok {
 		json.NewEncoder(w).Encode(map[string]any{
-			"mode":          string(ModeAuth0),
 			"authenticated": false,
 		})
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]any{
-		"mode":          string(ModeAuth0),
 		"authenticated": true,
 		"name":          s.Name,
 		"email":         s.Email,
@@ -399,11 +380,8 @@ func (m *Manager) MeHandler(w http.ResponseWriter, r *http.Request) {
 
 // RequireAuth protects the API: unauthenticated requests get a 401 instead
 // of reaching the RPC layer. Authenticated requests carry their Identity in
-// context (see FromContext). A no-op in ModeDisabled.
+// context (see FromContext).
 func (m *Manager) RequireAuth(next http.Handler) http.Handler {
-	if m.mode != ModeAuth0 {
-		return next
-	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s, ok := m.sessionFromRequest(r)
 		if !ok {
@@ -419,11 +397,7 @@ func (m *Manager) RequireAuth(next http.Handler) http.Handler {
 // RequirePage protects a browser-navigated (non-API) route: unauthenticated
 // requests are redirected through login instead of getting a bare 401, and
 // sent back to the original URL afterwards. Used by the invite-accept page.
-// A no-op in ModeDisabled.
 func (m *Manager) RequirePage(next http.Handler) http.Handler {
-	if m.mode != ModeAuth0 {
-		return next
-	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s, ok := m.sessionFromRequest(r)
 		if !ok {
@@ -441,12 +415,8 @@ func (m *Manager) RequirePage(next http.Handler) http.Handler {
 // Gate protects the web UI's root document: an unauthenticated visit to "/"
 // gets loginPage instead of the app shell. Every other path (e.g. app.js,
 // app.css) is passed through untouched since those files carry no data and
-// gating them would break the login page's own styling/scripts. A no-op in
-// ModeDisabled.
+// gating them would break the login page's own styling/scripts.
 func (m *Manager) Gate(protected, loginPage http.Handler) http.Handler {
-	if m.mode != ModeAuth0 {
-		return protected
-	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			protected.ServeHTTP(w, r)

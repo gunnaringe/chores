@@ -96,8 +96,8 @@ automatically on the next send attempt.
 This needs a real service worker, which requires either `https://` or
 `http://localhost` — it won't work over a plain HTTP LAN address.
 
-When Auth0 is enabled, a login is bound to a specific family member: the
-first parent to log in creates the family and is bound to it automatically,
+A login is bound to a specific family member: the first parent to log in
+creates the family and is bound to it automatically,
 and anyone else — another parent, or a child old enough to have their own
 account — joins via a one-time invite link. Once bound, a login only ever
 sees its own family, and the server enforces role restrictions regardless
@@ -114,8 +114,9 @@ chore done, for example).
 go run ./cmd/chores -addr=:8080 -db=chores.db
 ```
 
-Then open http://localhost:8080. By default (see Authentication below) this
-runs with no login required, so local testing needs no extra setup.
+Then open http://localhost:8080. A login is always required (see
+Authentication below) — for local testing without a real Auth0 tenant, run
+`cmd/devauth` alongside it instead.
 
 (If you have an existing database from before the rename, pass
 `-db=ukelonn.db` to keep using it, or just rename the file — the schema
@@ -130,8 +131,10 @@ never clobbers what an earlier layer provided (see `loadConfig` in
 git-ignored; only the four `AUTH0_*` keys are read from it:
 
 ```
+AUTH0_DOMAIN=your-tenant.eu.auth0.com
 AUTH0_CLIENT_ID=...
 AUTH0_CLIENT_SECRET=...
+AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback
 ```
 
 ## Language
@@ -147,16 +150,33 @@ only the UI text is.
 
 ## Authentication
 
-Auth mode is controlled by `-auth` (or left on its default, `auto`):
+A login is always required — `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID` and
+`AUTH0_CLIENT_SECRET` (via `.env`, environment variables, or the
+`-auth0-*` flags) all have to be set, or `chores` refuses to start. There's
+no way to run the app open, unauthenticated.
 
-- `auto` (default) — uses Auth0 if `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID` and
-  `AUTH0_CLIENT_SECRET` are all set; otherwise falls back to `disabled`.
-- `disabled` — **local testing mode.** No login wall at all — behaves exactly
-  like the app did before auth existed. This is the default whenever the
-  Auth0 environment variables aren't set, so `go run ./cmd/chores` keeps
-  working unchanged. You can also force it with `-auth=disabled` even if the
-  Auth0 env vars happen to be set.
-- `auth0` — requires an Auth0 login before the app or its API can be used.
+### Local testing without a real Auth0 tenant
+
+`cmd/devauth` is a tiny, self-contained OAuth2 identity provider (stdlib
+Go, no external dependencies) that mimics Auth0's specific endpoint shape
+closely enough that `AUTH0_DOMAIN` can just point at it. It always logs in
+as one canned, configurable identity, with no login UI at all — it exists
+purely to exercise the real login code path in local dev/tests without
+needing a real tenant. Run it alongside `chores`:
+
+```bash
+go run ./cmd/devauth -client-id=devclient -client-secret=devsecret
+```
+
+```bash
+AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
+  AUTH0_CLIENT_SECRET=devsecret AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback \
+  go run ./cmd/chores
+```
+
+(`devauth` prints this exact pair of commands, with its actual flags
+substituted in, on startup.) `-sub`/`-name`/`-email` customize the canned
+identity if you need a specific one.
 
 ### Setting up Auth0
 
@@ -198,9 +218,7 @@ a family member" below) to become a member of their family too. A login can
 accept invites into more than one family; the only thing rejected is
 accepting the same family's invite twice with a login already bound there.
 That's what makes both the "lives in two households" case and a parent
-co-running two families work. (This only works once Auth0 is enabled — a
-family you already belong to will also reject a second acceptance the
-normal way.)
+co-running two families work.
 
 ### The family members list
 
@@ -219,14 +237,14 @@ whose row it is:
 
 One more row, **"+ Add a family member"**, sits at the bottom of the same
 list, expanding the same way: add someone directly, with no login of their
-own (the usual way to add a child too young to have an account); or, when
-Auth0 is enabled, send them an invite instead (see below).
+own (the usual way to add a child too young to have an account); or send
+them an invite instead (see below).
 
 ### Inviting a family member
 
-Sending an invite (from the "+ Add a family member" row, once Auth0 is
-enabled) creates a one-time invite code for another parent (e.g. the other
-guardian) or for a child old enough to have their own Auth0 account.
+Sending an invite (from the "+ Add a family member" row) creates a
+one-time invite code for another parent (e.g. the other guardian) or for
+a child old enough to have their own Auth0 account.
 Whoever enters that code in their own "Join a family" section — after
 logging into their own Auth0 account — is bound to that slot in the same
 family, with the role the invite was created for. The code is shown once,
@@ -301,6 +319,7 @@ buf generate
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — cron-expression date matching for recurring tasks
 - `internal/server` — Connect service implementation (`push.go` holds VAPID key setup and Web Push sending)
-- `internal/auth` — Auth0 login (or the local-testing bypass) gating the app
+- `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint
+- `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)

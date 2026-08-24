@@ -24,7 +24,7 @@ func TestGetPushConfig_ReturnsAGeneratedVAPIDKey(t *testing.T) {
 
 func TestSubscribeAndUnsubscribeFromPush(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|push-subscribe-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {
@@ -83,7 +83,7 @@ func TestSubscribeAndUnsubscribeFromPush(t *testing.T) {
 
 func TestSubscribeToPush_RequiresCompleteSubscription(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
+	ctx := withIdentity("auth0|push-subscribe-validation-tester")
 
 	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
 	if err != nil {

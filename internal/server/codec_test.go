@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gunnaringe/chores/gen/chores/v1/choresv1connect"
+	"github.com/gunnaringe/chores/internal/auth"
 )
 
 // A paused task's "active: false" must actually appear on the wire, not be
@@ -20,8 +21,14 @@ import (
 func TestJSONCodec_EmitsFalseActiveField(t *testing.T) {
 	svc := newTestServer(t)
 	path, handler := choresv1connect.NewChoresServiceHandler(svc, JSONCodecOption())
+	// This test is about wire format, not auth, so there's no RequireAuth
+	// middleware here — just a fixed identity injected directly, the HTTP
+	// equivalent of the withIdentity(...) contexts used elsewhere.
+	identity := auth.Identity{Sub: "auth0|codec-test", Name: "Codec Test", Email: "codec-test@example.com"}
 	mux := http.NewServeMux()
-	mux.Handle(path, handler)
+	mux.Handle(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(w, r.WithContext(auth.NewContextWithIdentity(r.Context(), identity)))
+	}))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 

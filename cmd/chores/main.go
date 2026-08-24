@@ -36,9 +36,7 @@ func loadConfig() *koanf.Koanf {
 	fs := flag.NewFlagSet("chores", flag.ExitOnError)
 	fs.String("addr", ":8080", "address to listen on")
 	fs.String("db", "chores.db", "path to the sqlite database file")
-	fs.String("auth", "auto",
-		`authentication mode: "auto" (auth0 if AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_CLIENT_SECRET are set, otherwise disabled), "auth0", or "disabled"`)
-	fs.String("auth0-domain", "", "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com (env: AUTH0_DOMAIN)")
+	fs.String("auth0-domain", "", "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com — or a full http://host:port base URL for a non-Auth0 issuer such as cmd/devauth (env: AUTH0_DOMAIN)")
 	fs.String("auth0-client-id", "", "Auth0 application client ID (env: AUTH0_CLIENT_ID)")
 	fs.String("auth0-client-secret", "", "Auth0 application client secret (env: AUTH0_CLIENT_SECRET)")
 	fs.String("auth0-callback-url", "", "full callback URL registered with Auth0, e.g. http://localhost:8080/auth/callback (defaults to http://localhost<addr>/auth/callback) (env: AUTH0_CALLBACK_URL)")
@@ -86,27 +84,18 @@ func main() {
 	auth0ClientID := cfg.String("auth0-client-id")
 	auth0ClientSecret := cfg.String("auth0-client-secret")
 
-	mode := auth.ModeDisabled
-	switch cfg.String("auth") {
-	case "auto":
-		if auth0Domain != "" && auth0ClientID != "" && auth0ClientSecret != "" {
-			mode = auth.ModeAuth0
-		}
-	case "auth0":
-		mode = auth.ModeAuth0
-	case "disabled":
-		mode = auth.ModeDisabled
-	default:
-		log.Fatalf("invalid -auth value %q (want auto, auth0, or disabled)", cfg.String("auth"))
+	if auth0Domain == "" || auth0ClientID == "" || auth0ClientSecret == "" {
+		log.Fatalf("auth configuration is required: set AUTH0_DOMAIN, AUTH0_CLIENT_ID and AUTH0_CLIENT_SECRET " +
+			"(via .env, environment variables, or the -auth0-* flags) — for local testing without a real Auth0 " +
+			"tenant, run `go run ./cmd/devauth` and point these at it instead")
 	}
 
 	callbackURL := cfg.String("auth0-callback-url")
-	if mode == auth.ModeAuth0 && callbackURL == "" {
+	if callbackURL == "" {
 		callbackURL = "http://localhost" + addr + "/auth/callback"
 	}
 
 	authMgr, err := auth.NewManager(auth.Config{
-		Mode:         mode,
 		Domain:       auth0Domain,
 		ClientID:     auth0ClientID,
 		ClientSecret: auth0ClientSecret,
@@ -116,11 +105,7 @@ func main() {
 		log.Fatalf("configure auth: %v", err)
 	}
 
-	if mode == auth.ModeDisabled {
-		log.Printf("auth: disabled (local testing mode) — anyone can access the app without logging in")
-	} else {
-		log.Printf("auth: auth0 login required (domain=%s, callback=%s)", auth0Domain, callbackURL)
-	}
+	log.Printf("auth: login required (domain=%s, callback=%s)", auth0Domain, callbackURL)
 
 	conn, err := db.Open(dbPath)
 	if err != nil {
@@ -144,7 +129,7 @@ func main() {
 	})))
 
 	// The kiosk dashboard is its own entry point, deliberately never behind
-	// the Auth0 login gate — it authorizes itself with a per-family
+	// the login gate — it authorizes itself with a per-family
 	// dashboard key instead (typed in or carried in ?key=, handled entirely
 	// client-side; see web/app.js). It's the same app shell as "/", just
 	// reached without a session.

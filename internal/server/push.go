@@ -111,9 +111,11 @@ func (s *Server) UnsubscribeFromPush(ctx context.Context, req *connect.Request[v
 }
 
 // actingUserID returns the user row the caller's login identity is bound to
-// within familyID, or "" if there is none (local-testing mode, or a login
-// not bound to this family) — used to exclude the person who just completed
-// a task from their own "task completed" notification.
+// within familyID, or "" if there is none — either a dashboard-authorized
+// request (which has no login identity at all; CompleteTask/UncompleteTask
+// are both dashboard-allowed) or a login not bound to this family — used to
+// exclude the person who just completed a task from their own "task
+// completed" notification.
 func (s *Server) actingUserID(ctx context.Context, familyID string) string {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
