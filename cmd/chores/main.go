@@ -12,8 +12,10 @@ import (
 	"os"
 
 	"connectrpc.com/connect"
+	"github.com/knadh/koanf/parsers/dotenv"
 	"github.com/knadh/koanf/providers/basicflag"
 	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 
 	v1 "github.com/gunnaringe/chores/gen/chores/v1"
@@ -24,11 +26,12 @@ import (
 	"github.com/gunnaringe/chores/web"
 )
 
-// loadConfig layers config sources with koanf: env vars first, then CLI
-// flags on top (flags win, but only for flags actually passed — an unset
-// flag never clobbers a value the env layer already provided). This is
-// what lets AUTH0_DOMAIN etc. work as env vars while -auth0-domain still
-// overrides them, without wiring each one up by hand.
+// loadConfig layers config sources with koanf, lowest to highest priority:
+// an optional .env file, real environment variables, then CLI flags on
+// top. Each layer only overrides the one below it for values it actually
+// sets — an unset flag never clobbers a value an earlier layer provided
+// (see basicflag's Opt{KeyMap: k}) — which is what lets AUTH0_DOMAIN work
+// as a .env entry, a real env var, or a -auth0-domain flag interchangeably.
 func loadConfig() *koanf.Koanf {
 	fs := flag.NewFlagSet("chores", flag.ExitOnError)
 	fs.String("addr", ":8080", "address to listen on")
@@ -43,14 +46,23 @@ func loadConfig() *koanf.Koanf {
 		log.Fatalf("parse flags: %v", err)
 	}
 
-	k := koanf.New(".")
 	envKeys := map[string]string{
 		"AUTH0_DOMAIN":        "auth0-domain",
 		"AUTH0_CLIENT_ID":     "auth0-client-id",
 		"AUTH0_CLIENT_SECRET": "auth0-client-secret",
 		"AUTH0_CALLBACK_URL":  "auth0-callback-url",
 	}
-	if err := k.Load(env.Provider("", ".", func(s string) string { return envKeys[s] }), nil); err != nil {
+	mapEnvKey := func(s string) string { return envKeys[s] }
+
+	k := koanf.New(".")
+
+	// .env is a local-dev convenience only, never required — a missing
+	// file is fine, but a malformed one still fails startup so it doesn't
+	// silently get ignored.
+	if err := k.Load(file.Provider(".env"), dotenv.ParserEnv("", ".", mapEnvKey)); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("load .env: %v", err)
+	}
+	if err := k.Load(env.Provider("", ".", mapEnvKey), nil); err != nil {
 		log.Fatalf("load env config: %v", err)
 	}
 	if err := k.Load(basicflag.Provider(fs, ".", &basicflag.Opt{KeyMap: k}), nil); err != nil {

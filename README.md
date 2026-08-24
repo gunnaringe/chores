@@ -121,12 +121,18 @@ runs with no login required, so local testing needs no extra setup.
 `-db=ukelonn.db` to keep using it, or just rename the file — the schema
 itself didn't change.)
 
-Config is layered with [koanf](https://github.com/knadh/koanf): environment
-variables are loaded first, then CLI flags on top, so a flag only overrides
-its environment variable when actually passed — an unset flag never
-clobbers a value the environment already provided (see `loadConfig` in
-`cmd/chores/main.go`). There's no config file; flags and the four
-`AUTH0_*` env vars are the only sources.
+Config is layered with [koanf](https://github.com/knadh/koanf), lowest to
+highest priority: an optional `.env` file in the working directory, real
+environment variables, then CLI flags on top. Each layer only overrides a
+value the one below it actually set — an unset flag or absent env var
+never clobbers what an earlier layer provided (see `loadConfig` in
+`cmd/chores/main.go`). The `.env` file is entirely optional and
+git-ignored; only the four `AUTH0_*` keys are read from it:
+
+```
+AUTH0_CLIENT_ID=...
+AUTH0_CLIENT_SECRET=...
+```
 
 ## Language
 

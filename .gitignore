@@ -6,3 +6,5 @@
 *.out.log
 *.err.log
 *.pid.txt
+.env
+.env.*
