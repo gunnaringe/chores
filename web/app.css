@@ -185,12 +185,27 @@ label {
 .stat .label { font-size: 0.8rem; color: var(--muted); }
 .task-title { font-weight: 600; }
 .task-meta { font-size: 0.8rem; color: var(--muted); }
+/* Fixed rather than in normal document flow: inserted at the top of the
+   page like this used to push everything below it down the moment an
+   error appeared. On a real click (not just a re-render), that shift
+   between mousedown/touchstart and mouseup/touchend could land the second
+   half of the click on whatever control had shifted into its place — e.g.
+   a validation error on the task form's Save button pushing "select all
+   children" up underneath the cursor. Overlaying it instead means showing
+   or clearing an error never moves anything else on the page. */
 .error {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  max-width: 860px;
+  margin: 0 auto;
   background: #fee2e2;
   color: #991b1b;
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
+  padding: 10px 16px;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 .empty { color: var(--muted); font-style: italic; padding: 12px 0; }
 .checkbtn {
