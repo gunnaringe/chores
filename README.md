@@ -14,6 +14,14 @@ acceptable tradeoff here since the app already needs a live connection to
 its own backend for essentially everything; there's no offline mode to
 preserve.
 
+The layout is fluid rather than tied to fixed device breakpoints: a list
+row's title and its action buttons share one flex line and drop to their
+own line only once they no longer both fit, so the same CSS rule adapts
+correctly from a phone up through a desktop window instead of snapping at
+a couple of hardcoded widths. Fields that are deliberately narrow on
+desktop (price, cron expression, etc.) go full-width below 480px, where
+that space would otherwise sit unused.
+
 - Parents create tasks with a price, an assignment to one or more children
   (with a "select all" shortcut), and an optional icon shown next to the
   title everywhere the task appears — any emoji, a

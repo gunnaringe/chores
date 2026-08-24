@@ -54,11 +54,21 @@ p { color: var(--muted); margin: 0 0 12px; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 .row:last-child { border-bottom: none; }
+/* The first child is usually a text block and the rest are buttons/controls.
+   Letting the text grow and giving it a wrap point (rather than a fixed
+   width) means a row degrades gracefully as its container narrows: buttons
+   stay alongside the text as long as there's room, then drop to their own
+   line below it — without a breakpoint tied to any specific device width. */
+.row > *:first-child {
+  flex: 1 1 220px;
+  min-width: 0;
+}
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -71,6 +81,7 @@ button, select, input, textarea {
   padding: 8px 10px;
   background: var(--card);
   color: var(--text);
+  max-width: 100%;
 }
 button {
   cursor: pointer;
@@ -192,6 +203,25 @@ label {
   color: var(--accent);
   padding: 0;
 }
+/* Deliberately narrow on desktop, where there's plenty of spare width to
+   leave unused; on a narrow viewport that same fixed width just wastes the
+   little room there is; full width there is both easier to tap and easier
+   to read what's typed. */
+.input-icon { width: 12em; }
+.input-price { width: 8em; }
+.input-date { width: 10em; }
+.input-interval { width: 5em; }
+.input-cron { width: 14em; }
+@media (max-width: 480px) {
+  .input-icon,
+  .input-price,
+  .input-date,
+  .input-interval,
+  .input-cron {
+    width: 100%;
+  }
+}
+
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";
   font-weight: normal;

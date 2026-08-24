@@ -830,12 +830,12 @@ function renderTaskForm(existingTask) {
           <button type="button" class="secondary" data-icon-type="FONT_AWESOME">${escapeHtml(t("addTask.iconTypeFontAwesome"))}</button>
           <button type="button" class="secondary" data-icon-type="MATERIAL_SYMBOLS">${escapeHtml(t("addTask.iconTypeMaterialSymbols"))}</button>
         </div>
-        <input type="text" id="task-icon" maxlength="32" style="width:12em;" />
+        <input type="text" id="task-icon" maxlength="32" class="input-icon" />
         <div id="task-icon-choices" class="icon-choices" style="margin-top:6px;"></div>
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.priceLabel"))}</label>
-        <input type="number" id="task-price" min="0" step="0.5" value="10" style="width:8em;" />
+        <input type="number" id="task-price" min="0" step="0.5" value="10" class="input-price" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.repeatLabel"))}</label>
@@ -846,16 +846,16 @@ function renderTaskForm(existingTask) {
         </div>
         <div id="repeat-once-fields" style="margin-top:8px;">
           <label>${escapeHtml(t("addTask.onceDateLabel"))}</label>
-          <input type="date" id="task-once-date" style="width:10em;" />
+          <input type="date" id="task-once-date" class="input-date" />
         </div>
         <div id="repeat-weekly-fields" style="margin-top:8px;">
           <div id="task-days"></div>
           <label style="margin-top:8px;">${escapeHtml(t("addTask.everyNWeeksLabel"))}</label>
-          <input type="number" id="task-interval-weeks" min="1" max="52" value="1" style="width:5em;" />
+          <input type="number" id="task-interval-weeks" min="1" max="52" value="1" class="input-interval" />
         </div>
         <div id="repeat-cron-fields" style="margin-top:8px;">
           <label>${escapeHtml(t("addTask.cronLabel"))}</label>
-          <input type="text" id="task-cron" placeholder="0 0 * * 1,3,5" style="width:14em;" />
+          <input type="text" id="task-cron" placeholder="0 0 * * 1,3,5" class="input-cron" />
           <p class="hint" style="margin:4px 0 0;font-size:0.8rem;">${escapeHtml(t("addTask.cronHint"))}</p>
         </div>
       </div>
