@@ -190,11 +190,10 @@ const TRANSLATIONS = {
     "familyTab.joinBtn": "Join",
     "familyTab.joinCodeRequired": "Enter an invite code",
 
-    "invitations.pendingHeading": "Pending invitations",
-    "invitations.none": "No pending invitations.",
     "invitations.revoke": "Revoke",
-    "invitations.inviteDesc": "Creates a one-time code so they can log in with their own account — it stays visible below, under Pending invitations, until they use it.",
-    "invitations.theirEmailLabel": "Their email (optional, just for your reference)",
+    "invitations.revokeWord": "revoke",
+    "invitations.revokeConfirmHint": 'This deletes the invite for {name} — their link and code will stop working. Type "{word}" to confirm.',
+    "invitations.inviteDesc": "Creates a one-time code so they can log in with their own account — open their row above to see the invite link until they use it.",
     "invitations.linkLabel": "Invite link — opening it logs them in and accepts automatically",
     "invitations.codeLabel": "Invite code — share it with them",
 
@@ -386,11 +385,10 @@ const TRANSLATIONS = {
     "familyTab.joinBtn": "Bli med",
     "familyTab.joinCodeRequired": "Angi en invitasjonskode",
 
-    "invitations.pendingHeading": "Ventende invitasjoner",
-    "invitations.none": "Ingen ventende invitasjoner.",
     "invitations.revoke": "Trekk tilbake",
-    "invitations.inviteDesc": "Oppretter en engangskode så de kan logge inn med sin egen konto — den blir stående synlig nedenfor, under Ventende invitasjoner, til de bruker den.",
-    "invitations.theirEmailLabel": "E-posten deres (valgfritt, kun til din egen referanse)",
+    "invitations.revokeWord": "opphev",
+    "invitations.revokeConfirmHint": 'Dette sletter invitasjonen til {name} — lenken og koden slutter å virke. Skriv «{word}» for å bekrefte.',
+    "invitations.inviteDesc": "Oppretter en engangskode så de kan logge inn med sin egen konto — åpne raden deres over for å se invitasjonslenken til de bruker den.",
     "invitations.linkLabel": "Invitasjonslenke — å åpne den logger dem inn og godtar automatisk",
     "invitations.codeLabel": "Invitasjonskode — del den med dem",
 

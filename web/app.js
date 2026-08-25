@@ -1340,6 +1340,7 @@ async function afterLeavingFamily() {
 }
 
 let confirmingRemoveChildId = null;
+let confirmingRevokeInvitationId = null;
 let confirmingLeaveFamily = false;
 let confirmingDeleteFamily = false;
 // Which row of the family members list is expanded: a user id, the
@@ -1371,7 +1372,7 @@ function renderExpandableRow(label, key, buildDetail) {
 
 function renderFamilyTab() {
   const wrap = el(`<div></div>`);
-  const pendingUserIds = new Set(state.invitations.filter((i) => !i.acceptedAt).map((i) => i.userId));
+  const pendingInvitesByUserId = new Map(state.invitations.filter((i) => !i.acceptedAt).map((i) => [i.userId, i]));
   const family = state.families.find((f) => f.id === state.familyId);
   const familyName = family ? family.name : "";
 
@@ -1408,12 +1409,14 @@ function renderFamilyTab() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("familyTab.heading"))}</h2></div>`);
 
   sortMembersForDisplay(state.users).forEach((u) => {
-    const pendingTag = !u.authBound && pendingUserIds.has(u.id) ? ` <span class="pill">${escapeHtml(t("familyTab.invitePending"))}</span>` : "";
+    const pendingInvite = !u.authBound ? pendingInvitesByUserId.get(u.id) : undefined;
+    const pendingTag = pendingInvite ? ` <span class="pill">${escapeHtml(t("familyTab.invitePending"))}</span>` : "";
     const isYou = u.id === state.userId;
     const youTag = isYou ? ` · ${escapeHtml(t("familyTab.you"))}` : "";
     // A co-parent (not you) has nothing to manage here — no rename, no
-    // remove, no leave — so their row doesn't expand at all.
-    const canExpand = isYou || u.role === "USER_ROLE_CHILD";
+    // remove, no leave — so their row doesn't expand at all, unless their
+    // invite is still pending and needs a place to show its link/revoke.
+    const canExpand = isYou || u.role === "USER_ROLE_CHILD" || !!pendingInvite;
     const label = `<span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>`;
 
     if (!canExpand) {
@@ -1474,6 +1477,53 @@ function renderFamilyTab() {
         return;
       }
 
+      if (pendingInvite) {
+        if (confirmingRevokeInvitationId === pendingInvite.id) {
+          const confirmArea = renderTypeToConfirm(
+            t("invitations.revokeWord"),
+            t("invitations.revokeConfirmHint", { name: u.name, word: t("invitations.revokeWord") }),
+            t("invitations.revoke"),
+            () =>
+              withError(async () => {
+                confirmingRevokeInvitationId = null;
+                expandedFamilyRow = null;
+                await call("RevokeInvitation", { invitationId: pendingInvite.id });
+                await loadFamilyData();
+              })
+          );
+          confirmArea.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+            confirmingRevokeInvitationId = null;
+            render();
+          });
+          detail.appendChild(confirmArea);
+          return;
+        }
+
+        if (pendingInvite.token) {
+          // Built from the browser's own origin — the invite is only ever
+          // created from within the app itself, so whatever host served
+          // this page is exactly what a recipient should hit too.
+          // /invite/accept (see cmd/chores/main.go) forces login first if
+          // needed, then binds the token and lands them in the app.
+          const acceptUrl = `${window.location.origin}/invite/accept?token=${encodeURIComponent(pendingInvite.token)}`;
+          detail.appendChild(el(`
+            <div class="field">
+              <label>${escapeHtml(t("invitations.linkLabel"))}</label>
+              <input type="text" class="input-full" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+              <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
+              <input type="text" class="input-full" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
+            </div>
+          `));
+        }
+        const revokeBtn = el(`<button type="button" class="danger" style="margin-top:10px;">${escapeHtml(t("invitations.revoke"))}</button>`);
+        revokeBtn.addEventListener("click", () => {
+          confirmingRevokeInvitationId = pendingInvite.id;
+          render();
+        });
+        detail.appendChild(revokeBtn);
+        return;
+      }
+
       // u.role === "USER_ROLE_CHILD" — the only other case canExpand allows.
       if (confirmingRemoveChildId === u.id) {
         const confirmArea = renderTypeToConfirm(
@@ -1520,27 +1570,23 @@ function renderFamilyTab() {
         </select>
       </div>
     `));
-    detail.appendChild(el(`
-      <div class="field">
-        <label>${escapeHtml(t("invitations.theirEmailLabel"))}</label>
-        <input type="text" id="new-member-email" />
-      </div>
-    `));
-
     const actions = el(`<div class="actions"></div>`);
     // Adding a member always goes through CreateInvitation: every family
     // member gets a shareable code for binding their own login, and that
-    // code stays visible (see renderPendingInvitationsList) for as long as
-    // it's unclaimed — there's no separate no-login "just add them" path.
+    // code stays visible (see the pending invite's own row in the members
+    // list above) for as long as it's unclaimed — there's no separate
+    // no-login "just add them" path.
     const addBtn = el(`<button type="button">${escapeHtml(t("addUser.add"))}</button>`);
     addBtn.addEventListener("click", () =>
       withError(async () => {
         const name = detail.querySelector("#new-member-name").value.trim();
         const role = detail.querySelector("#new-member-role").value;
-        const email = detail.querySelector("#new-member-email").value.trim();
         if (!name) throw new Error(t("addUser.nameRequired"));
-        await call("CreateInvitation", { familyId: state.familyId, name, role, email });
-        expandedFamilyRow = null;
+        const resp = await call("CreateInvitation", { familyId: state.familyId, name, role });
+        // Expand the new member's own row so their invite link/code — the
+        // whole point of adding them — is immediately visible, instead of
+        // leaving it one tap away in a row that just looks collapsed.
+        expandedFamilyRow = resp.invitation ? resp.invitation.userId : null;
         await loadFamilyData();
       })
     );
@@ -1551,7 +1597,6 @@ function renderFamilyTab() {
   }).forEach((n) => card.appendChild(n));
 
   wrap.appendChild(card);
-  wrap.appendChild(renderPendingInvitationsList());
   wrap.appendChild(renderDashboardSettingsSection());
 
   const dangerCard = el(`
@@ -1588,54 +1633,6 @@ function renderFamilyTab() {
   wrap.appendChild(dangerCard);
 
   return wrap;
-}
-
-// The "create invite" form itself now lives inline in the family members
-// list's "+ Add family member" row (see renderFamilyTab) — this is just the
-// list of invites still awaiting a response, with a way to revoke one. Each
-// invite's code stays visible here (ListInvitations returns it only while
-// still pending — see server.go) so it can be copied/shared at any point
-// up until it's accepted, not just once at creation time.
-function renderPendingInvitationsList() {
-  const pending = state.invitations.filter((i) => !i.acceptedAt);
-  const listCard = el(`<div class="card"><h2>${escapeHtml(t("invitations.pendingHeading"))}</h2></div>`);
-  if (!pending.length) {
-    listCard.appendChild(el(`<p class="empty">${escapeHtml(t("invitations.none"))}</p>`));
-    return listCard;
-  }
-  pending.forEach((inv) => {
-    // Built from the browser's own origin — the invite is only ever
-    // created from within the app itself, so whatever host served this
-    // page is exactly what a recipient should hit too. /invite/accept
-    // (see cmd/chores/main.go) forces login first if needed, then binds
-    // the token and lands them in the app — clicking it is enough, no
-    // separate "enter this code" step required.
-    const acceptUrl = inv.token ? `${window.location.origin}/invite/accept?token=${encodeURIComponent(inv.token)}` : "";
-    const row = el(`
-      <div class="row" style="flex-wrap:wrap;">
-        <span>${escapeHtml(inv.userName)} <span class="pill ${inv.role === "USER_ROLE_CHILD" ? "child" : "parent"}">${escapeHtml(roleLabel(inv.role))}</span>${inv.email ? " · " + escapeHtml(inv.email) : ""}</span>
-        <button class="danger" data-id="${inv.id}">${escapeHtml(t("invitations.revoke"))}</button>
-        ${
-          inv.token
-            ? `<div class="field" style="width:100%;">
-                 <label>${escapeHtml(t("invitations.linkLabel"))}</label>
-                 <input type="text" class="input-full" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
-                 <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
-                 <input type="text" class="input-full" readonly value="${escapeHtml(inv.token)}" onclick="this.select()" />
-               </div>`
-            : ""
-        }
-      </div>
-    `);
-    row.querySelector("button").addEventListener("click", () =>
-      withError(async () => {
-        await call("RevokeInvitation", { invitationId: inv.id });
-        await loadFamilyData();
-      })
-    );
-    listCard.appendChild(row);
-  });
-  return listCard;
 }
 
 // ---- History tab (parents): today/yesterday/this week, with an
