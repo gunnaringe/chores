@@ -4,8 +4,8 @@
 package main
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"mime"
 	"net/http"
@@ -128,7 +128,7 @@ func main() {
 	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		data, err := web.FS.ReadFile("index.html")
 		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			web.RenderErrorPage(w, http.StatusInternalServerError, "Internal error.")
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -146,7 +146,7 @@ func main() {
 func loginPageHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := web.FS.ReadFile("login.html")
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		web.RenderErrorPage(w, http.StatusInternalServerError, "Internal error.")
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -159,12 +159,24 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
 func acceptInvitationHandler(w http.ResponseWriter, r *http.Request, svc *server.Server) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
-		http.Error(w, "missing invitation token", http.StatusBadRequest)
+		web.RenderErrorPage(w, http.StatusBadRequest, "This invite link is missing its token.")
 		return
 	}
 	if _, err := svc.AcceptInvitation(r.Context(), connect.NewRequest(&v1.AcceptInvitationRequest{Token: token})); err != nil {
-		http.Error(w, fmt.Sprintf("could not accept invitation: %v", err), http.StatusBadRequest)
+		web.RenderErrorPage(w, http.StatusBadRequest, "Could not accept invitation: "+connectErrorMessage(err))
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// connectErrorMessage strips a Connect error down to its underlying message
+// (e.g. "you are already a member of this family"), dropping the leading
+// "failed_precondition:"-style code prefix that means nothing to a user
+// reading it in the browser.
+func connectErrorMessage(err error) string {
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		return connectErr.Message()
+	}
+	return err.Error()
 }

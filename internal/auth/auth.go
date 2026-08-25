@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
+
+	"github.com/gunnaringe/chores/web"
 )
 
 type Config struct {
@@ -238,7 +240,7 @@ func (m *Manager) clearSession(w http.ResponseWriter, r *http.Request) {
 func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := randomToken()
 	if err != nil {
-		http.Error(w, "failed to start login", http.StatusInternalServerError)
+		web.RenderErrorPage(w, http.StatusInternalServerError, "Failed to start login.")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -303,7 +305,7 @@ func (m *Manager) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*user
 func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie(stateCookieName)
 	if err != nil || stateCookie.Value == "" || stateCookie.Value != r.URL.Query().Get("state") {
-		http.Error(w, "invalid login state, please try logging in again", http.StatusBadRequest)
+		web.RenderErrorPage(w, http.StatusBadRequest, "Invalid login state — please try logging in again.")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -331,12 +333,12 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		http.Error(w, "login failed: "+errParam+": "+r.URL.Query().Get("error_description"), http.StatusBadGateway)
+		web.RenderErrorPage(w, http.StatusBadGateway, "Login failed: "+errParam+": "+r.URL.Query().Get("error_description"))
 		return
 	}
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		http.Error(w, "missing authorization code", http.StatusBadRequest)
+		web.RenderErrorPage(w, http.StatusBadRequest, "Missing authorization code.")
 		return
 	}
 
@@ -345,20 +347,20 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := exchangeCfg.Exchange(r.Context(), code)
 	if err != nil {
 		log.Printf("auth0 token exchange failed: %v", err)
-		http.Error(w, "login failed", http.StatusBadGateway)
+		web.RenderErrorPage(w, http.StatusBadGateway, "Login failed.")
 		return
 	}
 
 	info, err := m.fetchUserInfo(r.Context(), token)
 	if err != nil {
 		log.Printf("auth0 userinfo fetch failed: %v", err)
-		http.Error(w, "login failed", http.StatusBadGateway)
+		web.RenderErrorPage(w, http.StatusBadGateway, "Login failed.")
 		return
 	}
 
 	if err := m.createSession(w, r, Identity{Sub: info.Sub, Name: info.Name, Email: info.Email}); err != nil {
 		log.Printf("create session failed: %v", err)
-		http.Error(w, "login failed", http.StatusInternalServerError)
+		web.RenderErrorPage(w, http.StatusInternalServerError, "Login failed.")
 		return
 	}
 
