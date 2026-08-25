@@ -2571,16 +2571,28 @@ func (x *ListTasksResponse) GetTasks() []*Task {
 	return nil
 }
 
-// Lists the due occurrences of active tasks between two dates (inclusive),
+// Lists the due occurrences of tasks between two dates (inclusive),
 // indicating which are already completed. Without child_id, returns
 // occurrences for every child in the family (a bound child's login always
-// gets only their own, regardless of what's requested).
+// gets only their own, regardless of what's requested). A completion that
+// exists for a task no longer generating occurrences (e.g. since paused)
+// is still included, so history is never lost by pausing a task.
 type ListTaskOccurrencesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FamilyId      string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
-	StartDate     string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // YYYY-MM-DD
-	EndDate       string                 `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`       // YYYY-MM-DD
-	ChildId       string                 `protobuf:"bytes,4,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`       // optional filter
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	FamilyId  string                 `protobuf:"bytes,1,opt,name=family_id,json=familyId,proto3" json:"family_id,omitempty"`
+	StartDate string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // YYYY-MM-DD; optional, defaults to the earliest
+	// date any task or completion in the family could
+	// exist from
+	EndDate string `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"` // YYYY-MM-DD; optional, defaults to today
+	ChildId string `protobuf:"bytes,4,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"` // optional filter
+	// Case-insensitive substring match against the task's title or the
+	// child's name. Optional; when set, start_date/end_date are typically
+	// left unset so the search spans the family's whole history.
+	Search string `protobuf:"bytes,5,opt,name=search,proto3" json:"search,omitempty"`
+	// Page size; when unset (<= 0), all matching occurrences are returned
+	// unpaginated. A max applies when set.
+	Limit         int32 `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32 `protobuf:"varint,7,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2643,9 +2655,33 @@ func (x *ListTaskOccurrencesRequest) GetChildId() string {
 	return ""
 }
 
+func (x *ListTaskOccurrencesRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListTaskOccurrencesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListTaskOccurrencesRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
 type ListTaskOccurrencesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Occurrences   []*TaskOccurrence      `protobuf:"bytes,1,rep,name=occurrences,proto3" json:"occurrences,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Occurrences []*TaskOccurrence      `protobuf:"bytes,1,rep,name=occurrences,proto3" json:"occurrences,omitempty"`
+	// True if more occurrences exist beyond this page (offset + limit) — only
+	// meaningful when a limit was set on the request.
+	HasMore       bool `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2685,6 +2721,13 @@ func (x *ListTaskOccurrencesResponse) GetOccurrences() []*TaskOccurrence {
 		return x.Occurrences
 	}
 	return nil
+}
+
+func (x *ListTaskOccurrencesResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
 }
 
 type CompleteTaskRequest struct {
@@ -4592,15 +4635,19 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x10ListTasksRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\":\n" +
 	"\x11ListTasksResponse\x12%\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x0f.chores.v1.TaskR\x05tasks\"\x8e\x01\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x0f.chores.v1.TaskR\x05tasks\"\xd4\x01\n" +
 	"\x1aListTaskOccurrencesRequest\x12\x1b\n" +
 	"\tfamily_id\x18\x01 \x01(\tR\bfamilyId\x12\x1d\n" +
 	"\n" +
 	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
 	"\bend_date\x18\x03 \x01(\tR\aendDate\x12\x19\n" +
-	"\bchild_id\x18\x04 \x01(\tR\achildId\"Z\n" +
+	"\bchild_id\x18\x04 \x01(\tR\achildId\x12\x16\n" +
+	"\x06search\x18\x05 \x01(\tR\x06search\x12\x14\n" +
+	"\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\a \x01(\x05R\x06offset\"u\n" +
 	"\x1bListTaskOccurrencesResponse\x12;\n" +
-	"\voccurrences\x18\x01 \x03(\v2\x19.chores.v1.TaskOccurrenceR\voccurrences\"d\n" +
+	"\voccurrences\x18\x01 \x03(\v2\x19.chores.v1.TaskOccurrenceR\voccurrences\x12\x19\n" +
+	"\bhas_more\x18\x02 \x01(\bR\ahasMore\"d\n" +
 	"\x13CompleteTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bchild_id\x18\x02 \x01(\tR\achildId\x12\x19\n" +

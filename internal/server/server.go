@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1023,11 +1024,23 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	if err != nil {
 		return nil, err
 	}
-	start, err := scheduling.ParseDate(req.Msg.GetStartDate())
+
+	endStr := req.Msg.GetEndDate()
+	if endStr == "" {
+		endStr = scheduling.FormatDate(nowUTC())
+	}
+	startStr := req.Msg.GetStartDate()
+	if startStr == "" {
+		startStr, err = s.occurrenceFloorDate(ctx, familyID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	start, err := scheduling.ParseDate(startStr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid start_date: %w", err))
 	}
-	end, err := scheduling.ParseDate(req.Msg.GetEndDate())
+	end, err := scheduling.ParseDate(endStr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid end_date: %w", err))
 	}
@@ -1044,6 +1057,10 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	for _, u := range usersResp.Msg.GetUsers() {
 		childNames[u.Id] = u.Name
 	}
+	tasksByID := make(map[string]*v1.Task, len(tasksResp.Msg.GetTasks()))
+	for _, t := range tasksResp.Msg.GetTasks() {
+		tasksByID[t.GetId()] = t
+	}
 
 	completions, err := s.listCompletionsByTaskChildDate(ctx, familyID)
 	if err != nil {
@@ -1051,6 +1068,10 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	}
 
 	now := nowUTC()
+	// Tracks which (task, child, date) keys were already produced by the
+	// active-task schedule loop below, so the second pass over `completions`
+	// only adds ones it missed.
+	seen := make(map[string]bool, len(completions))
 	var occurrences []*v1.TaskOccurrence
 	for _, t := range tasksResp.Msg.GetTasks() {
 		if !t.GetActive() {
@@ -1070,10 +1091,12 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 			}
 			for _, d := range dates {
 				dateStr := scheduling.FormatDate(d)
+				key := completionKey(t.GetId(), childID, dateStr)
+				seen[key] = true
 				occ := &v1.TaskOccurrence{
 					Task: t, DueDate: dateStr, ChildId: childID, ChildName: childNames[childID],
 				}
-				if c, ok := completions[completionKey(t.GetId(), childID, dateStr)]; ok {
+				if c, ok := completions[key]; ok {
 					occ.Completed = true
 					occ.Completion = c
 				}
@@ -1081,7 +1104,97 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 			}
 		}
 	}
-	return connect.NewResponse(&v1.ListTaskOccurrencesResponse{Occurrences: occurrences}), nil
+
+	// A completion whose task is now paused (or otherwise no longer
+	// generating this date from its current schedule) wouldn't be produced
+	// by the loop above — but it's still a real, paid completion, so history
+	// must keep showing it regardless of the task's current active state.
+	for key, c := range completions {
+		if seen[key] {
+			continue
+		}
+		if c.GetDueDate() < startStr || c.GetDueDate() > endStr {
+			continue
+		}
+		if childFilter != "" && c.GetChildId() != childFilter {
+			continue
+		}
+		task := tasksByID[c.GetTaskId()]
+		if task == nil {
+			continue
+		}
+		occurrences = append(occurrences, &v1.TaskOccurrence{
+			Task: task, DueDate: c.GetDueDate(), Completed: true, Completion: c,
+			ChildId: c.GetChildId(), ChildName: childNames[c.GetChildId()],
+		})
+	}
+
+	if search := strings.TrimSpace(req.Msg.GetSearch()); search != "" {
+		ls := strings.ToLower(search)
+		filtered := occurrences[:0]
+		for _, o := range occurrences {
+			if strings.Contains(strings.ToLower(o.GetTask().GetTitle()), ls) || strings.Contains(strings.ToLower(o.GetChildName()), ls) {
+				filtered = append(filtered, o)
+			}
+		}
+		occurrences = filtered
+	}
+
+	sort.Slice(occurrences, func(i, j int) bool {
+		a, b := occurrences[i], occurrences[j]
+		if a.GetDueDate() != b.GetDueDate() {
+			return a.GetDueDate() > b.GetDueDate()
+		}
+		if a.GetTask().GetTitle() != b.GetTask().GetTitle() {
+			return a.GetTask().GetTitle() < b.GetTask().GetTitle()
+		}
+		return a.GetChildName() < b.GetChildName()
+	})
+
+	hasMore := false
+	if limit := int(req.Msg.GetLimit()); limit > 0 {
+		if limit > maxCompletionsLimit {
+			limit = maxCompletionsLimit
+		}
+		offset := int(req.Msg.GetOffset())
+		if offset < 0 {
+			offset = 0
+		}
+		if offset > len(occurrences) {
+			offset = len(occurrences)
+		}
+		sliceEnd := offset + limit
+		if sliceEnd < len(occurrences) {
+			hasMore = true
+		} else {
+			sliceEnd = len(occurrences)
+		}
+		occurrences = occurrences[offset:sliceEnd]
+	}
+
+	return connect.NewResponse(&v1.ListTaskOccurrencesResponse{Occurrences: occurrences, HasMore: hasMore}), nil
+}
+
+// occurrenceFloorDate is the earliest date any occurrence in the family
+// could possibly exist from: no task can have been due before it was
+// created, and (barring a manual backfill) no completion predates its own
+// task. Used to bound schedule expansion when a caller leaves start_date
+// unset (e.g. a History search spanning "all time").
+func (s *Server) occurrenceFloorDate(ctx context.Context, familyID string) (string, error) {
+	var floor sql.NullString
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT MIN(d) FROM (
+			SELECT SUBSTR(created_at, 1, 10) AS d FROM tasks WHERE family_id = ?
+			UNION ALL
+			SELECT due_date AS d FROM task_completions WHERE family_id = ?
+		)`, familyID, familyID,
+	).Scan(&floor); err != nil {
+		return "", err
+	}
+	if !floor.Valid || floor.String == "" {
+		return scheduling.FormatDate(nowUTC()), nil
+	}
+	return floor.String, nil
 }
 
 func completionKey(taskID, childID, dueDate string) string {

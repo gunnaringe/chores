@@ -317,18 +317,33 @@ message ListTasksResponse {
   repeated Task tasks = 1;
 }
 
-// Lists the due occurrences of active tasks between two dates (inclusive),
+// Lists the due occurrences of tasks between two dates (inclusive),
 // indicating which are already completed. Without child_id, returns
 // occurrences for every child in the family (a bound child's login always
-// gets only their own, regardless of what's requested).
+// gets only their own, regardless of what's requested). A completion that
+// exists for a task no longer generating occurrences (e.g. since paused)
+// is still included, so history is never lost by pausing a task.
 message ListTaskOccurrencesRequest {
   string family_id = 1;
-  string start_date = 2; // YYYY-MM-DD
-  string end_date = 3;   // YYYY-MM-DD
+  string start_date = 2; // YYYY-MM-DD; optional, defaults to the earliest
+                          // date any task or completion in the family could
+                          // exist from
+  string end_date = 3;   // YYYY-MM-DD; optional, defaults to today
   string child_id = 4;   // optional filter
+  // Case-insensitive substring match against the task's title or the
+  // child's name. Optional; when set, start_date/end_date are typically
+  // left unset so the search spans the family's whole history.
+  string search = 5;
+  // Page size; when unset (<= 0), all matching occurrences are returned
+  // unpaginated. A max applies when set.
+  int32 limit = 6;
+  int32 offset = 7;
 }
 message ListTaskOccurrencesResponse {
   repeated TaskOccurrence occurrences = 1;
+  // True if more occurrences exist beyond this page (offset + limit) — only
+  // meaningful when a limit was set on the request.
+  bool has_more = 2;
 }
 
 message CompleteTaskRequest {

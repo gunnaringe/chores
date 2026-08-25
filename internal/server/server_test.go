@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -630,6 +631,7 @@ func TestTaskRepeatModes(t *testing.T) {
 		}
 	}
 	wantWeekly := []string{"2026-08-24", "2026-09-07"}
+	sort.Strings(weeklyDates)
 	if len(weeklyDates) != len(wantWeekly) {
 		t.Fatalf("expected due dates %v, got %v", wantWeekly, weeklyDates)
 	}
@@ -1038,6 +1040,141 @@ func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
 	}
 	if len(ranged.Msg.Completions) != 2 {
 		t.Fatalf("expected 2 completions in [2024-01-02, 2024-01-03], got %d: %+v", len(ranged.Msg.Completions), ranged.Msg.Completions)
+	}
+}
+
+func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|occurrences-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Alice", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	dishes, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask Dishes: %v", err)
+	}
+	laundry, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Laundry", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 200, ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask Laundry: %v", err)
+	}
+
+	// Dishes gets completed on 01-02 but not 01-01 or 01-03; Laundry is
+	// completed on 01-01 only.
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: dishes.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: "2024-01-02",
+	})); err != nil {
+		t.Fatalf("CompleteTask Dishes: %v", err)
+	}
+	if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
+		TaskId: laundry.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: "2024-01-01",
+	})); err != nil {
+		t.Fatalf("CompleteTask Laundry: %v", err)
+	}
+
+	// Pausing Laundry afterward must not make its completion disappear from
+	// occurrences for that range, even though a paused task no longer
+	// generates any occurrences of its own.
+	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: laundry.Msg.Task.Id, Title: "Laundry", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
+		PriceCents: 200, Active: false, ChildIds: []string{child.Msg.User.Id},
+	})); err != nil {
+		t.Fatalf("UpdateTask pause Laundry: %v", err)
+	}
+
+	resp, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-01", EndDate: "2024-01-03",
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences: %v", err)
+	}
+
+	byKey := map[string]*v1.TaskOccurrence{}
+	for _, o := range resp.Msg.Occurrences {
+		byKey[o.Task.Title+"|"+o.DueDate] = o
+	}
+
+	// Dishes: three occurrences (active task), only 01-02 completed.
+	for _, d := range []string{"2024-01-01", "2024-01-02", "2024-01-03"} {
+		o, ok := byKey["Dishes|"+d]
+		if !ok {
+			t.Fatalf("expected a Dishes occurrence on %s, got %+v", d, resp.Msg.Occurrences)
+		}
+		wantCompleted := d == "2024-01-02"
+		if o.Completed != wantCompleted {
+			t.Fatalf("Dishes on %s: expected completed=%v, got %v", d, wantCompleted, o.Completed)
+		}
+	}
+
+	// Laundry: paused, so it only shows up via its one real completion on
+	// 01-01 — not on 01-02/01-03, which were never completed and can no
+	// longer be generated now that the task is paused.
+	if o, ok := byKey["Laundry|2024-01-01"]; !ok || !o.Completed {
+		t.Fatalf("expected Laundry's 01-01 completion to survive pausing the task, got %+v", byKey["Laundry|2024-01-01"])
+	}
+	if _, ok := byKey["Laundry|2024-01-02"]; ok {
+		t.Fatalf("did not expect an uncompleted Laundry occurrence on 01-02 for a paused task, got %+v", resp.Msg.Occurrences)
+	}
+
+	// Search filters by task title/child name across the combined set.
+	searchResp, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-01", EndDate: "2024-01-03", Search: "dish",
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences search: %v", err)
+	}
+	if len(searchResp.Msg.Occurrences) != 3 {
+		t.Fatalf("expected 3 Dishes occurrences matching %q, got %d: %+v", "dish", len(searchResp.Msg.Occurrences), searchResp.Msg.Occurrences)
+	}
+
+	// Pagination: due_date DESC, so a page of 2 over all 4 occurrences
+	// starts at 01-03 and 01-02, reporting has_more; the next page picks up
+	// the rest.
+	page1, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-01", EndDate: "2024-01-03", Limit: 2, Offset: 0,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences page 1: %v", err)
+	}
+	if len(page1.Msg.Occurrences) != 2 || !page1.Msg.HasMore {
+		t.Fatalf("expected page 1 to have 2 results and has_more=true, got %d results has_more=%v", len(page1.Msg.Occurrences), page1.Msg.HasMore)
+	}
+	if page1.Msg.Occurrences[0].DueDate != "2024-01-03" {
+		t.Fatalf("expected page 1 in due_date DESC order, got %+v", page1.Msg.Occurrences)
+	}
+
+	page2, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-01", EndDate: "2024-01-03", Limit: 2, Offset: 2,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences page 2: %v", err)
+	}
+	if len(page2.Msg.Occurrences) != 2 || page2.Msg.HasMore {
+		t.Fatalf("expected page 2 to have the last 2 results and has_more=false, got %d results has_more=%v", len(page2.Msg.Occurrences), page2.Msg.HasMore)
+	}
+
+	// Leaving both start_date and end_date unset spans "all time" for this
+	// family, bounded by when its tasks/completions actually exist —
+	// exercising occurrenceFloorDate.
+	allTime, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, Search: "laundry",
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences all-time search: %v", err)
+	}
+	if len(allTime.Msg.Occurrences) != 1 || allTime.Msg.Occurrences[0].DueDate != "2024-01-01" {
+		t.Fatalf("expected exactly the Laundry 01-01 completion, got %+v", allTime.Msg.Occurrences)
 	}
 }
 

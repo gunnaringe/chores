@@ -159,10 +159,16 @@ label {
 }
 .pill.parent { background: #dbeafe; color: #1e40af; }
 .pill.child { background: #dcfce7; color: #166534; }
+.pill.notcompleted { background: #fee2e2; color: #991b1b; }
 @media (prefers-color-scheme: dark) {
   .pill.parent { background: #1e3a8a55; color: #93c5fd; }
   .pill.child { background: #14532d55; color: #86efac; }
+  .pill.notcompleted { background: #7f1d1d55; color: #fca5a5; }
 }
+/* History rows for occurrences that were due but never completed — dimmed
+   so a glance at the list still reads as "mostly done things", with the
+   pill above doing the explicit labeling. */
+.history-row-incomplete { opacity: 0.65; }
 .tabs {
   display: flex;
   gap: 8px;

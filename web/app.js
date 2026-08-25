@@ -144,6 +144,11 @@ const state = {
   historySearchResults: null, // null = not searching; array once a search has run
   historySearchOffset: 0,
   historySearchHasMore: false,
+  // Whether the History tab also shows occurrences that were due but never
+  // completed. A device-level display preference (not per-family), so it's
+  // persisted straight to localStorage rather than reset in
+  // resetHistoryState() below.
+  historyShowIncomplete: localStorage.getItem("chores.historyShowIncomplete") === "1",
   dashboardMode: false, // true when the page was loaded at /dashboard
   dashboardKey: null,
   dashboardConfig: null, // { enabled, dashboardKey } — this family's own kiosk config, shown in Settings
@@ -261,16 +266,16 @@ async function loadFamilyData() {
   }
 
   // The History tab's today/yesterday/this-week groups are cheap (at most a
-  // week of rows) and stay fresh via the same auto-refresh as everything
-  // else; the paginated "later" bucket and search results are loaded
-  // separately, on demand, only while that tab is actually open.
+  // week of occurrences) and stay fresh via the same auto-refresh as
+  // everything else; the paginated "later" bucket and search results are
+  // loaded separately, on demand, only while that tab is actually open.
   if (isParent()) {
-    const histResp = await call("ListTaskCompletions", {
+    const histResp = await call("ListTaskOccurrences", {
       familyId: state.familyId,
       startDate: mondayOfWeekStr(),
       endDate: todayStr(),
     });
-    state.historyRecent = histResp.completions || [];
+    state.historyRecent = histResp.occurrences || [];
   }
 }
 
@@ -383,7 +388,7 @@ function render() {
     b.addEventListener("click", () => {
       state.tab = b.dataset.tab;
       state.editingTaskId = null;
-      confirmingDeleteCompletionId = null;
+      confirmingToggleKey = null;
       confirmingDeleteTaskId = null;
       render();
     })
@@ -893,9 +898,8 @@ function renderTasksManagementTab() {
 }
 
 // Which task (by id) is showing its inline "are you sure" state, if any —
-// same module-level, reset-on-navigation pattern as
-// confirmingDeleteCompletionId in the History tab, so both delete flows
-// look and behave identically.
+// same module-level, reset-on-navigation pattern as confirmingToggleKey in
+// the History tab, so both confirm flows look and behave identically.
 let confirmingDeleteTaskId = null;
 
 function renderTaskList() {
@@ -1680,13 +1684,13 @@ async function loadHistoryLater(reset) {
     state.historyLaterHasMore = true;
   }
   if (!state.historyLaterHasMore) return;
-  const resp = await call("ListTaskCompletions", {
+  const resp = await call("ListTaskOccurrences", {
     familyId: state.familyId,
     endDate: dayBeforeStr(mondayOfWeekStr()),
     limit: HISTORY_PAGE_SIZE,
     offset: state.historyLaterOffset,
   });
-  const page = resp.completions || [];
+  const page = resp.occurrences || [];
   state.historyLater = state.historyLater.concat(page);
   state.historyLaterOffset += page.length;
   state.historyLaterHasMore = !!resp.hasMore;
@@ -1713,13 +1717,13 @@ async function loadHistorySearch(reset) {
     state.historySearchOffset = 0;
     state.historySearchHasMore = true;
   }
-  const resp = await call("ListTaskCompletions", {
+  const resp = await call("ListTaskOccurrences", {
     familyId: state.familyId,
     search: state.historySearchQuery.trim(),
     limit: HISTORY_PAGE_SIZE,
     offset: state.historySearchOffset,
   });
-  const page = resp.completions || [];
+  const page = resp.occurrences || [];
   state.historySearchResults = (state.historySearchResults || []).concat(page);
   state.historySearchOffset += page.length;
   state.historySearchHasMore = !!resp.hasMore;
@@ -1769,87 +1773,94 @@ function onHistorySearchInput(query) {
   }, 300);
 }
 
-// Which completion (by id) is showing its inline "are you sure" state, if
-// any. Module-level rather than in `state`: it's transient UI-only, reset
-// whenever the user navigates away from a row rather than something worth
-// persisting or reacting to elsewhere.
-let confirmingDeleteCompletionId = null;
+// A stable identity for an occurrence — it has no id of its own (unlike its
+// optional nested `completion`), so task+child+date (mirroring the server's
+// completionKey) is what ties a rendered row back to the right occurrence.
+function occurrenceKey(occ) {
+  return `${occ.task.id}|${occ.childId}|${occ.dueDate}`;
+}
 
-// Removing a completion here is the only way to fix an old one that's no
-// longer reachable through the checklist (which only ever shows today's
-// occurrences) — e.g. one logged for the wrong child, or a duplicate.
-async function deleteCompletion(c) {
-  await call("UncompleteTask", { taskId: c.taskId, childId: c.childId, dueDate: c.dueDate });
+// Which occurrence (by occurrenceKey) is showing its inline "are you sure"
+// state, if any. Module-level rather than in `state`: it's transient
+// UI-only, reset whenever the user navigates away from a row rather than
+// something worth persisting or reacting to elsewhere.
+let confirmingToggleKey = null;
 
-  // Removing it from whichever paginated bucket it came from, and walking
-  // that bucket's offset back by one, keeps "load more" correctly aligned
-  // with what's now actually left server-side — otherwise the next page
-  // would silently skip one row.
-  const removeFrom = (arr) => {
-    const idx = arr.findIndex((x) => x.id === c.id);
-    if (idx !== -1) arr.splice(idx, 1);
-    return idx !== -1;
-  };
-  if (removeFrom(state.historyLater)) {
-    state.historyLaterOffset = Math.max(0, state.historyLaterOffset - 1);
+// Toggles one occurrence's completion state — this is how a wrong entry in
+// History gets fixed now (mark it not completed instead of deleting it, so
+// it stays visible as a missed task rather than disappearing), and equally
+// how a missed task gets backfilled as done after the fact.
+async function toggleOccurrenceCompletion(occ) {
+  if (occ.completed) {
+    await call("UncompleteTask", { taskId: occ.task.id, childId: occ.childId, dueDate: occ.dueDate });
+    occ.completed = false;
+    occ.completion = null;
+  } else {
+    const resp = await call("CompleteTask", { taskId: occ.task.id, childId: occ.childId, dueDate: occ.dueDate });
+    occ.completed = true;
+    occ.completion = resp.completion;
   }
-  if (state.historySearchResults && removeFrom(state.historySearchResults)) {
-    state.historySearchOffset = Math.max(0, state.historySearchOffset - 1);
-  }
-
-  // Reloads historyRecent along with everything else the deletion affects —
-  // the child's earned-today/this-week figures and balance.
+  // Reloads historyRecent along with everything else the change affects —
+  // the child's earned-today/this-week figures and balance. historyLater
+  // and historySearchResults keep the object we just mutated in place, so
+  // their accumulated pagination isn't disturbed.
   await loadFamilyData();
 }
 
-function renderHistoryRow(c) {
-  const confirming = confirmingDeleteCompletionId === c.id;
+function renderHistoryRow(occ) {
+  const key = occurrenceKey(occ);
+  const confirming = confirmingToggleKey === key;
+  const amountCents = occ.completed ? (occ.completion ? occ.completion.amountCents : 0) : occ.task.priceCents;
+  const actionIcon = occ.completed ? "close" : "check";
+  const actionLabel = occ.completed ? t("history.markIncomplete") : t("history.markComplete");
+  const confirmLabel = occ.completed ? t("history.confirmMarkIncomplete") : t("history.confirmMarkComplete");
+  const badge = occ.completed ? "" : ` · <span class="pill notcompleted">${escapeHtml(t("history.notCompletedBadge"))}</span>`;
   const row = el(`
-    <div class="row">
-      <span>${escapeHtml(c.childName)} — ${escapeHtml(c.taskTitle)}<div class="task-meta">${escapeHtml(formatDateStr(c.dueDate))}</div></span>
+    <div class="row${occ.completed ? "" : " history-row-incomplete"}">
+      <span>${escapeHtml(occ.childName)} — ${escapeHtml(occ.task.title)}<div class="task-meta">${escapeHtml(formatDateStr(occ.dueDate))}${badge}</div></span>
       <div class="actions" style="align-items:center;">
-        <strong>kr ${money(c.amountCents)}</strong>
+        <strong>kr ${money(amountCents)}</strong>
         ${
           confirming
-            ? `<button class="danger" data-action="confirm-delete">${escapeHtml(t("history.confirmDelete"))}</button>
-               <button type="button" class="secondary" data-action="cancel-delete">${escapeHtml(t("taskList.cancel"))}</button>`
-            : `<button type="button" class="secondary btn-icon" data-action="delete" title="${escapeHtml(t("taskList.delete"))}"><span class="material-symbols-outlined">delete</span></button>`
+            ? `<button class="danger" data-action="confirm-toggle">${escapeHtml(confirmLabel)}</button>
+               <button type="button" class="secondary" data-action="cancel-toggle">${escapeHtml(t("taskList.cancel"))}</button>`
+            : `<button type="button" class="secondary btn-icon" data-action="toggle" title="${escapeHtml(actionLabel)}"><span class="material-symbols-outlined">${actionIcon}</span></button>`
         }
       </div>
     </div>
   `);
-  const deleteBtn = row.querySelector('[data-action="delete"]');
-  if (deleteBtn) {
-    deleteBtn.addEventListener("click", () => {
-      confirmingDeleteCompletionId = c.id;
+  const toggleBtn = row.querySelector('[data-action="toggle"]');
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      confirmingToggleKey = key;
       render();
     });
   }
-  const confirmBtn = row.querySelector('[data-action="confirm-delete"]');
+  const confirmBtn = row.querySelector('[data-action="confirm-toggle"]');
   if (confirmBtn) {
     confirmBtn.addEventListener("click", () =>
       withError(async () => {
-        confirmingDeleteCompletionId = null;
-        await deleteCompletion(c);
+        confirmingToggleKey = null;
+        await toggleOccurrenceCompletion(occ);
       })
     );
   }
-  const cancelBtn = row.querySelector('[data-action="cancel-delete"]');
+  const cancelBtn = row.querySelector('[data-action="cancel-toggle"]');
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
-      confirmingDeleteCompletionId = null;
+      confirmingToggleKey = null;
       render();
     });
   }
   return row;
 }
 
-function renderHistoryGroup(heading, completions) {
+function renderHistoryGroup(heading, occurrences) {
   const card = el(`<div class="card"><h2>${escapeHtml(heading)}</h2></div>`);
-  if (!completions.length) {
+  if (!occurrences.length) {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("history.empty"))}</p>`));
   } else {
-    completions.forEach((c) => card.appendChild(renderHistoryRow(c)));
+    occurrences.forEach((occ) => card.appendChild(renderHistoryRow(occ)));
   }
   return card;
 }
@@ -1869,8 +1880,29 @@ function renderHistoryTab() {
   searchInput.addEventListener("input", (e) => onHistorySearchInput(e.target.value));
   wrap.appendChild(searchCard);
 
+  const toggleCard = el(`
+    <div class="card">
+      <label style="display:flex;align-items:center;gap:8px;margin:0;">
+        <input type="checkbox" id="history-show-incomplete" ${state.historyShowIncomplete ? "checked" : ""} />
+        ${escapeHtml(t("history.showIncomplete"))}
+      </label>
+    </div>
+  `);
+  toggleCard.querySelector("#history-show-incomplete").addEventListener("change", (e) => {
+    state.historyShowIncomplete = e.target.checked;
+    localStorage.setItem("chores.historyShowIncomplete", state.historyShowIncomplete ? "1" : "0");
+    render();
+  });
+  wrap.appendChild(toggleCard);
+
+  // Not-completed occurrences are always fetched alongside completed ones
+  // (see loadFamilyData/loadHistoryLater/loadHistorySearch); this just
+  // controls which of them get rendered, so toggling the checkbox never
+  // needs a fresh network round trip.
+  const visible = (occs) => (state.historyShowIncomplete ? occs : occs.filter((o) => o.completed));
+
   if (state.historySearchResults !== null) {
-    wrap.appendChild(renderHistoryGroup(t("history.searchResultsHeading"), state.historySearchResults));
+    wrap.appendChild(renderHistoryGroup(t("history.searchResultsHeading"), visible(state.historySearchResults)));
     if (state.historySearchResults.length && state.historySearchHasMore) {
       const btn = el(`<button class="secondary">${escapeHtml(t("history.loadMore"))}</button>`);
       btn.addEventListener("click", () => withError(() => loadHistorySearch(false)));
@@ -1886,18 +1918,19 @@ function renderHistoryTab() {
   const yesterdays = state.historyRecent.filter((c) => c.dueDate === yesterday);
   const restOfWeek = state.historyRecent.filter((c) => c.dueDate !== today && c.dueDate !== yesterday && c.dueDate >= monday);
 
-  wrap.appendChild(renderHistoryGroup(t("history.todayHeading"), todays));
-  wrap.appendChild(renderHistoryGroup(t("history.yesterdayHeading"), yesterdays));
-  wrap.appendChild(renderHistoryGroup(t("history.thisWeekHeading"), restOfWeek));
+  wrap.appendChild(renderHistoryGroup(t("history.todayHeading"), visible(todays)));
+  wrap.appendChild(renderHistoryGroup(t("history.yesterdayHeading"), visible(yesterdays)));
+  wrap.appendChild(renderHistoryGroup(t("history.thisWeekHeading"), visible(restOfWeek)));
 
   triggerHistoryLaterLoad();
   const laterCard = el(`<div class="card"><h2>${escapeHtml(t("history.laterHeading"))}</h2></div>`);
+  const visibleLater = visible(state.historyLater);
   if (!state.historyLaterLoaded) {
     laterCard.appendChild(el(`<p class="empty">${escapeHtml(t("history.loading"))}</p>`));
-  } else if (!state.historyLater.length) {
+  } else if (!visibleLater.length) {
     laterCard.appendChild(el(`<p class="empty">${escapeHtml(t("history.empty"))}</p>`));
   } else {
-    state.historyLater.forEach((c) => laterCard.appendChild(renderHistoryRow(c)));
+    visibleLater.forEach((occ) => laterCard.appendChild(renderHistoryRow(occ)));
   }
   wrap.appendChild(laterCard);
   if (state.historyLaterLoaded && state.historyLaterHasMore) {
