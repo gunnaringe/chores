@@ -161,10 +161,14 @@ label {
 .pill.parent { background: #dbeafe; color: #1e40af; }
 .pill.child { background: #dcfce7; color: #166534; }
 .pill.notcompleted { background: #fee2e2; color: #991b1b; }
+.pill.mandatory { background: #fef3c7; color: #92400e; }
+.pill.optional { background: #e0e7ff; color: #3730a3; }
 @media (prefers-color-scheme: dark) {
   .pill.parent { background: #1e3a8a55; color: #93c5fd; }
   .pill.child { background: #14532d55; color: #86efac; }
   .pill.notcompleted { background: #7f1d1d55; color: #fca5a5; }
+  .pill.mandatory { background: #92400e55; color: #fcd34d; }
+  .pill.optional { background: #3730a355; color: #a5b4fc; }
 }
 /* History rows for occurrences that were due but never completed — dimmed
    so a glance at the list still reads as "mostly done things", with the
@@ -184,6 +188,8 @@ label {
 .icon-choices button { padding: 4px 8px; }
 .repeat-mode-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
 .repeat-mode-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.classification-toggle { display: flex; gap: 6px; }
+.classification-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .hint { color: var(--muted); }
 .stat {
   text-align: center;

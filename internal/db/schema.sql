@@ -62,7 +62,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     repeat_interval_weeks INTEGER NOT NULL DEFAULT 1,
     -- YYYY-MM-DD. See the Task.start_date proto comment for what this means
     -- per repeat_mode.
-    start_date TEXT NOT NULL DEFAULT ''
+    start_date TEXT NOT NULL DEFAULT '',
+    -- 'mandatory' or 'optional'. Defaults to 'mandatory' so tasks created
+    -- before this column existed keep behaving as they always have.
+    classification TEXT NOT NULL DEFAULT 'mandatory'
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_family ON tasks(family_id);
 

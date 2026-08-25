@@ -437,6 +437,32 @@ func repeatModeFromDB(m string) v1.RepeatMode {
 	}
 }
 
+// classificationToDB maps the request's classification to what's stored.
+// Unlike repeat_mode, an unset classification isn't rejected — it defaults
+// to MANDATORY, the same as a task predating this field entirely, so
+// existing API callers that don't set it keep working unchanged.
+func classificationToDB(c v1.TaskClassification) (string, error) {
+	switch c {
+	case v1.TaskClassification_TASK_CLASSIFICATION_UNSPECIFIED, v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY:
+		return "mandatory", nil
+	case v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL:
+		return "optional", nil
+	default:
+		return "", fmt.Errorf("invalid classification %v", c)
+	}
+}
+
+func classificationFromDB(c string) v1.TaskClassification {
+	switch c {
+	case "mandatory":
+		return v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY
+	case "optional":
+		return v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL
+	default:
+		return v1.TaskClassification_TASK_CLASSIFICATION_UNSPECIFIED
+	}
+}
+
 func daysOfWeekToDB(days []int) string {
 	if len(days) == 0 {
 		return ""
@@ -827,14 +853,18 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	classificationDB, err := classificationToDB(req.Msg.GetClassification())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	id := newID()
 	now := nowUTC()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
-		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date, classification)
+		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, familyID, title, req.Msg.GetDescription(), req.Msg.GetPriceCents(), spec.Cron, formatTime(now), iconType, iconValue,
-		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
+		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, classificationDB,
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create task: %w", err))
 	}
@@ -848,6 +878,7 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 			ChildIds: childIDs, Icon: taskIconFromDB(iconType, iconValue),
 			RepeatMode: req.Msg.GetRepeatMode(), DaysOfWeek: int32SliceFrom(spec.DaysOfWeek),
 			RepeatIntervalWeeks: int32(spec.IntervalWeeks), StartDate: spec.StartDate,
+			Classification: classificationFromDB(classificationDB),
 		},
 	}), nil
 }
@@ -884,12 +915,16 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	classificationDB, err := classificationToDB(req.Msg.GetClassification())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ?,
-		 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ?`,
+		 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ?, classification = ? WHERE id = ?`,
 		req.Msg.GetTitle(), req.Msg.GetDescription(), req.Msg.GetPriceCents(), spec.Cron, req.Msg.GetActive(), iconType, iconValue,
-		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
+		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, classificationDB, taskID,
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
@@ -927,15 +962,15 @@ func (s *Server) DeleteTask(ctx context.Context, req *connect.Request[v1.DeleteT
 }
 
 const taskColumns = `id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value,
-	repeat_mode, days_of_week, repeat_interval_weeks, start_date`
+	repeat_mode, days_of_week, repeat_interval_weeks, start_date, classification`
 
 func scanTask(row rowScanner) (*v1.Task, error) {
 	var t v1.Task
-	var createdAt, iconType, iconValue, repeatMode, daysOfWeek string
+	var createdAt, iconType, iconValue, repeatMode, daysOfWeek, classification string
 	var active bool
 	var intervalWeeks int32
 	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &t.PriceCents, &t.Schedule, &active, &createdAt, &iconType, &iconValue,
-		&repeatMode, &daysOfWeek, &intervalWeeks, &t.StartDate); err != nil {
+		&repeatMode, &daysOfWeek, &intervalWeeks, &t.StartDate, &classification); err != nil {
 		return nil, err
 	}
 	ts, err := parseTime(createdAt)
@@ -948,6 +983,7 @@ func scanTask(row rowScanner) (*v1.Task, error) {
 	t.RepeatMode = repeatModeFromDB(repeatMode)
 	t.DaysOfWeek = daysOfWeekFromDB(daysOfWeek)
 	t.RepeatIntervalWeeks = intervalWeeks
+	t.Classification = classificationFromDB(classification)
 	return &t, nil
 }
 
