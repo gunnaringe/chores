@@ -10,7 +10,6 @@ window.LANGUAGES = [
 
 const TRANSLATIONS = {
   en: {
-    "familyPicker.open": "Open",
     "familyPicker.nameRequired": "Family name is required",
 
     "onboarding.subtitle": "Create your family to get started, or join one with an invite code.",
@@ -74,8 +73,6 @@ const TRANSLATIONS = {
     "tabs.tasks": "Tasks",
     "tabs.accounting": "Balance",
     "tabs.history": "History",
-
-    "householdPicker.subtitle": "You're part of more than one family. Which one do you want to open?",
 
     "history.todayHeading": "Today",
     "history.yesterdayHeading": "Yesterday",
@@ -209,7 +206,6 @@ const TRANSLATIONS = {
     "lang.label": "Language",
   },
   nb: {
-    "familyPicker.open": "Åpne",
     "familyPicker.nameRequired": "Familienavn er påkrevd",
 
     "onboarding.subtitle": "Opprett familien din for å komme i gang, eller bli med i en med en invitasjonskode.",
@@ -273,8 +269,6 @@ const TRANSLATIONS = {
     "tabs.tasks": "Oppgaver",
     "tabs.accounting": "Saldo",
     "tabs.history": "Historikk",
-
-    "householdPicker.subtitle": "Du er med i flere familier. Hvilken vil du åpne?",
 
     "history.todayHeading": "I dag",
     "history.yesterdayHeading": "I går",

@@ -339,14 +339,6 @@ function render() {
     return;
   }
 
-  // A login can be bound to more than one family (e.g. a child who's a
-  // member of two households). If there's more than one and none is
-  // currently selected, ask which one to open.
-  if (state.membership.memberships.length > 1 && !state.familyId) {
-    app.appendChild(renderHouseholdPicker());
-    return;
-  }
-
   if (!state.userId) {
     app.appendChild(renderUserPicker());
     return;
@@ -557,32 +549,6 @@ function renderOnboarding() {
     <p>${escapeHtml(t("onboarding.subtitle"))}</p>
   `));
   wrap.appendChild(renderCreateAndJoinFamilyForms());
-  return wrap;
-}
-
-function renderHouseholdPicker() {
-  const wrap = el(`<div></div>`);
-  wrap.appendChild(el(`<h1>${window.APP_NAME}</h1><p>${escapeHtml(t("householdPicker.subtitle"))}</p>`));
-
-  const card = el(`<div class="card"></div>`);
-  state.membership.memberships.forEach((m) => {
-    const row = el(`
-      <div class="row">
-        <span>${escapeHtml(m.family.name)} — ${escapeHtml(m.user.name)} <span class="pill ${m.user.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(
-      roleLabel(m.user.role)
-    )}</span></span>
-        <button>${escapeHtml(t("familyPicker.open"))}</button>
-      </div>
-    `);
-    row.querySelector("button").addEventListener("click", () =>
-      withError(async () => {
-        selectMembership(m);
-        await loadFamilyData();
-      })
-    );
-    card.appendChild(row);
-  });
-  wrap.appendChild(card);
   return wrap;
 }
 
@@ -1358,16 +1324,16 @@ function renderTypeToConfirm(expectedWord, hint, buttonLabel, onConfirm) {
 
 // After leaving a family, removing yourself isn't possible, or deleting one
 // outright, there's nothing left to show for it here — fall back to
-// whatever the app would normally land on with no family selected: a
-// single remaining membership gets reselected automatically (mirroring
-// boot's own selection logic), otherwise render() naturally lands on the
-// household picker (2+ remaining) or onboarding (0 remaining).
+// whatever the app would normally land on with no family selected: any
+// remaining membership gets auto-selected (mirroring boot's own selection
+// logic; the topbar switcher is how you'd then pick a different one),
+// otherwise render() naturally lands on onboarding.
 async function afterLeavingFamily() {
   setUserId(null);
   setFamilyId(null);
   state.tab = "home";
   await loadMembership();
-  if (state.membership.bound && state.membership.memberships.length === 1) {
+  if (state.membership.bound && state.membership.memberships.length) {
     selectMembership(state.membership.memberships[0]);
     await loadFamilyData();
   }
@@ -2360,15 +2326,15 @@ if (isDashboardRoute()) {
     if (state.membership.bound) {
       const memberships = state.membership.memberships;
       const stored = memberships.find((m) => m.family.id === state.familyId && m.user.id === state.userId);
-      if (stored) {
-        selectMembership(stored);
-        await loadFamilyData();
-      } else if (memberships.length === 1) {
-        selectMembership(memberships[0]);
+      // No family-selection landing page: a still-valid stored choice wins,
+      // otherwise auto-pick the first membership. Picking between several
+      // families happens via the topbar switcher once inside the app, not
+      // as a gate in front of it.
+      const toSelect = stored || memberships[0];
+      if (toSelect) {
+        selectMembership(toSelect);
         await loadFamilyData();
       } else {
-        // More than one membership and no (still valid) stored choice:
-        // clear any stale selection so render() shows the household picker.
         setFamilyId(null);
         setUserId(null);
       }
