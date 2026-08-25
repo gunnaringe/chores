@@ -122,6 +122,13 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("add tasks.start_date: %w", err)
 		}
 	}
+	if !taskCols["classification"] {
+		// Existing tasks default to 'mandatory', matching how they've always
+		// been treated (there was no "optional" concept before this column).
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN classification TEXT NOT NULL DEFAULT 'mandatory'`); err != nil {
+			return fmt.Errorf("add tasks.classification: %w", err)
+		}
+	}
 
 	// Tasks created before per-child assignment existed have no rows in
 	// task_assignments; treat them as assigned to every child in their

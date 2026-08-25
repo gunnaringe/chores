@@ -64,6 +64,12 @@ enum RepeatMode {
   REPEAT_MODE_CRON = 3;
 }
 
+enum TaskClassification {
+  TASK_CLASSIFICATION_UNSPECIFIED = 0;
+  TASK_CLASSIFICATION_MANDATORY = 1;
+  TASK_CLASSIFICATION_OPTIONAL = 2;
+}
+
 message Task {
   string id = 1;
   string family_id = 2;
@@ -93,6 +99,7 @@ message Task {
   // always populated so changing the interval later stays well-defined).
   // Unused for CRON.
   string start_date = 14;
+  TaskClassification classification = 15;
 }
 
 message TaskCompletion {
@@ -280,6 +287,8 @@ message CreateTaskRequest {
   // Required when repeat_mode is ONCE. Optional for WEEKLY (defaults to
   // today); ignored for CRON.
   string start_date = 11;
+  // Must be MANDATORY or OPTIONAL.
+  TaskClassification classification = 12;
 }
 message CreateTaskResponse {
   Task task = 1;
@@ -300,6 +309,8 @@ message UpdateTaskRequest {
   repeated int32 days_of_week = 10;
   int32 repeat_interval_weeks = 11;
   string start_date = 12;
+  // Must be MANDATORY or OPTIONAL.
+  TaskClassification classification = 13;
 }
 message UpdateTaskResponse {
   Task task = 1;

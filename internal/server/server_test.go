@@ -743,6 +743,76 @@ func TestTaskIcon(t *testing.T) {
 	}
 }
 
+func TestTaskClassification(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|task-classification-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	// An unset classification defaults to MANDATORY, same as a task created
+	// before this field existed.
+	unset, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := unset.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+		t.Fatalf("expected default classification MANDATORY, got %v", got)
+	}
+
+	optional, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Tidy room", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL,
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := optional.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
+		t.Fatalf("expected classification OPTIONAL, got %v", got)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	byID := map[string]*v1.Task{}
+	for _, tk := range fetched.Msg.Tasks {
+		byID[tk.Id] = tk
+	}
+	if got := byID[unset.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+		t.Fatalf("expected persisted classification MANDATORY, got %v", got)
+	}
+	if got := byID[optional.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
+		t.Fatalf("expected persisted classification OPTIONAL, got %v", got)
+	}
+
+	// Updating flips it back to MANDATORY.
+	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: optional.Msg.Task.Id, Title: "Tidy room", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100, Active: true,
+		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY,
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	updated, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks after update: %v", err)
+	}
+	for _, tk := range updated.Msg.Tasks {
+		if tk.Id == optional.Msg.Task.Id && tk.Classification != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+			t.Fatalf("expected classification updated to MANDATORY, got %v", tk.Classification)
+		}
+	}
+}
+
 // TestChild_CanBeMemberOfMultipleFamilies covers the split-household case:
 // the same login (e.g. a child) can be bound to a family member row in more
 // than one family, each independently scoped — completing a task, viewing

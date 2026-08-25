@@ -881,7 +881,9 @@ function renderTaskList() {
     const row = el(`
       <div class="row">
         <div>
-          <div class="task-title">${taskLabel(t_)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""}</div>
+          <div class="task-title">${taskLabel(t_)} <span class="pill ${t_.classification === "TASK_CLASSIFICATION_OPTIONAL" ? "optional" : "mandatory"}">${escapeHtml(
+            t_.classification === "TASK_CLASSIFICATION_OPTIONAL" ? t("taskList.optional") : t("taskList.mandatory")
+          )}</span> ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""}</div>
           <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
         </div>
         <div class="actions">
@@ -921,6 +923,7 @@ function renderTaskList() {
             active: t_.active === false,
             childIds: t_.childIds,
             icon: t_.icon,
+            classification: t_.classification,
           });
           await loadFamilyData();
         })
@@ -990,6 +993,13 @@ function renderTaskForm(existingTask) {
       <div class="field">
         <label>${escapeHtml(t("addTask.priceLabel"))}</label>
         <input type="number" id="task-price" min="0" step="0.5" value="10" class="input-price" />
+      </div>
+      <div class="field">
+        <label>${escapeHtml(t("addTask.classificationLabel"))}</label>
+        <div class="classification-toggle">
+          <button type="button" class="secondary" data-classification="MANDATORY">${escapeHtml(t("taskList.mandatory"))}</button>
+          <button type="button" class="secondary" data-classification="OPTIONAL">${escapeHtml(t("taskList.optional"))}</button>
+        </div>
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.repeatLabel"))}</label>
@@ -1086,6 +1096,15 @@ function renderTaskForm(existingTask) {
     daysWrap.appendChild(label);
   });
 
+  const classificationButtons = [...form.querySelectorAll(".classification-toggle button")];
+  let selectedClassification = isEdit && existingTask.classification === "TASK_CLASSIFICATION_OPTIONAL" ? "OPTIONAL" : "MANDATORY";
+  function selectClassification(value) {
+    selectedClassification = value;
+    classificationButtons.forEach((b) => b.classList.toggle("active", b.dataset.classification === value));
+  }
+  classificationButtons.forEach((btn) => btn.addEventListener("click", () => selectClassification(btn.dataset.classification)));
+  selectClassification(selectedClassification);
+
   const repeatModeButtons = [...form.querySelectorAll(".repeat-mode-toggle button")];
   const onceFieldsWrap = form.querySelector("#repeat-once-fields");
   const weeklyFieldsWrap = form.querySelector("#repeat-weekly-fields");
@@ -1166,6 +1185,7 @@ function renderTaskForm(existingTask) {
         if (!schedule) throw new Error(t("addTask.cronRequired"));
       }
 
+      const classification = `TASK_CLASSIFICATION_${selectedClassification}`;
       const repeatFields = { repeatMode, schedule, daysOfWeek, repeatIntervalWeeks, startDate };
       if (isEdit) {
         await call("UpdateTask", {
@@ -1177,6 +1197,7 @@ function renderTaskForm(existingTask) {
           ...repeatFields,
           childIds,
           active: existingTask.active !== false,
+          classification,
         });
         state.editingTaskId = null;
       } else {
@@ -1188,6 +1209,7 @@ function renderTaskForm(existingTask) {
           priceCents: Math.round(priceKr * 100),
           ...repeatFields,
           childIds,
+          classification,
         });
       }
       await loadFamilyData();
