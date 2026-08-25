@@ -1,4 +1,5 @@
 [tools]
 buf = "1.72.0"
+flyctl = "latest"
 gh = "2.98.0"
 go = "1.25.6"

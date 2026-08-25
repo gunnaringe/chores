@@ -1,0 +1,23 @@
+app = "sortland-chores"
+primary_region = "arn"
+
+[build]
+
+[env]
+  AUTH0_CALLBACK_URL = "https://chores.apphub.casa/auth/callback"
+
+[[mounts]]
+  source = "chores_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
