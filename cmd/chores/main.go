@@ -39,7 +39,6 @@ func loadConfig() *koanf.Koanf {
 	fs.String("auth0-domain", "", "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com — or a full http://host:port base URL for a non-Auth0 issuer such as cmd/devauth (env: AUTH0_DOMAIN)")
 	fs.String("auth0-client-id", "", "Auth0 application client ID (env: AUTH0_CLIENT_ID)")
 	fs.String("auth0-client-secret", "", "Auth0 application client secret (env: AUTH0_CLIENT_SECRET)")
-	fs.String("auth0-callback-url", "", "full callback URL registered with Auth0, e.g. http://localhost:8080/auth/callback (defaults to http://localhost<addr>/auth/callback) (env: AUTH0_CALLBACK_URL)")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("parse flags: %v", err)
 	}
@@ -48,7 +47,6 @@ func loadConfig() *koanf.Koanf {
 		"AUTH0_DOMAIN":        "auth0-domain",
 		"AUTH0_CLIENT_ID":     "auth0-client-id",
 		"AUTH0_CLIENT_SECRET": "auth0-client-secret",
-		"AUTH0_CALLBACK_URL":  "auth0-callback-url",
 	}
 	mapEnvKey := func(s string) string { return envKeys[s] }
 
@@ -90,22 +88,16 @@ func main() {
 			"tenant, run `go run ./cmd/devauth` and point these at it instead")
 	}
 
-	callbackURL := cfg.String("auth0-callback-url")
-	if callbackURL == "" {
-		callbackURL = "http://localhost" + addr + "/auth/callback"
-	}
-
 	authMgr, err := auth.NewManager(auth.Config{
 		Domain:       auth0Domain,
 		ClientID:     auth0ClientID,
 		ClientSecret: auth0ClientSecret,
-		CallbackURL:  callbackURL,
 	})
 	if err != nil {
 		log.Fatalf("configure auth: %v", err)
 	}
 
-	log.Printf("auth: login required (domain=%s, callback=%s)", auth0Domain, callbackURL)
+	log.Printf("auth: login required (domain=%s)", auth0Domain)
 
 	conn, err := db.Open(dbPath)
 	if err != nil {

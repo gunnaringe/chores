@@ -34,7 +34,6 @@ type Config struct {
 	Domain       string
 	ClientID     string
 	ClientSecret string
-	CallbackURL  string
 }
 
 // baseURL resolves domain to the base URL its OAuth2 endpoints hang off of.
@@ -69,6 +68,7 @@ const (
 	returnToCookieName = "chores_oauth_return_to"
 	sessionTTL         = 7 * 24 * time.Hour
 	stateTTL           = 10 * time.Minute
+	callbackPath       = "/auth/callback"
 )
 
 // Manager handles the OAuth2 login flow and session cookies. Login is
@@ -83,8 +83,8 @@ type Manager struct {
 }
 
 func NewManager(cfg Config) (*Manager, error) {
-	if cfg.Domain == "" || cfg.ClientID == "" || cfg.ClientSecret == "" || cfg.CallbackURL == "" {
-		return nil, errors.New("auth requires a domain, client id, client secret and callback url")
+	if cfg.Domain == "" || cfg.ClientID == "" || cfg.ClientSecret == "" {
+		return nil, errors.New("auth requires a domain, client id and client secret")
 	}
 	issuerBase := baseURL(cfg.Domain)
 	m := &Manager{
@@ -93,7 +93,6 @@ func NewManager(cfg Config) (*Manager, error) {
 		oauthCfg: oauth2.Config{
 			ClientID:     cfg.ClientID,
 			ClientSecret: cfg.ClientSecret,
-			RedirectURL:  cfg.CallbackURL,
 			Scopes:       []string{"openid", "profile", "email"},
 			Endpoint: oauth2.Endpoint{
 				AuthURL:  issuerBase + "/authorize",
@@ -114,6 +113,23 @@ func randomToken() (string, error) {
 
 func isSecure(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+}
+
+func scheme(r *http.Request) string {
+	if isSecure(r) {
+		return "https"
+	}
+	return "http"
+}
+
+// redirectURI derives the OAuth2 redirect_uri from the request actually
+// being served rather than a fixed config value, so the same deployment
+// works behind any hostname pointed at it without extra configuration.
+// Auth0's own Allowed Callback URLs allowlist remains the real security
+// boundary — it rejects any redirect_uri not on that list regardless of
+// what the app sends.
+func redirectURI(r *http.Request) string {
+	return scheme(r) + "://" + r.Host + callbackPath
 }
 
 // safeReturnTo only allows same-origin relative paths, so a crafted
@@ -248,7 +264,9 @@ func (m *Manager) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	http.Redirect(w, r, m.oauthCfg.AuthCodeURL(state), http.StatusFound)
+	authCfg := m.oauthCfg
+	authCfg.RedirectURL = redirectURI(r)
+	http.Redirect(w, r, authCfg.AuthCodeURL(state), http.StatusFound)
 }
 
 type userInfo struct {
@@ -322,7 +340,9 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := m.oauthCfg.Exchange(r.Context(), code)
+	exchangeCfg := m.oauthCfg
+	exchangeCfg.RedirectURL = redirectURI(r)
+	token, err := exchangeCfg.Exchange(r.Context(), code)
 	if err != nil {
 		log.Printf("auth0 token exchange failed: %v", err)
 		http.Error(w, "login failed", http.StatusBadGateway)
@@ -348,11 +368,7 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 func (m *Manager) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	m.clearSession(w, r)
 
-	scheme := "http"
-	if isSecure(r) {
-		scheme = "https"
-	}
-	returnTo := scheme + "://" + r.Host + "/"
+	returnTo := scheme(r) + "://" + r.Host + "/"
 
 	logoutURL := m.issuerBase + "/v2/logout?client_id=" + url.QueryEscape(m.oauthCfg.ClientID) + "&returnTo=" + url.QueryEscape(returnTo)
 	http.Redirect(w, r, logoutURL, http.StatusFound)

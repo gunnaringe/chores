@@ -15,8 +15,7 @@
 //
 //	go run ./cmd/devauth -client-id=devclient -client-secret=devsecret
 //	AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
-//	  AUTH0_CLIENT_SECRET=devsecret AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback \
-//	  go run ./cmd/chores
+//	  AUTH0_CLIENT_SECRET=devsecret go run ./cmd/chores
 package main
 
 import (
@@ -388,7 +387,7 @@ func main() {
 		log.Printf("devauth: more than one identity configured — /authorize will show a picker each login")
 	}
 	log.Printf("devauth: point chores at this with:")
-	log.Printf("  AUTH0_DOMAIN=http://localhost%s AUTH0_CLIENT_ID=%s AUTH0_CLIENT_SECRET=%s AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback", *addr, cfg.clientID, cfg.clientSecret)
+	log.Printf("  AUTH0_DOMAIN=http://localhost%s AUTH0_CLIENT_ID=%s AUTH0_CLIENT_SECRET=%s", *addr, cfg.clientID, cfg.clientSecret)
 	if err := http.ListenAndServe(*addr, mux); err != nil {
 		log.Fatalf("devauth: server error: %v", err)
 	}

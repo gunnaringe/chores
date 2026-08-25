@@ -3,9 +3,6 @@ primary_region = "arn"
 
 [build]
 
-[env]
-  AUTH0_CALLBACK_URL = "https://chores.apphub.casa/auth/callback"
-
 [[mounts]]
   source = "chores_data"
   destination = "/data"

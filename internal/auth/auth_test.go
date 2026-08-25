@@ -7,7 +7,6 @@ func validConfig() Config {
 		Domain:       "tenant.eu.auth0.com",
 		ClientID:     "client-id",
 		ClientSecret: "client-secret",
-		CallbackURL:  "http://localhost:8080/auth/callback",
 	}
 }
 
@@ -28,7 +27,6 @@ func TestNewManager_RequiresFullConfig(t *testing.T) {
 		{"missing domain", blank(func(c *Config) { c.Domain = "" })},
 		{"missing client id", blank(func(c *Config) { c.ClientID = "" })},
 		{"missing client secret", blank(func(c *Config) { c.ClientSecret = "" })},
-		{"missing callback url", blank(func(c *Config) { c.CallbackURL = "" })},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

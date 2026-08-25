@@ -128,13 +128,12 @@ environment variables, then CLI flags on top. Each layer only overrides a
 value the one below it actually set — an unset flag or absent env var
 never clobbers what an earlier layer provided (see `loadConfig` in
 `cmd/chores/main.go`). The `.env` file is entirely optional and
-git-ignored; only the four `AUTH0_*` keys are read from it:
+git-ignored; only the three `AUTH0_*` keys are read from it:
 
 ```
 AUTH0_DOMAIN=your-tenant.eu.auth0.com
 AUTH0_CLIENT_ID=...
 AUTH0_CLIENT_SECRET=...
-AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback
 ```
 
 ## Language
@@ -173,8 +172,7 @@ go run ./cmd/devauth -client-id=devclient -client-secret=devsecret
 
 ```bash
 AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
-  AUTH0_CLIENT_SECRET=devsecret AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback \
-  go run ./cmd/chores
+  AUTH0_CLIENT_SECRET=devsecret go run ./cmd/chores
 ```
 
 (`devauth` prints this exact pair of commands, with its actual flags
@@ -188,24 +186,22 @@ that one identity, same as the old single-identity behavior).
 
 1. In the Auth0 dashboard, create a **Regular Web Application** (not SPA —
    the token exchange happens server-side).
-2. Set **Allowed Callback URLs** to your callback URL, e.g.
-   `http://localhost:8080/auth/callback` for local testing against a real
-   tenant, or your production URL.
-3. Set **Allowed Logout URLs** to your app's base URL, e.g.
-   `http://localhost:8080/`.
+2. Set **Allowed Callback URLs** to every hostname you'll actually log in
+   through, e.g. `http://localhost:8080/auth/callback` for local testing
+   against a real tenant, plus your production URL(s).
+3. Set **Allowed Logout URLs** the same way, e.g. `http://localhost:8080/`
+   plus your production URL(s).
 4. Run the app with:
 
    ```bash
    export AUTH0_DOMAIN=your-tenant.eu.auth0.com
    export AUTH0_CLIENT_ID=...
    export AUTH0_CLIENT_SECRET=...
-   # optional, defaults to http://localhost<addr>/auth/callback
-   export AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback
    go run ./cmd/chores
    ```
 
    (or pass the equivalent `-auth0-domain`, `-auth0-client-id`,
-   `-auth0-client-secret`, `-auth0-callback-url` flags).
+   `-auth0-client-secret` flags).
 
 Login uses the standard OAuth2 Authorization Code flow: `/auth/login`
 redirects to Auth0, `/auth/callback` exchanges the code and fetches the
@@ -213,6 +209,14 @@ profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
 (no JWT verification needed since tokens never leave the server). Sessions
 don't survive a server restart. `/auth/logout` clears the session and signs
 out of Auth0 too.
+
+The `redirect_uri` sent to Auth0 is derived from the incoming request's
+own hostname rather than a fixed config value, so the same deployment
+works behind any domain pointed at it (a raw `*.fly.dev` URL, a custom
+domain, `localhost`, whatever) with no extra configuration — Auth0's
+Allowed Callback URLs list (step 2 above) is what actually decides which
+hostnames are allowed to complete a login; the app doesn't add any
+restriction of its own on top of that.
 
 ### Creating or joining another family
 

@@ -13,5 +13,5 @@ dev: ## Run the app wired to the local devauth server, plus devauth itself
 	devauth_pid=$$!; \
 	trap 'kill $$devauth_pid 2>/dev/null' EXIT; \
 	AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
-	AUTH0_CLIENT_SECRET=devsecret AUTH0_CALLBACK_URL=http://localhost:8080/auth/callback \
+	AUTH0_CLIENT_SECRET=devsecret \
 	$(MISE) go run ./cmd/chores -addr=:8080 -db=chores.db
