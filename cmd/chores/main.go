@@ -6,10 +6,12 @@ package main
 import (
 	"errors"
 	"flag"
+	"io/fs"
 	"log"
 	"mime"
 	"net/http"
 	"os"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/knadh/koanf/parsers/dotenv"
@@ -135,12 +137,29 @@ func main() {
 		_, _ = w.Write(data)
 	})
 
-	mux.Handle("/", authMgr.Gate(http.FileServerFS(web.FS), http.HandlerFunc(loginPageHandler)))
+	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(loginPageHandler)))
 
 	log.Printf("Chores listening on %s (db: %s)", addr, dbPath)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
+}
+
+// notFoundPage wraps the static file server so a bogus or stale URL (e.g. an
+// old bookmark) gets the same styled error page as everything else, instead
+// of Go's bare "404 page not found" text.
+func notFoundPage(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "" {
+			name = "index.html"
+		}
+		if _, err := fs.Stat(web.FS, name); err != nil {
+			web.RenderErrorPage(w, http.StatusNotFound, "Page not found.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func loginPageHandler(w http.ResponseWriter, r *http.Request) {
