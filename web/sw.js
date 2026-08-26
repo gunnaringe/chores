@@ -3,7 +3,7 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-const CACHE_NAME = "chores-shell-v6";
+const CACHE_NAME = "chores-shell-v7";
 const PRECACHE_URLS = [
   "/app.js",
   "/app.css",
