@@ -1,6 +1,6 @@
 MISE := mise exec --
 
-.PHONY: run devauth dev
+.PHONY: run devauth dev update-material-symbols
 
 run: ## Run the app against the Auth0 tenant configured in .env
 	$(MISE) go run ./cmd/chores -addr=:8080 -db=chores.db
@@ -15,3 +15,6 @@ dev: ## Run the app wired to the local devauth server, plus devauth itself
 	AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
 	AUTH0_CLIENT_SECRET=devsecret \
 	$(MISE) go run ./cmd/chores -addr=:8080 -db=chores.db
+
+update-material-symbols: ## Refresh web/material-symbols.json with the latest Material Symbols icon names
+	./scripts/update-material-symbols.sh

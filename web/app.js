@@ -407,23 +407,6 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
-// Font Awesome icon names only ever legitimately contain lowercase
-// letters, digits and hyphens. Whitelisting down to that (after stripping
-// common paste artifacts like a leading "fa-") is what actually makes it
-// safe to drop this user-supplied value straight into a class="..."
-// attribute — HTML-escaping alone isn't enough there, since escapeHtml
-// only guards text-node content, not attribute-breaking characters.
-function faIconClass(value) {
-  let cleaned = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^fa-solid\s+/, "")
-    .replace(/^fas\s+/, "")
-    .replace(/^fa-/, "")
-    .replace(/[^a-z0-9-]/g, "");
-  return cleaned || "star";
-}
-
 // Material Symbols are rendered as ligature text content (not a class
 // name), so escapeHtml() alone already makes them injection-safe; this
 // whitelist is just hygiene, matching how the names actually look
@@ -438,33 +421,51 @@ function materialIconName(value) {
 
 function taskLabel(task) {
   if (!task.icon || !task.icon.value) return escapeHtml(task.title);
-  if (task.icon.type === "ICON_TYPE_FONT_AWESOME") {
-    return `<i class="fa-solid fa-${faIconClass(task.icon.value)}"></i> ${escapeHtml(task.title)}`;
-  }
   if (task.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS") {
     return `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1em;">${escapeHtml(
       materialIconName(task.icon.value)
     )}</span> ${escapeHtml(task.title)}`;
   }
+  // A task whose icon predates Material Symbols becoming the only
+  // supported type (an emoji character, or a Font Awesome name) — still
+  // rendered rather than dropped, just as plain text instead of a glyph.
   return escapeHtml(task.icon.value) + " " + escapeHtml(task.title);
 }
 
-const EMOJI_CHOICES = ["🧹", "🧺", "🍽️", "🛏️", "🐶", "🗑️", "📚", "🧽", "🚗", "🌱", "🪥", "🧸"];
-const FA_CHOICES = ["broom", "shirt", "utensils", "bed", "dog", "trash", "book", "soap", "car", "seedling", "tooth", "paw"];
-const MATERIAL_CHOICES = [
-  "cleaning_services",
-  "checkroom",
-  "restaurant",
-  "bed",
-  "pets",
-  "delete",
-  "menu_book",
-  "soap",
-  "directions_car",
-  "eco",
-  "brush",
-  "toys",
-];
+// The full official Material Symbols icon name list (fonts.google.com/icons),
+// fetched lazily and cached here — see loadMaterialSymbolNames. Search
+// matches against these names directly (see searchMaterialSymbols) rather
+// than a hand-authored keyword/synonym mapping.
+let materialSymbolNamesPromise = null;
+function loadMaterialSymbolNames() {
+  if (!materialSymbolNamesPromise) {
+    materialSymbolNamesPromise = fetch("/material-symbols.json")
+      .then((res) => res.json())
+      .catch(() => []);
+  }
+  return materialSymbolNamesPromise;
+}
+
+// Substring search over the official icon names, matching each whitespace-
+// separated search word against the name with underscores treated as
+// spaces (so "clean service" matches "cleaning_services"). Prefix matches
+// on the full query sort first, then shorter (more specific) names.
+function searchMaterialSymbols(names, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const words = q.split(/\s+/).filter(Boolean);
+  const matches = names.filter((name) => {
+    const haystack = name.replace(/_/g, " ");
+    return words.every((w) => haystack.includes(w));
+  });
+  matches.sort((a, b) => {
+    const aStarts = a.replace(/_/g, " ").startsWith(q) ? 0 : 1;
+    const bStarts = b.replace(/_/g, " ").startsWith(q) ? 0 : 1;
+    if (aStarts !== bStarts) return aStarts - bStarts;
+    return a.length - b.length || a.localeCompare(b);
+  });
+  return matches.slice(0, 60);
+}
 
 // Creates a family and binds the caller as its founding parent via
 // identity auto-bind. Leaves the new family selected — callers still need
@@ -971,13 +972,6 @@ function renderTaskList() {
   return card;
 }
 
-function iconTypeKey(icon) {
-  if (!icon) return "EMOJI";
-  if (icon.type === "ICON_TYPE_FONT_AWESOME") return "FONT_AWESOME";
-  if (icon.type === "ICON_TYPE_MATERIAL_SYMBOLS") return "MATERIAL_SYMBOLS";
-  return "EMOJI";
-}
-
 function renderTaskForm(existingTask) {
   const isEdit = !!existingTask;
   const children = state.users.filter((u) => u.role === "USER_ROLE_CHILD");
@@ -994,13 +988,9 @@ function renderTaskForm(existingTask) {
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.iconLabel"))}</label>
-        <div class="icon-type-toggle">
-          <button type="button" class="secondary" data-icon-type="EMOJI">${escapeHtml(t("addTask.iconTypeEmoji"))}</button>
-          <button type="button" class="secondary" data-icon-type="FONT_AWESOME">${escapeHtml(t("addTask.iconTypeFontAwesome"))}</button>
-          <button type="button" class="secondary" data-icon-type="MATERIAL_SYMBOLS">${escapeHtml(t("addTask.iconTypeMaterialSymbols"))}</button>
-        </div>
-        <input type="text" id="task-icon" maxlength="32" class="input-icon" />
-        <div id="task-icon-choices" class="icon-choices" style="margin-top:6px;"></div>
+        <div id="task-icon-selected" class="icon-selected" style="display:none;"></div>
+        <input type="text" id="task-icon-search" maxlength="64" class="input-icon" autocomplete="off" placeholder="${escapeHtml(t("addTask.iconSearchPlaceholder"))}" />
+        <div id="task-icon-results" class="icon-choices" style="margin-top:6px;"></div>
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.priceLabel"))}</label>
@@ -1052,49 +1042,70 @@ function renderTaskForm(existingTask) {
     form.querySelector("#task-price").value = (Number(existingTask.priceCents || 0) / 100).toFixed(2);
   }
 
-  const iconInput = form.querySelector("#task-icon");
-  const iconChoicesWrap = form.querySelector("#task-icon-choices");
-  const iconTypeButtons = [...form.querySelectorAll(".icon-type-toggle button")];
-  let selectedIconType = iconTypeKey(isEdit ? existingTask.icon : null);
+  const iconSearchInput = form.querySelector("#task-icon-search");
+  const iconResultsWrap = form.querySelector("#task-icon-results");
+  const iconSelectedWrap = form.querySelector("#task-icon-selected");
+  // A pre-existing icon only pre-fills the picker when it's actually a
+  // Material Symbols icon — a task whose icon predates that being the only
+  // supported type (emoji, Font Awesome) starts this form with no icon
+  // selected, since there's no way to keep editing that value here.
+  let selectedIconValue = isEdit && existingTask.icon && existingTask.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS" ? materialIconName(existingTask.icon.value) : "";
+  let materialSymbolNames = [];
+  loadMaterialSymbolNames().then((names) => {
+    materialSymbolNames = names;
+    if (iconSearchInput.value.trim()) renderIconResults();
+  });
 
-  const iconPlaceholders = { EMOJI: "🧹", FONT_AWESOME: "broom", MATERIAL_SYMBOLS: "cleaning_services" };
-  const iconChoiceLists = { EMOJI: EMOJI_CHOICES, FONT_AWESOME: FA_CHOICES, MATERIAL_SYMBOLS: MATERIAL_CHOICES };
-
-  function renderIconChoices() {
-    iconChoicesWrap.innerHTML = "";
-    iconChoiceLists[selectedIconType].forEach((value) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "secondary";
-      if (selectedIconType === "EMOJI") {
-        btn.textContent = value;
-      } else if (selectedIconType === "FONT_AWESOME") {
-        const i = document.createElement("i");
-        i.className = `fa-solid fa-${faIconClass(value)}`;
-        btn.appendChild(i);
-      } else {
-        const span = document.createElement("span");
-        span.className = "material-symbols-outlined";
-        span.textContent = materialIconName(value);
-        btn.appendChild(span);
-      }
-      btn.addEventListener("click", () => {
-        iconInput.value = value;
-      });
-      iconChoicesWrap.appendChild(btn);
+  function renderSelectedIcon() {
+    if (!selectedIconValue) {
+      iconSelectedWrap.style.display = "none";
+      iconSelectedWrap.innerHTML = "";
+      return;
+    }
+    iconSelectedWrap.style.display = "flex";
+    iconSelectedWrap.style.alignItems = "center";
+    iconSelectedWrap.style.gap = "6px";
+    iconSelectedWrap.innerHTML = `
+      <span class="material-symbols-outlined">${escapeHtml(selectedIconValue)}</span>
+      <span>${escapeHtml(selectedIconValue.replace(/_/g, " "))}</span>
+      <button type="button" class="secondary" id="task-icon-clear">${escapeHtml(t("addTask.iconClear"))}</button>
+    `;
+    iconSelectedWrap.querySelector("#task-icon-clear").addEventListener("click", () => {
+      selectedIconValue = "";
+      renderSelectedIcon();
     });
   }
 
-  function selectIconType(newType) {
-    selectedIconType = newType;
-    iconTypeButtons.forEach((b) => b.classList.toggle("active", b.dataset.iconType === newType));
-    iconInput.placeholder = iconPlaceholders[newType];
-    renderIconChoices();
+  function renderIconResults() {
+    iconResultsWrap.innerHTML = "";
+    const query = iconSearchInput.value;
+    if (!query.trim()) return;
+    const matches = searchMaterialSymbols(materialSymbolNames, query);
+    if (!matches.length) {
+      iconResultsWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.iconNoResults"))}</p>`));
+      return;
+    }
+    matches.forEach((name) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary";
+      btn.title = name.replace(/_/g, " ");
+      const span = document.createElement("span");
+      span.className = "material-symbols-outlined";
+      span.textContent = name;
+      btn.appendChild(span);
+      btn.addEventListener("click", () => {
+        selectedIconValue = name;
+        renderSelectedIcon();
+        iconSearchInput.value = "";
+        iconResultsWrap.innerHTML = "";
+      });
+      iconResultsWrap.appendChild(btn);
+    });
   }
 
-  iconTypeButtons.forEach((btn) => btn.addEventListener("click", () => selectIconType(btn.dataset.iconType)));
-  selectIconType(selectedIconType);
-  if (isEdit && existingTask.icon) iconInput.value = existingTask.icon.value;
+  iconSearchInput.addEventListener("input", renderIconResults);
+  renderSelectedIcon();
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
@@ -1166,13 +1177,7 @@ function renderTaskForm(existingTask) {
     withError(async () => {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
-      const iconValueRaw = iconInput.value.trim();
-      const iconTypeProto = { EMOJI: "ICON_TYPE_EMOJI", FONT_AWESOME: "ICON_TYPE_FONT_AWESOME", MATERIAL_SYMBOLS: "ICON_TYPE_MATERIAL_SYMBOLS" }[
-        selectedIconType
-      ];
-      const iconValue =
-        selectedIconType === "FONT_AWESOME" ? faIconClass(iconValueRaw) : selectedIconType === "MATERIAL_SYMBOLS" ? materialIconName(iconValueRaw) : iconValueRaw;
-      const icon = iconValueRaw ? { type: iconTypeProto, value: iconValue } : undefined;
+      const icon = selectedIconValue ? { type: "ICON_TYPE_MATERIAL_SYMBOLS", value: selectedIconValue } : undefined;
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
       const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);
       if (!title) throw new Error(t("addTask.titleRequired"));

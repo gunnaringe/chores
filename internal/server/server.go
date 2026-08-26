@@ -367,10 +367,6 @@ func roleFromDB(role string) v1.UserRole {
 
 func iconTypeToDB(t v1.IconType) (string, error) {
 	switch t {
-	case v1.IconType_ICON_TYPE_EMOJI:
-		return "emoji", nil
-	case v1.IconType_ICON_TYPE_FONT_AWESOME:
-		return "fontawesome", nil
 	case v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS:
 		return "materialsymbols", nil
 	default:
@@ -378,12 +374,13 @@ func iconTypeToDB(t v1.IconType) (string, error) {
 	}
 }
 
+// iconTypeFromDB reports ICON_TYPE_UNSPECIFIED for "emoji" and
+// "fontawesome" too — those types predate Material Symbols becoming the
+// only supported icon type, and a handful of tasks may still carry one.
+// taskIconFromDB still returns their stored value, so the frontend can fall
+// back to rendering it as plain text rather than losing it outright.
 func iconTypeFromDB(t string) v1.IconType {
 	switch t {
-	case "emoji":
-		return v1.IconType_ICON_TYPE_EMOJI
-	case "fontawesome":
-		return v1.IconType_ICON_TYPE_FONT_AWESOME
 	case "materialsymbols":
 		return v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS
 	default:
