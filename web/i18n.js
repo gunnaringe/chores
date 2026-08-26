@@ -25,7 +25,6 @@ const TRANSLATIONS = {
     "family.namePlaceholder": "e.g. The Smiths",
     "family.createBtn": "Create family",
     "family.renameHeading": "Family name",
-    "family.renameNameLabel": "Family name",
     "family.renameSave": "Save",
     "family.renameRequired": "Family name is required",
 
@@ -44,8 +43,15 @@ const TRANSLATIONS = {
     "role.child": "Child",
 
     "topbar.settings": "Settings",
+    "topbar.viewingAs": "You're viewing the app as {name}",
+    "topbar.switchBack": "Switch back",
 
-    "settings.back": "← Back",
+    "common.close": "Close",
+    "common.dismiss": "Dismiss",
+
+    "settings.accountSection": "Account",
+    "settings.familySection": "This family",
+    "settings.householdsSection": "Other families",
     "settings.notificationsHeading": "Notifications",
     "settings.notificationsDesc": "Get a notification on this device whenever someone in the family completes a task.",
     "settings.notificationsEnable": "Enable notifications",
@@ -91,6 +97,8 @@ const TRANSLATIONS = {
     "history.confirmMarkComplete": "Confirm mark completed",
     "history.confirmMarkIncomplete": "Confirm mark not completed",
 
+    "today.progress": "{done} of {total} done",
+
     "childTasks.heading": "Today's tasks",
     "childTasks.empty": "No tasks scheduled for today.",
     "childTasks.markDone": "Mark done",
@@ -120,7 +128,7 @@ const TRANSLATIONS = {
     "addTask.priceLabel": "Price (kr)",
     "addTask.classificationLabel": "Classification",
     "addTask.repeatLabel": "Repeat",
-    "addTask.repeatOnce": "Does not repeat",
+    "addTask.repeatOnce": "Once",
     "addTask.repeatWeekly": "Weekly",
     "addTask.repeatCron": "Cron",
     "addTask.onceDateLabel": "Date",
@@ -157,7 +165,8 @@ const TRANSLATIONS = {
     "accounting.earnedThisWeek": "Earned this week",
     "accounting.balanceOwed": "Balance owed",
     "accounting.payoutHeading": "Pay out",
-    "accounting.amountLabel": "Amount (kr) — leave as full balance or enter a partial amount",
+    "accounting.amountLabel": "Amount (kr)",
+    "accounting.amountHint": "Leave as the full balance, or enter a partial amount.",
     "accounting.noteLabel": "Note (optional)",
     "accounting.payFull": "Pay full balance",
     "accounting.payPartial": "Pay entered amount",
@@ -168,6 +177,8 @@ const TRANSLATIONS = {
     "accounting.full": "full",
     "accounting.partial": "partial",
 
+    "familyTab.switchFamilyLabel": "Switch family",
+    "familyTab.switchUserLabel": "Switch family member",
     "familyTab.heading": "Family members",
     "familyTab.you": "you",
     "familyTab.invitePending": "invite pending",
@@ -223,7 +234,6 @@ const TRANSLATIONS = {
     "family.namePlaceholder": "f.eks. Familien Hansen",
     "family.createBtn": "Opprett familie",
     "family.renameHeading": "Familienavn",
-    "family.renameNameLabel": "Familienavn",
     "family.renameSave": "Lagre",
     "family.renameRequired": "Familienavn er påkrevd",
 
@@ -242,8 +252,15 @@ const TRANSLATIONS = {
     "role.child": "Barn",
 
     "topbar.settings": "Innstillinger",
+    "topbar.viewingAs": "Du ser appen som {name}",
+    "topbar.switchBack": "Bytt tilbake",
 
-    "settings.back": "← Tilbake",
+    "common.close": "Lukk",
+    "common.dismiss": "Lukk",
+
+    "settings.accountSection": "Konto",
+    "settings.familySection": "Denne familien",
+    "settings.householdsSection": "Andre familier",
     "settings.notificationsHeading": "Varsler",
     "settings.notificationsDesc": "Få et varsel på denne enheten når noen i familien fullfører en oppgave.",
     "settings.notificationsEnable": "Slå på varsler",
@@ -289,6 +306,8 @@ const TRANSLATIONS = {
     "history.confirmMarkComplete": "Bekreft merking som fullført",
     "history.confirmMarkIncomplete": "Bekreft merking som ikke fullført",
 
+    "today.progress": "{done} av {total} gjort",
+
     "childTasks.heading": "Dagens oppgaver",
     "childTasks.empty": "Ingen oppgaver planlagt i dag.",
     "childTasks.markDone": "Merk som utført",
@@ -318,7 +337,7 @@ const TRANSLATIONS = {
     "addTask.priceLabel": "Pris (kr)",
     "addTask.classificationLabel": "Klassifisering",
     "addTask.repeatLabel": "Gjentakelse",
-    "addTask.repeatOnce": "Gjentas ikke",
+    "addTask.repeatOnce": "Én gang",
     "addTask.repeatWeekly": "Ukentlig",
     "addTask.repeatCron": "Cron",
     "addTask.onceDateLabel": "Dato",
@@ -355,7 +374,8 @@ const TRANSLATIONS = {
     "accounting.earnedThisWeek": "Opptjent denne uken",
     "accounting.balanceOwed": "Utestående saldo",
     "accounting.payoutHeading": "Utbetal",
-    "accounting.amountLabel": "Beløp (kr) — behold hele saldoen eller angi et delbeløp",
+    "accounting.amountLabel": "Beløp (kr)",
+    "accounting.amountHint": "Behold hele saldoen, eller angi et delbeløp.",
     "accounting.noteLabel": "Notat (valgfritt)",
     "accounting.payFull": "Utbetal hele saldoen",
     "accounting.payPartial": "Utbetal angitt beløp",
@@ -366,6 +386,8 @@ const TRANSLATIONS = {
     "accounting.full": "hel",
     "accounting.partial": "del",
 
+    "familyTab.switchFamilyLabel": "Bytt familie",
+    "familyTab.switchUserLabel": "Bytt familiemedlem",
     "familyTab.heading": "Familiemedlemmer",
     "familyTab.you": "deg",
     "familyTab.invitePending": "invitasjon venter",
