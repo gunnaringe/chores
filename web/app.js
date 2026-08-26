@@ -2546,6 +2546,19 @@ function renderSettingsTab() {
   accountCard.querySelector("#logout-btn").addEventListener("click", () => {
     location.href = "/auth/logout";
   });
+  // When the icon font can't load, every glyph degrades to a neutral
+  // placeholder (see the probe in index.html). That's deliberate, but it's
+  // silent, and the cause is always outside the app — so name it once, here,
+  // rather than leaving someone to wonder why the UI is full of grey squares.
+  // No icon in this notice on purpose: it would be a placeholder too.
+  if (document.documentElement.classList.contains("icons-unavailable")) {
+    wrap.appendChild(el(`
+      <div class="notice-bar">
+        <span class="notice-text">${escapeHtml(t("settings.iconsUnavailable"))}</span>
+      </div>
+    `));
+  }
+
   wrap.appendChild(el(`<div class="section-label" style="margin-top:0;">${escapeHtml(t("settings.accountSection"))}</div>`));
   wrap.appendChild(accountCard);
 

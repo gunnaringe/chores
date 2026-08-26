@@ -71,6 +71,8 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "The server doesn't have push notifications configured.",
     "settings.notificationsDenied": "Notifications are blocked for this site — enable them in your browser's site settings to use this.",
 
+    "settings.iconsUnavailable": "Icons couldn't load, so they're showing as placeholders. An ad blocker, VPN or private DNS may be blocking fonts.googleapis.com.",
+
     "settings.feedbackHeading": "Feedback",
     "settings.feedbackHint": "Do you have any ideas for new features or have found any issues?",
     "settings.feedbackLink": "Make a ticket here",
@@ -320,6 +322,8 @@ const TRANSLATIONS = {
     "settings.notificationsUnsupported": "Varsler støttes ikke i denne nettleseren eller på denne enheten.",
     "settings.notificationsUnavailable": "Serveren har ikke satt opp push-varsler.",
     "settings.notificationsDenied": "Varsler er blokkert for dette nettstedet — slå dem på i nettleserens nettstedsinnstillinger for å bruke dette.",
+
+    "settings.iconsUnavailable": "Ikonene kunne ikke lastes, så de vises som plassholdere. En annonseblokkerer, VPN eller privat DNS kan blokkere fonts.googleapis.com.",
 
     "settings.feedbackHeading": "Tilbakemelding",
     "settings.feedbackHint": "Har du ideer til nye funksjoner, eller har du funnet en feil?",
