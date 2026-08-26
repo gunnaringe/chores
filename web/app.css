@@ -1117,6 +1117,18 @@ label {
   color: var(--accent);
   font-weight: 550;
 }
+/* Set apart from the provenance lines above it: those are facts about the
+   app, this is a caveat about relying on it, and it shouldn't read as just
+   one more of them. Quiet rather than alarming — it's a family chore list,
+   not a terms-of-service wall. */
+.disclaimer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 0.82rem;
+  max-width: 46em;
+}
 
 @media (min-width: 620px) {
   .shots {

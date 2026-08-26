@@ -240,6 +240,7 @@ const TRANSLATIONS = {
     "login.sourceLink": "Source on GitHub",
     "login.hosting": "Runs on Fly.io in Stockholm. Data lives in a SQLite database.",
     "login.builtWith": "Built with Claude, on a personal Claude Pro account.",
+    "login.disclaimer": "This is a hobby project, made for my own use. No guarantees are given about its reliability — use it at your own risk.",
 
     "lang.label": "Language",
   },
@@ -470,6 +471,7 @@ const TRANSLATIONS = {
     "login.sourceLink": "Kildekode på GitHub",
     "login.hosting": "Kjører på Fly.io i Stockholm. Dataene ligger i en SQLite-database.",
     "login.builtWith": "Laget med Claude, på en personlig Claude Pro-konto.",
+    "login.disclaimer": "Dette er et hobbyprosjekt laget til eget bruk. Det gis ingen garantier for appens pålitelighet — bruk den på eget ansvar.",
 
     "lang.label": "Språk",
   },
