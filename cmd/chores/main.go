@@ -137,6 +137,11 @@ func main() {
 		_, _ = w.Write(data)
 	})
 
+	// Registered ahead of the static file server (and outside the login
+	// gate, since the welcome page needs it too) because the manifest's name
+	// is localized per request — see web/manifest.go.
+	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
+
 	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(loginPageHandler)))
 
 	log.Printf("Chores listening on %s (db: %s)", addr, dbPath)

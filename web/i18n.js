@@ -1,7 +1,11 @@
-// Chores — minimal i18n helper shared by the app and the login page.
-// The app's own name ("Chores") is a brand and stays untranslated.
-
-window.APP_NAME = "Chores";
+// Chores — minimal i18n helper shared by the app and the welcome page.
+//
+// The app's name is itself translated: it's "Chores" in English and
+// "Ukelønn" in Norwegian, including the name an installed PWA gets. Use
+// appName() rather than a literal anywhere the name is shown.
+//
+// The same two names exist in Go, in web/manifest.go, which serves the
+// localized web app manifest — keep them in step.
 
 window.LANGUAGES = [
   { code: "en", label: "English" },
@@ -10,6 +14,8 @@ window.LANGUAGES = [
 
 const TRANSLATIONS = {
   en: {
+    "app.name": "Chores",
+
     "familyPicker.nameRequired": "Family name is required",
 
     "onboarding.subtitle": "Create your family to get started, or join one with an invite code.",
@@ -215,12 +221,30 @@ const TRANSLATIONS = {
 
     "auth.logout": "Log out",
 
-    "login.subtitle": "Please log in to continue.",
+    "login.tagline": "Family chores and allowance, in one place.",
     "login.button": "Log in",
+    "login.howHeading": "How it works",
+    "login.step1Title": "Parents set the chores",
+    "login.step1Body": "Add a chore, set what it pays, and pick who it's for. Repeat it daily, weekly, or just once — and mark it a must-do or an optional extra.",
+    "login.step2Title": "Kids tick them off",
+    "login.step2Body": "Everyone gets today's list on their own phone, split into Must do and Can do. One tap marks a chore done.",
+    "login.step3Title": "The balance adds up",
+    "login.step3Body": "Earnings collect into a running balance. Pay out all of it or part of it whenever suits — every completed chore stays in the history.",
+    "login.extrasHeading": "Also in the box",
+    "login.extrasBody": "A key-protected screen for the kitchen wall that needs no login, push notifications when someone finishes a chore, and an install to the home screen that behaves like a real app. English and Norwegian throughout.",
+    "login.shotToday": "Today, split into Must do and Can do",
+    "login.shotTasks": "Chores, with what each one pays",
+    "login.shotBalance": "The balance, and paying it out",
+    "login.ctaHeading": "Ready?",
+    "login.aboutHeading": "About",
+    "login.sourceLink": "Source on GitHub",
+    "login.hosting": "Runs on Fly.io in Stockholm. Data lives in a SQLite database.",
 
     "lang.label": "Language",
   },
   nb: {
+    "app.name": "Ukelønn",
+
     "familyPicker.nameRequired": "Familienavn er påkrevd",
 
     "onboarding.subtitle": "Opprett familien din for å komme i gang, eller bli med i en med en invitasjonskode.",
@@ -426,8 +450,24 @@ const TRANSLATIONS = {
 
     "auth.logout": "Logg ut",
 
-    "login.subtitle": "Logg inn for å fortsette.",
+    "login.tagline": "Husarbeid og ukelønn på ett sted.",
     "login.button": "Logg inn",
+    "login.howHeading": "Slik fungerer det",
+    "login.step1Title": "Foreldre setter opp oppgavene",
+    "login.step1Body": "Legg til en oppgave, sett hva den er verdt, og velg hvem den gjelder. Gjenta den daglig, ukentlig eller bare én gang — og merk den som må-gjøre eller valgfri ekstrajobb.",
+    "login.step2Title": "Barna huker dem av",
+    "login.step2Body": "Alle får dagens liste på sin egen telefon, delt i Må gjøre og Kan gjøre. Ett trykk markerer en oppgave som gjort.",
+    "login.step3Title": "Saldoen vokser",
+    "login.step3Body": "Det opptjente samles i en løpende saldo. Betal ut alt eller deler av det når det passer — alle fullførte oppgaver blir liggende i historikken.",
+    "login.extrasHeading": "Dette er også med",
+    "login.extrasBody": "En nøkkelbeskyttet skjerm til kjøkkenveggen som ikke krever innlogging, varsler når noen fullfører en oppgave, og installasjon på hjemskjermen som oppfører seg som en ekte app. Norsk og engelsk gjennomgående.",
+    "login.shotToday": "I dag, delt i Må gjøre og Kan gjøre",
+    "login.shotTasks": "Oppgaver, med hva hver enkelt er verdt",
+    "login.shotBalance": "Saldoen, og utbetaling av den",
+    "login.ctaHeading": "Klar?",
+    "login.aboutHeading": "Om",
+    "login.sourceLink": "Kildekode på GitHub",
+    "login.hosting": "Kjører på Fly.io i Stockholm. Dataene ligger i en SQLite-database.",
 
     "lang.label": "Språk",
   },
@@ -460,7 +500,29 @@ function t(key, vars) {
   return str;
 }
 
+function appName() {
+  return t("app.name");
+}
+
+// Stamps the current language's app name onto everything outside the page
+// body that carries it: the tab title, the iOS add-to-home-screen name, and
+// the manifest a PWA install reads its name from. The manifest href is
+// rewritten rather than the file being static, because the installed app's
+// name has to follow the language the user actually picked — browsers
+// re-read the manifest when that href changes.
+function applyAppName() {
+  document.title = appName();
+
+  const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (appleTitle) appleTitle.setAttribute("content", appName());
+
+  const manifest = document.querySelector('link[rel="manifest"]');
+  if (manifest) manifest.setAttribute("href", `/manifest.webmanifest?lang=${encodeURIComponent(getLang())}`);
+}
+
 window.t = t;
+window.appName = appName;
+window.applyAppName = applyAppName;
 window.getLang = getLang;
 window.setLang = setLang;
 window.localeTag = localeTag;

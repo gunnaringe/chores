@@ -87,6 +87,29 @@ page.on('console', m => m.type() === 'error' && errs.push('CONSOLE: ' + m.text()
 page.on('response', r => r.status() >= 400 && errs.push(r.status() + ' ' + r.url()));
 ```
 
+## Regenerating the welcome page screenshots
+
+`web/screenshots/` holds the shots the logged-out welcome page shows, one set
+per language (`today-en.webp`, `today-nb.webp`, …). They are real captures of
+a seeded family, so they have to be regenerated whenever the screens in them
+change — and both languages, since the task titles in them are seeded data,
+not UI strings.
+
+There is **no image tooling in this sandbox** (no ImageMagick, no sharp, no
+pngquant), so re-encode through Chromium itself. `canvas.toDataURL("image/webp", 0.88)`
+turns a ~110 KB PNG capture into a ~47 KB WebP with no visible loss at the
+size the page displays:
+
+```js
+const c = document.createElement("canvas");
+c.width = img.naturalWidth; c.height = img.naturalHeight;
+c.getContext("2d").drawImage(img, 0, 0);
+return c.toDataURL("image/webp", 0.88);   // then base64-decode and write
+```
+
+Capture at a 390x720 viewport with `deviceScaleFactor: 2`, not `fullPage` —
+the page frames them as phones.
+
 ## Reading the results
 
 - **Move the mouse away before screenshotting** (`page.mouse.move(0, 0)`).

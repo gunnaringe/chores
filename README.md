@@ -95,6 +95,15 @@ below 520px, where that space would otherwise sit unused.
   invitations, all live on the Settings page, since none of them are things
   you look at often enough to deserve their own always-visible tab.
 
+### The welcome page
+
+Logged out, `/` serves a welcome page rather than a bare login box: what the
+app is, a three-step walkthrough, screenshots of the real screens (in
+`web/screenshots/`, one set per language), and a footer pointing at the
+source and where it runs. The Log in button stays at the top, above the
+fold, exactly where it was before — someone who already uses the app should
+never have to read or scroll past any of it.
+
 ### Push notifications
 
 Push notifications use the standard Web Push API: the server generates a
@@ -155,13 +164,20 @@ AUTH0_CLIENT_SECRET=...
 ## Language
 
 The UI is available in English and Norwegian (Bokmål), picked with a
-dropdown on the login page and, once logged in, on the Settings page. It
+dropdown on the welcome page and, once logged in, on the Settings page. It
 defaults to the browser's language when there's no saved preference, and
 the choice is then remembered in `localStorage`. Translation strings live in
 `web/i18n.js`; add a new language by adding another entry to
 `TRANSLATIONS` there and to `window.LANGUAGES`. Error messages coming from
 the server (validation errors, permission errors) aren't localized yet —
 only the UI text is.
+
+The app's own name is part of that: it's **Chores** in English and
+**Ukelønn** in Norwegian, including the name an installed PWA takes (see
+Installing as an app below). Because the manifest is JSON served by Go while
+the UI is JS, those two names are declared twice — `app.name` in
+`web/i18n.js` and `appNames` in `web/manifest.go` — and have to be kept in
+step.
 
 ## Authentication
 
@@ -321,12 +337,16 @@ immediately (any device still using it falls back to the key prompt) and
 ## Installing as an app (PWA)
 
 The web UI is an installable Progressive Web App: `web/manifest.webmanifest`
-declares its name, icons, and standalone display mode, and `web/sw.js`
+declares its icons and standalone display mode, and `web/sw.js`
 precaches the static app shell (HTML/CSS/JS/icons only — never API
 responses or login state, so nothing about family data or sessions is ever
 cached) so the shell keeps loading offline. Both the app and the login page
 register the service worker, so an install prompt can appear before or
-after logging in. On a phone, use the browser's "Add to Home Screen" /
+after logging in. The manifest is served by a handler rather than as a
+static file (`web/manifest.go`), so the installed app's name follows the
+chosen language — the page rewrites the `<link rel="manifest">` href to
+carry it, and the service worker deliberately never caches the manifest, so
+a Norwegian install doesn't get handed the English name. On a phone, use the browser's "Add to Home Screen" /
 "Install app" option; on desktop Chrome/Edge, an install icon appears in
 the address bar. `web/sw.js` also handles incoming Web Push events (see
 Push notifications above) and focuses or opens the app when a notification

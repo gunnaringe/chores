@@ -988,6 +988,146 @@ label {
 .hero h1 { font-size: 1.9rem; }
 .logo { border-radius: 24%; }
 
+/* ---- welcome page (logged out) ---------------------------------------- */
+
+/* Wider than the app shell's reading column: this page carries a row of
+   phone screenshots, which needs room on a desktop window. */
+.welcome {
+  max-width: 720px;
+}
+
+/* Sized so the button clears the fold on a phone without the page looking
+   padded out on a laptop. A returning user should see the logo, the name and
+   Log in without scrolling — the explanation below is for everyone else. */
+.welcome-hero {
+  text-align: center;
+  padding: 4vh 0 6vh;
+  max-width: 380px;
+  margin: 0 auto;
+}
+.welcome-hero .logo {
+  border-radius: 24%;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 16px;
+}
+.welcome-hero h1 {
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.welcome-hero p {
+  font-size: 1.05rem;
+  margin-bottom: 22px;
+}
+.welcome-lang {
+  margin-top: 18px;
+}
+
+.welcome-section {
+  margin-bottom: 34px;
+}
+.welcome-section h2 {
+  font-size: 1.25rem;
+  margin-bottom: 16px;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.step h3 {
+  margin: 0 0 4px;
+}
+.step-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 22px;
+}
+
+/* One phone per row on a phone, three across once there's room. The images
+   are the app's own screenshots, so they're already phone-shaped. */
+.shots {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+.shot {
+  margin: 0;
+  text-align: center;
+}
+.shot img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  background: var(--surface);
+}
+.shot figcaption {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.welcome-cta {
+  max-width: 380px;
+  margin: 0 auto 34px;
+  text-align: center;
+}
+
+.welcome-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+  padding-bottom: 8px;
+  font-size: 0.9rem;
+}
+.welcome-footer h2 {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 10px;
+}
+.welcome-footer p {
+  margin-bottom: 6px;
+}
+.welcome-footer a {
+  color: var(--accent);
+  font-weight: 550;
+}
+
+@media (min-width: 620px) {
+  .shots {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .shot img {
+    max-width: 100%;
+  }
+}
+
 /* ---- desktop ---------------------------------------------------------- */
 
 @media (min-width: 760px) {

@@ -305,6 +305,9 @@ function renderLangSwitcher() {
   `);
   card.querySelector("#lang-switcher").addEventListener("change", (e) => {
     setLang(e.target.value);
+    // The app's name is translated, so the tab title and the name an install
+    // would take have to be restamped, not just the rendered UI.
+    applyAppName();
     render();
   });
   return card;
@@ -652,7 +655,7 @@ function renderOnboarding() {
   wrap.appendChild(el(`
     <div class="hero" style="margin-top:6vh;">
       <img src="/icons/logo.png" alt="" width="88" height="88" class="logo" />
-      <h1>${escapeHtml(window.APP_NAME)}</h1>
+      <h1>${escapeHtml(appName())}</h1>
       <p>${escapeHtml(t("onboarding.subtitle"))}</p>
     </div>
   `));
@@ -666,7 +669,7 @@ function renderUserPicker() {
   wrap.appendChild(
     el(`
       <div style="margin-bottom:18px;">
-        <h1 class="screen-title" style="margin-bottom:2px;">${escapeHtml(family ? family.name : window.APP_NAME)}</h1>
+        <h1 class="screen-title" style="margin-bottom:2px;">${escapeHtml(family ? family.name : appName())}</h1>
         <p style="margin:0;">${escapeHtml(t("userPicker.whoIsUsing"))}</p>
       </div>
     `)
@@ -849,7 +852,7 @@ function renderAppBar() {
       selectedValue: state.familyId || "",
       options: familyOptions.length
         ? familyOptions.map((o) => ({ value: o.family.id, label: o.family.name }))
-        : [{ value: state.familyId || "", label: family ? family.name : window.APP_NAME }],
+        : [{ value: state.familyId || "", label: family ? family.name : appName() }],
       onChange: (value) =>
         withError(async () => {
           const selected = familyOptions.find((o) => o.family.id === value);
@@ -918,7 +921,7 @@ function renderDashboardBar() {
   return el(`
     <header class="appbar">
       <div class="appbar-inner">
-        <div class="appbar-family">${escapeHtml(window.APP_NAME)}</div>
+        <div class="appbar-family">${escapeHtml(appName())}</div>
       </div>
     </header>
   `);
@@ -2537,7 +2540,7 @@ function renderDashboardKeyPrompt() {
   wrap.appendChild(el(`
     <div style="text-align:center;">
       <img src="/icons/logo.png" alt="" width="80" height="80" class="logo" />
-      <h1>${escapeHtml(window.APP_NAME)}</h1>
+      <h1>${escapeHtml(appName())}</h1>
       <p>${escapeHtml(t("dashboard.enterKeyPrompt"))}</p>
     </div>
   `));
