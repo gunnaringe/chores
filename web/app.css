@@ -1215,3 +1215,14 @@ label {
   user-select: none;
   -webkit-user-select: none;
 }
+/* Hides every icon glyph until the font-ready check in index.html/login.html
+   confirms the font is actually usable (or gives up and reveals them
+   anyway — see that script's comment). Material Symbols are ligature
+   *text*, so without this, a slow or blocked font load shows the raw icon
+   name ("edit_note") instead of a blank tile — worse than no icon, since
+   overflow: hidden then just clips it mid-word rather than hiding it. The
+   icon's own tile background stays visible; only the glyph inside it does
+   not, so this never collapses the layout. */
+html.icons-loading .material-symbols-outlined {
+  visibility: hidden;
+}

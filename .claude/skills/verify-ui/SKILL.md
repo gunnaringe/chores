@@ -119,5 +119,24 @@ the page frames them as phones.
   bar shows up floating in the middle of a tall screenshot with content
   behind it. That is a screenshot artifact, not a layout bug — use
   `fullPage: false` to see the real viewport.
+- **Lazy-loaded `<img loading="lazy">` elements (the welcome page's
+  screenshots) can paint as blank white boxes in a `fullPage` capture**, even
+  though `img.complete` and `naturalWidth` both report the fetch succeeded.
+  Resizing the viewport for a full-page shot doesn't reliably fire the same
+  paint/intersection path a real scroll does. Fix: scroll through the page in
+  small steps with a short pause between each before capturing, rather than
+  jumping straight to a fullPage screenshot:
+  ```js
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += 400) {
+      window.scrollTo(0, y);
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    window.scrollTo(0, 0);
+  });
+  ```
+  Don't mistake this for a real bug — check `img.complete`/`naturalWidth` via
+  `page.evaluate()` first; if those report success but the screenshot is
+  blank, it's this, not broken image loading.
 - Check both themes (`colorScheme: 'dark'`) and a narrow screen
   (`devices['iPhone SE']`, 320px). Most layout breaks show up at 320px first.

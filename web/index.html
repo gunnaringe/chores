@@ -11,8 +11,34 @@
 <link rel="stylesheet" href="/app.css" />
 <!-- display=block: Material Symbols are rendered as ligature text, so the
      default swap behaviour flashes raw names ("expand_more") until the font
-     lands. Blocking briefly shows nothing instead of showing nonsense. -->
+     lands. Blocking briefly shows nothing instead of showing nonsense —
+     but only once this stylesheet itself has loaded and registered the
+     font-face; until then the browser doesn't know to block at all. The
+     script below covers that gap. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" />
+<script>
+  // Belt-and-braces for the font-display:block above: if this stylesheet's
+  // own request is slow, blocked (ad blocker, restrictive network), or the
+  // font file itself hasn't arrived yet, "Material Symbols Outlined" isn't
+  // a font the browser knows about yet, so display:block has nothing to
+  // block — every icon renders as its literal ligature name ("edit_note")
+  // instead of a glyph the instant this HTML parses, which is uglier and
+  // more confusing than a blank icon tile. icons-loading (see app.css)
+  // hides icon glyphs until document.fonts confirms the font usable, with
+  // a timeout so a font that never arrives doesn't hide icons forever.
+  document.documentElement.classList.add("icons-loading");
+  (function () {
+    var reveal = function () {
+      document.documentElement.classList.remove("icons-loading");
+    };
+    if (window.FontFace && document.fonts) {
+      document.fonts.load('24px "Material Symbols Outlined"').then(reveal, reveal);
+      setTimeout(reveal, 3000);
+    } else {
+      reveal();
+    }
+  })();
+</script>
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
