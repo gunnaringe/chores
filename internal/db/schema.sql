@@ -60,9 +60,15 @@ CREATE TABLE IF NOT EXISTS tasks (
     -- for repeat_mode = 'weekly'.
     days_of_week TEXT NOT NULL DEFAULT '',
     repeat_interval_weeks INTEGER NOT NULL DEFAULT 1,
-    -- YYYY-MM-DD. See the Task.start_date proto comment for what this means
-    -- per repeat_mode.
-    start_date TEXT NOT NULL DEFAULT ''
+    -- YYYY-MM-DD. See the WeeklySchedule.anchor_date and OnceSchedule.date
+    -- proto comments for what this means per repeat_mode.
+    start_date TEXT NOT NULL DEFAULT '',
+    -- RFC3339 UTC, or NULL for a task that hasn't been deleted. Deletion is
+    -- soft so that the occurrences a task produced outlive it, and so its
+    -- schedule stays available to reconstruct past occurrences that were
+    -- never completed. A deleted task generates no occurrences from this
+    -- date onward. See the Task.deleted_at proto comment.
+    deleted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_family ON tasks(family_id);
 
@@ -73,18 +79,49 @@ CREATE TABLE IF NOT EXISTS task_assignments (
 );
 CREATE INDEX IF NOT EXISTS idx_task_assignments_child ON task_assignments(child_id);
 
-CREATE TABLE IF NOT EXISTS task_completions (
+-- One instance of a task, for one child, on one date. A row exists once
+-- something has been recorded about that instance; instances nothing has
+-- happened to yet are derived from the task's schedule at read time and
+-- never stored. See the TaskOccurrence proto for the full model.
+CREATE TABLE IF NOT EXISTS task_occurrences (
     id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    -- Deliberately NOT a foreign key. A task can be deleted, and the
+    -- occurrences it produced must outlive it — a cascade here is exactly
+    -- the bug this table replaces, where deleting a task erased the
+    -- earnings that justified payouts already made. Kept as a plain
+    -- historical reference so occurrences can still be grouped by task.
+    task_id TEXT NOT NULL,
     child_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
     due_date TEXT NOT NULL,
+    -- How the task read when this row was written, copied rather than
+    -- joined at read time so that renaming or repricing a task never
+    -- rewrites what already happened.
+    title TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    icon_type TEXT NOT NULL DEFAULT '',
+    icon_value TEXT NOT NULL DEFAULT '',
     amount_cents INTEGER NOT NULL,
-    completed_at TEXT NOT NULL,
+    -- NULL means the occurrence is due but not completed. Every earnings
+    -- query MUST filter on this being non-NULL, or amounts for chores
+    -- nobody did inflate the balance.
+    completed_at TEXT,
     UNIQUE (task_id, child_id, due_date)
 );
-CREATE INDEX IF NOT EXISTS idx_completions_child ON task_completions(child_id);
-CREATE INDEX IF NOT EXISTS idx_completions_family ON task_completions(family_id);
+CREATE INDEX IF NOT EXISTS idx_occurrences_child ON task_occurrences(child_id);
+CREATE INDEX IF NOT EXISTS idx_occurrences_family ON task_occurrences(family_id);
+-- Covering partial indexes for the balance aggregates in computeSummary.
+-- The column order matters: each one carries amount_cents as its last
+-- column so the SUM is answered from the index alone, without touching the
+-- table. Measured on a 50k-row family, these take ListChildSummaries from
+-- ~90ms to ~6ms; at 200k rows it's ~515ms to ~148ms. Two indexes rather
+-- than one because the queries split into completed_at-bounded and
+-- due_date-bounded shapes, and a single index makes the planner pick wrong
+-- for whichever half it doesn't fit.
+CREATE INDEX IF NOT EXISTS idx_occurrences_earned_by_completed
+    ON task_occurrences(child_id, completed_at, amount_cents) WHERE completed_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_occurrences_earned_by_due
+    ON task_occurrences(child_id, due_date, amount_cents) WHERE completed_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS payouts (
     id TEXT PRIMARY KEY,
@@ -96,6 +133,9 @@ CREATE TABLE IF NOT EXISTS payouts (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_payouts_child ON payouts(child_id);
+-- Covering, for the same reason as the task_occurrences pair above: the
+-- paid-out half of every child's balance is answered from the index alone.
+CREATE INDEX IF NOT EXISTS idx_payouts_child_amount ON payouts(child_id, amount_cents);
 
 CREATE TABLE IF NOT EXISTS invitations (
     id TEXT PRIMARY KEY,

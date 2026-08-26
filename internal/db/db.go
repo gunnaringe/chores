@@ -122,6 +122,15 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("add tasks.start_date: %w", err)
 		}
 	}
+	if !taskCols["deleted_at"] {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN deleted_at TEXT`); err != nil {
+			return fmt.Errorf("add tasks.deleted_at: %w", err)
+		}
+	}
+
+	if err := migrateCompletionsToOccurrences(db); err != nil {
+		return fmt.Errorf("migrate task_completions to task_occurrences: %w", err)
+	}
 
 	// Tasks created before per-child assignment existed have no rows in
 	// task_assignments; treat them as assigned to every child in their
@@ -137,6 +146,110 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("backfill task_assignments: %w", err)
 	}
 	return nil
+}
+
+// completionsBackupTable is the retired task_completions table, kept under
+// a new name rather than dropped. The data is small and the rename costs
+// nothing, so a migration that turns out to be wrong stays recoverable from
+// inside the same database file instead of needing a volume snapshot
+// restore. Safe to drop once a few releases have passed uneventfully.
+const completionsBackupTable = "task_completions_backup_v1"
+
+// migrateCompletionsToOccurrences moves the old task_completions rows into
+// task_occurrences (created by schema.sql) and retires the old table.
+//
+// The two tables differ in three ways that matter:
+//
+//   - completed_at is nullable now, because a row can record an occurrence
+//     that was due but never done. Every migrated row was by definition
+//     completed, so each keeps its existing timestamp.
+//   - title/description/icon are copied onto the row from the task as it
+//     stands at migration time, so history stops being rewritten by later
+//     renames. This is the best available snapshot: the value at the moment
+//     of completion wasn't recorded by the old schema and can't be
+//     recovered.
+//   - task_id is no longer a foreign key, so deleting a task no longer
+//     cascades its history (and the earnings behind already-made payouts)
+//     out of existence.
+//
+// The join to tasks is an inner join, and can be: the old schema's
+// ON DELETE CASCADE guaranteed every completion had a live task row. The
+// row counts are compared afterwards anyway, so a surprise fails the
+// migration rather than silently dropping history.
+//
+// Idempotent: once the rename has happened there's no task_completions
+// left to find, and later calls do nothing.
+func migrateCompletionsToOccurrences(db *sql.DB) error {
+	hasOld, err := tableExists(db, "task_completions")
+	if err != nil {
+		return err
+	}
+	if !hasOld {
+		return nil
+	}
+	hasBackup, err := tableExists(db, completionsBackupTable)
+	if err != nil {
+		return err
+	}
+	if hasBackup {
+		// Both present means a previous run got part-way through in a way
+		// the transaction below should have made impossible. Refusing is
+		// the only safe move — carrying on could double-copy history.
+		return fmt.Errorf("both task_completions and %s exist; refusing to guess which is current", completionsBackupTable)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var want, existing int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM task_completions`).Scan(&want); err != nil {
+		return err
+	}
+	// Counted rather than assumed to be zero, so the comparison below is a
+	// real check on the copy rather than on the table having started empty.
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM task_occurrences`).Scan(&existing); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO task_occurrences
+			(id, task_id, child_id, family_id, due_date, title, description,
+			 icon_type, icon_value, amount_cents, completed_at)
+		SELECT c.id, c.task_id, c.child_id, c.family_id, c.due_date,
+		       t.title, t.description, t.icon_type, t.icon_value,
+		       c.amount_cents, c.completed_at
+		FROM task_completions c
+		JOIN tasks t ON t.id = c.task_id
+	`); err != nil {
+		return fmt.Errorf("copy rows: %w", err)
+	}
+
+	var after int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM task_occurrences`).Scan(&after); err != nil {
+		return err
+	}
+	if copied := after - existing; copied != want {
+		return fmt.Errorf("copied %d of %d completions; refusing to retire the old table", copied, want)
+	}
+
+	if _, err := tx.Exec(`ALTER TABLE task_completions RENAME TO ` + completionsBackupTable); err != nil {
+		return fmt.Errorf("retire old table: %w", err)
+	}
+	return tx.Commit()
+}
+
+func tableExists(db *sql.DB, name string) (bool, error) {
+	var found string
+	err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // relaxAuthSubjectUniqueness drops the uniqueness constraint on

@@ -57,13 +57,26 @@ func TestJSONCodec_EmitsFalseActiveField(t *testing.T) {
 	familyID := family["id"].(string)
 	child := post("CreateUser", map[string]any{"familyId": familyID, "name": "Kid", "role": "USER_ROLE_CHILD"})["user"].(map[string]any)
 	childID := child["id"].(string)
+	// The schedule oneof and Money both go over the wire as nested objects;
+	// posting them as the frontend does keeps this test honest about the
+	// JSON shape, not just the Go types.
+	cron := map[string]any{"cron": map[string]any{"expression": "0 0 * * *"}}
 	task := post("CreateTask", map[string]any{
-		"familyId": familyID, "title": "Sweep", "priceCents": 100, "schedule": "0 0 * * *", "repeatMode": "REPEAT_MODE_CRON", "childIds": []string{childID},
+		"familyId": familyID, "title": "Sweep", "price": map[string]any{"cents": 100},
+		"schedule": cron, "childIds": []string{childID},
 	})["task"].(map[string]any)
 	taskID := task["id"].(string)
 
+	if price, ok := task["price"].(map[string]any); !ok || price["cents"] != "100" {
+		t.Fatalf(`expected the task's price to come back as {"cents":"100"}, got %v`, task["price"])
+	}
+	if sched, ok := task["schedule"].(map[string]any); !ok || sched["cron"] == nil {
+		t.Fatalf("expected the task's schedule to come back as a cron oneof, got %v", task["schedule"])
+	}
+
 	post("UpdateTask", map[string]any{
-		"taskId": taskID, "title": "Sweep", "priceCents": 100, "schedule": "0 0 * * *", "repeatMode": "REPEAT_MODE_CRON", "childIds": []string{childID}, "active": false,
+		"taskId": taskID, "title": "Sweep", "price": map[string]any{"cents": 100},
+		"schedule": cron, "childIds": []string{childID}, "active": false,
 	})
 
 	// Read the raw body directly instead of decoding into a map, since a Go

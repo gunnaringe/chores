@@ -88,9 +88,6 @@ const (
 	// ChoresServiceUncompleteTaskProcedure is the fully-qualified name of the ChoresService's
 	// UncompleteTask RPC.
 	ChoresServiceUncompleteTaskProcedure = "/chores.v1.ChoresService/UncompleteTask"
-	// ChoresServiceListTaskCompletionsProcedure is the fully-qualified name of the ChoresService's
-	// ListTaskCompletions RPC.
-	ChoresServiceListTaskCompletionsProcedure = "/chores.v1.ChoresService/ListTaskCompletions"
 	// ChoresServiceGetChildSummaryProcedure is the fully-qualified name of the ChoresService's
 	// GetChildSummary RPC.
 	ChoresServiceGetChildSummaryProcedure = "/chores.v1.ChoresService/GetChildSummary"
@@ -150,7 +147,6 @@ type ChoresServiceClient interface {
 	ListTaskOccurrences(context.Context, *connect.Request[v1.ListTaskOccurrencesRequest]) (*connect.Response[v1.ListTaskOccurrencesResponse], error)
 	CompleteTask(context.Context, *connect.Request[v1.CompleteTaskRequest]) (*connect.Response[v1.CompleteTaskResponse], error)
 	UncompleteTask(context.Context, *connect.Request[v1.UncompleteTaskRequest]) (*connect.Response[v1.UncompleteTaskResponse], error)
-	ListTaskCompletions(context.Context, *connect.Request[v1.ListTaskCompletionsRequest]) (*connect.Response[v1.ListTaskCompletionsResponse], error)
 	GetChildSummary(context.Context, *connect.Request[v1.GetChildSummaryRequest]) (*connect.Response[v1.GetChildSummaryResponse], error)
 	ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error)
 	CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error)
@@ -290,12 +286,6 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(choresServiceMethods.ByName("UncompleteTask")),
 			connect.WithClientOptions(opts...),
 		),
-		listTaskCompletions: connect.NewClient[v1.ListTaskCompletionsRequest, v1.ListTaskCompletionsResponse](
-			httpClient,
-			baseURL+ChoresServiceListTaskCompletionsProcedure,
-			connect.WithSchema(choresServiceMethods.ByName("ListTaskCompletions")),
-			connect.WithClientOptions(opts...),
-		),
 		getChildSummary: connect.NewClient[v1.GetChildSummaryRequest, v1.GetChildSummaryResponse](
 			httpClient,
 			baseURL+ChoresServiceGetChildSummaryProcedure,
@@ -392,7 +382,6 @@ type choresServiceClient struct {
 	listTaskOccurrences *connect.Client[v1.ListTaskOccurrencesRequest, v1.ListTaskOccurrencesResponse]
 	completeTask        *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
 	uncompleteTask      *connect.Client[v1.UncompleteTaskRequest, v1.UncompleteTaskResponse]
-	listTaskCompletions *connect.Client[v1.ListTaskCompletionsRequest, v1.ListTaskCompletionsResponse]
 	getChildSummary     *connect.Client[v1.GetChildSummaryRequest, v1.GetChildSummaryResponse]
 	listChildSummaries  *connect.Client[v1.ListChildSummariesRequest, v1.ListChildSummariesResponse]
 	createPayout        *connect.Client[v1.CreatePayoutRequest, v1.CreatePayoutResponse]
@@ -502,11 +491,6 @@ func (c *choresServiceClient) UncompleteTask(ctx context.Context, req *connect.R
 	return c.uncompleteTask.CallUnary(ctx, req)
 }
 
-// ListTaskCompletions calls chores.v1.ChoresService.ListTaskCompletions.
-func (c *choresServiceClient) ListTaskCompletions(ctx context.Context, req *connect.Request[v1.ListTaskCompletionsRequest]) (*connect.Response[v1.ListTaskCompletionsResponse], error) {
-	return c.listTaskCompletions.CallUnary(ctx, req)
-}
-
 // GetChildSummary calls chores.v1.ChoresService.GetChildSummary.
 func (c *choresServiceClient) GetChildSummary(ctx context.Context, req *connect.Request[v1.GetChildSummaryRequest]) (*connect.Response[v1.GetChildSummaryResponse], error) {
 	return c.getChildSummary.CallUnary(ctx, req)
@@ -588,7 +572,6 @@ type ChoresServiceHandler interface {
 	ListTaskOccurrences(context.Context, *connect.Request[v1.ListTaskOccurrencesRequest]) (*connect.Response[v1.ListTaskOccurrencesResponse], error)
 	CompleteTask(context.Context, *connect.Request[v1.CompleteTaskRequest]) (*connect.Response[v1.CompleteTaskResponse], error)
 	UncompleteTask(context.Context, *connect.Request[v1.UncompleteTaskRequest]) (*connect.Response[v1.UncompleteTaskResponse], error)
-	ListTaskCompletions(context.Context, *connect.Request[v1.ListTaskCompletionsRequest]) (*connect.Response[v1.ListTaskCompletionsResponse], error)
 	GetChildSummary(context.Context, *connect.Request[v1.GetChildSummaryRequest]) (*connect.Response[v1.GetChildSummaryResponse], error)
 	ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error)
 	CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error)
@@ -724,12 +707,6 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(choresServiceMethods.ByName("UncompleteTask")),
 		connect.WithHandlerOptions(opts...),
 	)
-	choresServiceListTaskCompletionsHandler := connect.NewUnaryHandler(
-		ChoresServiceListTaskCompletionsProcedure,
-		svc.ListTaskCompletions,
-		connect.WithSchema(choresServiceMethods.ByName("ListTaskCompletions")),
-		connect.WithHandlerOptions(opts...),
-	)
 	choresServiceGetChildSummaryHandler := connect.NewUnaryHandler(
 		ChoresServiceGetChildSummaryProcedure,
 		svc.GetChildSummary,
@@ -842,8 +819,6 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceCompleteTaskHandler.ServeHTTP(w, r)
 		case ChoresServiceUncompleteTaskProcedure:
 			choresServiceUncompleteTaskHandler.ServeHTTP(w, r)
-		case ChoresServiceListTaskCompletionsProcedure:
-			choresServiceListTaskCompletionsHandler.ServeHTTP(w, r)
 		case ChoresServiceGetChildSummaryProcedure:
 			choresServiceGetChildSummaryHandler.ServeHTTP(w, r)
 		case ChoresServiceListChildSummariesProcedure:
@@ -951,10 +926,6 @@ func (UnimplementedChoresServiceHandler) CompleteTask(context.Context, *connect.
 
 func (UnimplementedChoresServiceHandler) UncompleteTask(context.Context, *connect.Request[v1.UncompleteTaskRequest]) (*connect.Response[v1.UncompleteTaskResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.UncompleteTask is not implemented"))
-}
-
-func (UnimplementedChoresServiceHandler) ListTaskCompletions(context.Context, *connect.Request[v1.ListTaskCompletionsRequest]) (*connect.Response[v1.ListTaskCompletionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.ListTaskCompletions is not implemented"))
 }
 
 func (UnimplementedChoresServiceHandler) GetChildSummary(context.Context, *connect.Request[v1.GetChildSummaryRequest]) (*connect.Response[v1.GetChildSummaryResponse], error) {

@@ -411,30 +411,8 @@ func taskIconFromDB(iconType, iconValue string) *v1.Icon {
 	return &v1.Icon{Type: iconTypeFromDB(iconType), Value: iconValue}
 }
 
-func repeatModeToDB(m v1.RepeatMode) (string, error) {
-	switch m {
-	case v1.RepeatMode_REPEAT_MODE_ONCE:
-		return "once", nil
-	case v1.RepeatMode_REPEAT_MODE_WEEKLY:
-		return "weekly", nil
-	case v1.RepeatMode_REPEAT_MODE_CRON:
-		return "cron", nil
-	default:
-		return "", fmt.Errorf("invalid repeat_mode %v", m)
-	}
-}
-
-func repeatModeFromDB(m string) v1.RepeatMode {
-	switch m {
-	case "once":
-		return v1.RepeatMode_REPEAT_MODE_ONCE
-	case "weekly":
-		return v1.RepeatMode_REPEAT_MODE_WEEKLY
-	case "cron":
-		return v1.RepeatMode_REPEAT_MODE_CRON
-	default:
-		return v1.RepeatMode_REPEAT_MODE_UNSPECIFIED
-	}
+func money(cents int64) *v1.Money {
+	return &v1.Money{Cents: cents}
 }
 
 func daysOfWeekToDB(days []int) string {
@@ -475,46 +453,90 @@ func daysOfWeekFromDB(s string) []int32 {
 	return days
 }
 
-// taskSpecFromFields builds a scheduling.Spec from a task's repeat fields,
-// whether they come from an incoming request or from a row already in the
-// database. now is only consulted as a default: a WEEKLY task with no
-// explicit start_date is anchored to it — needed to compute "every N weeks"
-// parity, and harmless when repeat_interval_weeks is 1 since the anchor is
-// unused there. A task loaded from storage always has start_date already
-// populated (CreateTask/UpdateTask never leave it empty), so this default
-// only ever fires for a fresh request.
-func taskSpecFromFields(mode v1.RepeatMode, cronSchedule string, daysOfWeek []int32, intervalWeeks int32, startDate string, now time.Time) (scheduling.Spec, error) {
-	spec := scheduling.Spec{IntervalWeeks: 1} // meaningless outside ModeWeekly; kept at its natural default rather than left at Go's zero value
-	switch mode {
-	case v1.RepeatMode_REPEAT_MODE_ONCE:
-		spec.Mode = scheduling.ModeOnce
-		spec.StartDate = startDate
-	case v1.RepeatMode_REPEAT_MODE_WEEKLY:
-		spec.Mode = scheduling.ModeWeekly
-		days := make([]int, len(daysOfWeek))
-		for i, d := range daysOfWeek {
+// specFromSchedule turns the API's Schedule into the scheduling package's
+// Spec. The oneof means an ill-formed combination — a one-off carrying a
+// cron expression, say — can't be expressed in the first place, so the only
+// validation left here is what the oneof can't encode: a missing kind, and
+// the per-kind requirements Spec.Validate already knows.
+//
+// now is consulted for one default: a weekly schedule with no anchor_date
+// is anchored to it, which is needed for "every N weeks" parity and is
+// harmless at an interval of 1, where the anchor goes unused. A task loaded
+// from storage always has one already.
+func specFromSchedule(sched *v1.Schedule, now time.Time) (scheduling.Spec, error) {
+	switch kind := sched.GetKind().(type) {
+	case *v1.Schedule_Once:
+		return scheduling.Spec{
+			Mode:          scheduling.ModeOnce,
+			StartDate:     kind.Once.GetDate(),
+			IntervalWeeks: 1, // unused here; kept at its natural default rather than Go's zero value
+		}, nil
+	case *v1.Schedule_Weekly:
+		days := make([]int, len(kind.Weekly.GetDaysOfWeek()))
+		for i, d := range kind.Weekly.GetDaysOfWeek() {
 			days[i] = int(d)
 		}
-		spec.DaysOfWeek = days
-		spec.IntervalWeeks = int(intervalWeeks)
-		if spec.IntervalWeeks < 1 {
-			spec.IntervalWeeks = 1
+		interval := int(kind.Weekly.GetIntervalWeeks())
+		if interval < 1 {
+			interval = 1
 		}
-		spec.StartDate = startDate
-		if spec.StartDate == "" {
-			spec.StartDate = scheduling.FormatDate(now)
+		anchor := kind.Weekly.GetAnchorDate()
+		if anchor == "" {
+			anchor = scheduling.FormatDate(now)
 		}
-	case v1.RepeatMode_REPEAT_MODE_CRON:
-		spec.Mode = scheduling.ModeCron
-		spec.Cron = cronSchedule
+		return scheduling.Spec{
+			Mode:          scheduling.ModeWeekly,
+			DaysOfWeek:    days,
+			IntervalWeeks: interval,
+			StartDate:     anchor,
+		}, nil
+	case *v1.Schedule_Cron:
+		return scheduling.Spec{
+			Mode:          scheduling.ModeCron,
+			Cron:          kind.Cron.GetExpression(),
+			IntervalWeeks: 1,
+		}, nil
 	default:
-		return scheduling.Spec{}, errors.New("repeat_mode is required")
+		return scheduling.Spec{}, errors.New("schedule is required")
 	}
-	return spec, nil
 }
 
-func taskSpec(t *v1.Task, now time.Time) (scheduling.Spec, error) {
-	return taskSpecFromFields(t.GetRepeatMode(), t.GetSchedule(), t.GetDaysOfWeek(), t.GetRepeatIntervalWeeks(), t.GetStartDate(), now)
+// scheduleFromSpec is specFromSchedule's inverse, for rendering a stored
+// task back out over the API.
+func scheduleFromSpec(spec scheduling.Spec) *v1.Schedule {
+	switch spec.Mode {
+	case scheduling.ModeOnce:
+		return &v1.Schedule{Kind: &v1.Schedule_Once{Once: &v1.OnceSchedule{Date: spec.StartDate}}}
+	case scheduling.ModeWeekly:
+		return &v1.Schedule{Kind: &v1.Schedule_Weekly{Weekly: &v1.WeeklySchedule{
+			DaysOfWeek:    int32SliceFrom(spec.DaysOfWeek),
+			IntervalWeeks: int32(spec.IntervalWeeks),
+			AnchorDate:    spec.StartDate,
+		}}}
+	case scheduling.ModeCron:
+		return &v1.Schedule{Kind: &v1.Schedule_Cron{Cron: &v1.CronSchedule{Expression: spec.Cron}}}
+	default:
+		return nil
+	}
+}
+
+// specFromDB rebuilds a Spec from the task table's columns, which still
+// store the schedule as a mode plus its per-mode fields. The oneof is an
+// API-shape change, not a storage one.
+func specFromDB(mode, cronExpr, daysOfWeek string, intervalWeeks int32, startDate string) scheduling.Spec {
+	spec := scheduling.Spec{Mode: scheduling.Mode(mode), StartDate: startDate, IntervalWeeks: int(intervalWeeks)}
+	if spec.IntervalWeeks < 1 {
+		spec.IntervalWeeks = 1
+	}
+	switch spec.Mode {
+	case scheduling.ModeCron:
+		spec.Cron = cronExpr
+	case scheduling.ModeWeekly:
+		for _, d := range daysOfWeekFromDB(daysOfWeek) {
+			spec.DaysOfWeek = append(spec.DaysOfWeek, int(d))
+		}
+	}
+	return spec
 }
 
 func (s *Server) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
@@ -802,10 +824,11 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if familyID == "" || title == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id and title are required"))
 	}
-	if req.Msg.GetPriceCents() < 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("price_cents must not be negative"))
+	priceCents := req.Msg.GetPrice().GetCents()
+	if priceCents < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("price must not be negative"))
 	}
-	spec, err := taskSpecFromFields(req.Msg.GetRepeatMode(), req.Msg.GetSchedule(), req.Msg.GetDaysOfWeek(), req.Msg.GetRepeatIntervalWeeks(), req.Msg.GetStartDate(), nowUTC())
+	spec, err := specFromSchedule(req.Msg.GetSchedule(), nowUTC())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -823,18 +846,13 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	repeatModeDB, err := repeatModeToDB(req.Msg.GetRepeatMode())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
 	id := newID()
 	now := nowUTC()
 	if _, err := s.db.ExecContext(ctx,
 		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
 		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
-		id, familyID, title, req.Msg.GetDescription(), req.Msg.GetPriceCents(), spec.Cron, formatTime(now), iconType, iconValue,
-		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
+		id, familyID, title, req.Msg.GetDescription(), priceCents, spec.Cron, formatTime(now), iconType, iconValue,
+		string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create task: %w", err))
 	}
@@ -844,10 +862,8 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	return connect.NewResponse(&v1.CreateTaskResponse{
 		Task: &v1.Task{
 			Id: id, FamilyId: familyID, Title: title, Description: req.Msg.GetDescription(),
-			PriceCents: req.Msg.GetPriceCents(), Schedule: spec.Cron, Active: true, CreatedAt: timestampPB(now),
+			Price: money(priceCents), Schedule: scheduleFromSpec(spec), Active: true, CreatedAt: timestampPB(now),
 			ChildIds: childIDs, Icon: taskIconFromDB(iconType, iconValue),
-			RepeatMode: req.Msg.GetRepeatMode(), DaysOfWeek: int32SliceFrom(spec.DaysOfWeek),
-			RepeatIntervalWeeks: int32(spec.IntervalWeeks), StartDate: spec.StartDate,
 		},
 	}), nil
 }
@@ -857,7 +873,11 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if taskID == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("task_id is required"))
 	}
-	spec, err := taskSpecFromFields(req.Msg.GetRepeatMode(), req.Msg.GetSchedule(), req.Msg.GetDaysOfWeek(), req.Msg.GetRepeatIntervalWeeks(), req.Msg.GetStartDate(), nowUTC())
+	priceCents := req.Msg.GetPrice().GetCents()
+	if priceCents < 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("price must not be negative"))
+	}
+	spec, err := specFromSchedule(req.Msg.GetSchedule(), nowUTC())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -880,16 +900,11 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	repeatModeDB, err := repeatModeToDB(req.Msg.GetRepeatMode())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ?,
-		 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ?`,
-		req.Msg.GetTitle(), req.Msg.GetDescription(), req.Msg.GetPriceCents(), spec.Cron, req.Msg.GetActive(), iconType, iconValue,
-		repeatModeDB, daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
+		 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ? AND deleted_at IS NULL`,
+		req.Msg.GetTitle(), req.Msg.GetDescription(), priceCents, spec.Cron, req.Msg.GetActive(), iconType, iconValue,
+		string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
@@ -920,22 +935,37 @@ func (s *Server) DeleteTask(ctx context.Context, req *connect.Request[v1.DeleteT
 	if err := s.requireParent(ctx, task.FamilyId); err != nil {
 		return nil, err
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM tasks WHERE id = ?`, taskID); err != nil {
+	// Soft delete. The row stays so the occurrences it already produced
+	// keep rendering and the earnings behind them keep counting — a hard
+	// delete used to cascade both away, driving the balance of a child
+	// who'd already been paid negative. deleted_at doubles as the cutoff
+	// for schedule expansion: see occurrenceCutoff.
+	//
+	// Deliberately does not also clear `active`: that flag means "paused",
+	// and a paused task generates no occurrences at all, past ones
+	// included. Setting it here would suppress exactly the history this
+	// change exists to keep.
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE tasks SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+		formatTime(nowUTC()), taskID,
+	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("delete task: %w", err))
 	}
 	return connect.NewResponse(&v1.DeleteTaskResponse{}), nil
 }
 
 const taskColumns = `id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value,
-	repeat_mode, days_of_week, repeat_interval_weeks, start_date`
+	repeat_mode, days_of_week, repeat_interval_weeks, start_date, deleted_at`
 
 func scanTask(row rowScanner) (*v1.Task, error) {
 	var t v1.Task
-	var createdAt, iconType, iconValue, repeatMode, daysOfWeek string
+	var createdAt, iconType, iconValue, repeatMode, daysOfWeek, startDate, cronExpr string
 	var active bool
+	var priceCents int64
 	var intervalWeeks int32
-	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &t.PriceCents, &t.Schedule, &active, &createdAt, &iconType, &iconValue,
-		&repeatMode, &daysOfWeek, &intervalWeeks, &t.StartDate); err != nil {
+	var deletedAt sql.NullString
+	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &priceCents, &cronExpr, &active, &createdAt, &iconType, &iconValue,
+		&repeatMode, &daysOfWeek, &intervalWeeks, &startDate, &deletedAt); err != nil {
 		return nil, err
 	}
 	ts, err := parseTime(createdAt)
@@ -943,17 +973,27 @@ func scanTask(row rowScanner) (*v1.Task, error) {
 		return nil, err
 	}
 	t.Active = active
+	t.Price = money(priceCents)
 	t.CreatedAt = timestampPB(ts)
 	t.Icon = taskIconFromDB(iconType, iconValue)
-	t.RepeatMode = repeatModeFromDB(repeatMode)
-	t.DaysOfWeek = daysOfWeekFromDB(daysOfWeek)
-	t.RepeatIntervalWeeks = intervalWeeks
+	t.Schedule = scheduleFromSpec(specFromDB(repeatMode, cronExpr, daysOfWeek, intervalWeeks, startDate))
+	if deletedAt.Valid && deletedAt.String != "" {
+		deleted, err := parseTime(deletedAt.String)
+		if err != nil {
+			return nil, err
+		}
+		t.DeletedAt = timestampPB(deleted)
+	}
 	return &t, nil
 }
 
+// getTask loads a live task. A deleted one reports NotFound, which is what
+// every caller here wants: it can't be edited, deleted again, or completed
+// against. Occurrence expansion, which does need deleted tasks, goes
+// through listTasksForOccurrences instead.
 func (s *Server) getTask(ctx context.Context, taskID string) (*v1.Task, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT `+taskColumns+` FROM tasks WHERE id = ?`,
+		`SELECT `+taskColumns+` FROM tasks WHERE id = ? AND deleted_at IS NULL`,
 		taskID,
 	)
 	t, err := scanTask(row)
@@ -980,7 +1020,7 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 		return nil, err
 	}
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT `+taskColumns+` FROM tasks WHERE family_id = ? ORDER BY created_at`,
+		`SELECT `+taskColumns+` FROM tasks WHERE family_id = ? AND deleted_at IS NULL ORDER BY created_at`,
 		familyID,
 	)
 	if err != nil {
@@ -1005,8 +1045,9 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	for _, t := range tasks {
-		t.ChildIds = assignments[t.Id]
+		t.ChildIds = assignments[t.GetId()]
 	}
+
 	return connect.NewResponse(&v1.ListTasksResponse{Tasks: tasks}), nil
 }
 
@@ -1045,9 +1086,12 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid end_date: %w", err))
 	}
 
-	tasksResp, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: familyID}))
+	// Deleted tasks included: one still owns every occurrence it produced
+	// before it went, and its schedule is what reconstructs the ones nobody
+	// completed.
+	tasks, err := s.listTasksForOccurrences(ctx, familyID)
 	if err != nil {
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	usersResp, err := s.ListUsers(ctx, connect.NewRequest(&v1.ListUsersRequest{FamilyId: familyID}))
 	if err != nil {
@@ -1055,33 +1099,37 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	}
 	childNames := make(map[string]string, len(usersResp.Msg.GetUsers()))
 	for _, u := range usersResp.Msg.GetUsers() {
-		childNames[u.Id] = u.Name
-	}
-	tasksByID := make(map[string]*v1.Task, len(tasksResp.Msg.GetTasks()))
-	for _, t := range tasksResp.Msg.GetTasks() {
-		tasksByID[t.GetId()] = t
+		childNames[u.GetId()] = u.GetName()
 	}
 
-	completions, err := s.listCompletionsByTaskChildDate(ctx, familyID)
+	stored, err := s.listStoredOccurrences(ctx, familyID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	now := nowUTC()
-	// Tracks which (task, child, date) keys were already produced by the
-	// active-task schedule loop below, so the second pass over `completions`
-	// only adds ones it missed.
-	seen := make(map[string]bool, len(completions))
+	// Tracks which (task, child, date) keys the schedule loop below already
+	// produced, so the second pass over stored rows only adds what it missed.
+	seen := make(map[string]bool, len(stored))
 	var occurrences []*v1.TaskOccurrence
-	for _, t := range tasksResp.Msg.GetTasks() {
+	for _, t := range tasks {
+		// A paused task generates nothing, past dates included. Unchanged
+		// behaviour, and it's also why DeleteTask leaves `active` alone.
 		if !t.GetActive() {
 			continue
 		}
-		spec, err := taskSpec(t, now)
+		spec, err := specFromSchedule(t.GetSchedule(), now)
 		if err != nil {
 			continue
 		}
-		dates, err := spec.DatesBetween(start, end)
+		// A deleted task stops generating the day it was deleted. Before
+		// that date it behaves exactly as it did while it existed, which is
+		// what keeps its history — completed and merely due alike — intact.
+		expandEnd := end
+		if cutoff, ok := occurrenceCutoff(t); ok && cutoff.Before(expandEnd) {
+			expandEnd = cutoff
+		}
+		dates, err := spec.DatesBetween(start, expandEnd)
 		if err != nil {
 			continue
 		}
@@ -1091,49 +1139,45 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 			}
 			for _, d := range dates {
 				dateStr := scheduling.FormatDate(d)
-				key := completionKey(t.GetId(), childID, dateStr)
+				key := occurrenceKey(t.GetId(), childID, dateStr)
 				seen[key] = true
-				occ := &v1.TaskOccurrence{
-					Task: t, DueDate: dateStr, ChildId: childID, ChildName: childNames[childID],
+				if occ, ok := stored[key]; ok {
+					// A stored row wins outright: its title and amount are
+					// what they were when it was recorded, and re-deriving
+					// them from the task as it stands now is exactly the
+					// rewriting-of-history this model removes.
+					occ.ChildName = childNames[childID]
+					occurrences = append(occurrences, occ)
+					continue
 				}
-				if c, ok := completions[key]; ok {
-					occ.Completed = true
-					occ.Completion = c
-				}
-				occurrences = append(occurrences, occ)
+				occurrences = append(occurrences, occurrenceFromTask(t, childID, childNames[childID], dateStr))
 			}
 		}
 	}
 
-	// A completion whose task is now paused (or otherwise no longer
-	// generating this date from its current schedule) wouldn't be produced
-	// by the loop above — but it's still a real, paid completion, so history
-	// must keep showing it regardless of the task's current active state.
-	for key, c := range completions {
+	// A stored occurrence the loop above didn't reach — its task has since
+	// been paused, or its schedule no longer covers that date — is still a
+	// real, paid completion. It carries its own title and amount, so it
+	// renders with no task row involved at all.
+	for key, occ := range stored {
 		if seen[key] {
 			continue
 		}
-		if c.GetDueDate() < startStr || c.GetDueDate() > endStr {
+		if occ.GetDueDate() < startStr || occ.GetDueDate() > endStr {
 			continue
 		}
-		if childFilter != "" && c.GetChildId() != childFilter {
+		if childFilter != "" && occ.GetChildId() != childFilter {
 			continue
 		}
-		task := tasksByID[c.GetTaskId()]
-		if task == nil {
-			continue
-		}
-		occurrences = append(occurrences, &v1.TaskOccurrence{
-			Task: task, DueDate: c.GetDueDate(), Completed: true, Completion: c,
-			ChildId: c.GetChildId(), ChildName: childNames[c.GetChildId()],
-		})
+		occ.ChildName = childNames[occ.GetChildId()]
+		occurrences = append(occurrences, occ)
 	}
 
 	if search := strings.TrimSpace(req.Msg.GetSearch()); search != "" {
 		ls := strings.ToLower(search)
 		filtered := occurrences[:0]
 		for _, o := range occurrences {
-			if strings.Contains(strings.ToLower(o.GetTask().GetTitle()), ls) || strings.Contains(strings.ToLower(o.GetChildName()), ls) {
+			if strings.Contains(strings.ToLower(o.GetTitle()), ls) || strings.Contains(strings.ToLower(o.GetChildName()), ls) {
 				filtered = append(filtered, o)
 			}
 		}
@@ -1145,16 +1189,16 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		if a.GetDueDate() != b.GetDueDate() {
 			return a.GetDueDate() > b.GetDueDate()
 		}
-		if a.GetTask().GetTitle() != b.GetTask().GetTitle() {
-			return a.GetTask().GetTitle() < b.GetTask().GetTitle()
+		if a.GetTitle() != b.GetTitle() {
+			return a.GetTitle() < b.GetTitle()
 		}
 		return a.GetChildName() < b.GetChildName()
 	})
 
 	hasMore := false
 	if limit := int(req.Msg.GetLimit()); limit > 0 {
-		if limit > maxCompletionsLimit {
-			limit = maxCompletionsLimit
+		if limit > maxOccurrencesLimit {
+			limit = maxOccurrencesLimit
 		}
 		offset := int(req.Msg.GetOffset())
 		if offset < 0 {
@@ -1175,18 +1219,85 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	return connect.NewResponse(&v1.ListTaskOccurrencesResponse{Occurrences: occurrences, HasMore: hasMore}), nil
 }
 
+// occurrenceCutoff is the last date a task generates occurrences for. A
+// live task has none; a deleted one stops on the date it was deleted, so
+// everything it was due for while it existed still appears and nothing
+// after does.
+func occurrenceCutoff(t *v1.Task) (time.Time, bool) {
+	if t.GetDeletedAt() == nil {
+		return time.Time{}, false
+	}
+	cutoff, err := scheduling.ParseDate(scheduling.FormatDate(t.GetDeletedAt().AsTime()))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return cutoff, true
+}
+
+// occurrenceFromTask builds the occurrence for a date nothing has been
+// recorded against yet. It's derived rather than stored, so it has no id,
+// and its fields track the task as it currently stands — which is correct:
+// nothing has happened to this one yet, so there's nothing to preserve.
+func occurrenceFromTask(t *v1.Task, childID, childName, dueDate string) *v1.TaskOccurrence {
+	return &v1.TaskOccurrence{
+		FamilyId:    t.GetFamilyId(),
+		TaskId:      t.GetId(),
+		ChildId:     childID,
+		ChildName:   childName,
+		DueDate:     dueDate,
+		Title:       t.GetTitle(),
+		Description: t.GetDescription(),
+		Icon:        t.GetIcon(),
+		Amount:      money(t.GetPrice().GetCents()),
+	}
+}
+
+// listTasksForOccurrences loads every task in the family, deleted ones
+// included, for schedule expansion. Unlike ListTasks it carries no
+// authorization of its own — callers have already established membership.
+func (s *Server) listTasksForOccurrences(ctx context.Context, familyID string) ([]*v1.Task, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+taskColumns+` FROM tasks WHERE family_id = ? ORDER BY created_at`,
+		familyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks []*v1.Task
+	for rows.Next() {
+		t, err := scanTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	assignments, err := s.taskAssignmentsByFamily(ctx, familyID)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range tasks {
+		t.ChildIds = assignments[t.GetId()]
+	}
+	return tasks, nil
+}
+
 // occurrenceFloorDate is the earliest date any occurrence in the family
 // could possibly exist from: no task can have been due before it was
-// created, and (barring a manual backfill) no completion predates its own
-// task. Used to bound schedule expansion when a caller leaves start_date
-// unset (e.g. a History search spanning "all time").
+// created, and no stored occurrence predates its own task. Used to bound
+// schedule expansion when a caller leaves start_date unset (e.g. a History
+// search spanning "all time").
 func (s *Server) occurrenceFloorDate(ctx context.Context, familyID string) (string, error) {
 	var floor sql.NullString
 	if err := s.db.QueryRowContext(ctx, `
 		SELECT MIN(d) FROM (
 			SELECT SUBSTR(created_at, 1, 10) AS d FROM tasks WHERE family_id = ?
 			UNION ALL
-			SELECT due_date AS d FROM task_completions WHERE family_id = ?
+			SELECT due_date AS d FROM task_occurrences WHERE family_id = ?
 		)`, familyID, familyID,
 	).Scan(&floor); err != nil {
 		return "", err
@@ -1197,14 +1308,19 @@ func (s *Server) occurrenceFloorDate(ctx context.Context, familyID string) (stri
 	return floor.String, nil
 }
 
-func completionKey(taskID, childID, dueDate string) string {
+func occurrenceKey(taskID, childID, dueDate string) string {
 	return taskID + "|" + childID + "|" + dueDate
 }
 
-func (s *Server) listCompletionsByTaskChildDate(ctx context.Context, familyID string) (map[string]*v1.TaskCompletion, error) {
+const occurrenceColumns = `id, task_id, child_id, family_id, due_date, title, description,
+	icon_type, icon_value, amount_cents, completed_at`
+
+// listStoredOccurrences loads every recorded occurrence in the family,
+// keyed the same way the schedule loop keys the ones it derives, so the two
+// can be merged.
+func (s *Server) listStoredOccurrences(ctx context.Context, familyID string) (map[string]*v1.TaskOccurrence, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, task_id, child_id, family_id, due_date, amount_cents, completed_at
-		 FROM task_completions WHERE family_id = ?`,
+		`SELECT `+occurrenceColumns+` FROM task_occurrences WHERE family_id = ?`,
 		familyID,
 	)
 	if err != nil {
@@ -1212,33 +1328,45 @@ func (s *Server) listCompletionsByTaskChildDate(ctx context.Context, familyID st
 	}
 	defer rows.Close()
 
-	result := map[string]*v1.TaskCompletion{}
+	result := map[string]*v1.TaskOccurrence{}
 	for rows.Next() {
-		c, err := scanCompletion(rows)
+		occ, err := scanOccurrence(rows)
 		if err != nil {
 			return nil, err
 		}
-		result[completionKey(c.TaskId, c.ChildId, c.DueDate)] = c
+		result[occurrenceKey(occ.GetTaskId(), occ.GetChildId(), occ.GetDueDate())] = occ
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanCompletion(row rowScanner) (*v1.TaskCompletion, error) {
-	var c v1.TaskCompletion
-	var completedAt string
-	if err := row.Scan(&c.Id, &c.TaskId, &c.ChildId, &c.FamilyId, &c.DueDate, &c.AmountCents, &completedAt); err != nil {
+// scanOccurrence reads a stored occurrence. Its title, description, icon
+// and amount come off the row itself rather than a join, which is what lets
+// history survive its task being renamed, repriced or deleted. child_name
+// is left for the caller to fill in from the live user row — see the
+// TaskOccurrence proto for why that one is deliberately not frozen.
+func scanOccurrence(row rowScanner) (*v1.TaskOccurrence, error) {
+	var occ v1.TaskOccurrence
+	var iconType, iconValue string
+	var amountCents int64
+	var completedAt sql.NullString
+	if err := row.Scan(&occ.Id, &occ.TaskId, &occ.ChildId, &occ.FamilyId, &occ.DueDate,
+		&occ.Title, &occ.Description, &iconType, &iconValue, &amountCents, &completedAt); err != nil {
 		return nil, err
 	}
-	t, err := parseTime(completedAt)
-	if err != nil {
-		return nil, err
+	occ.Icon = taskIconFromDB(iconType, iconValue)
+	occ.Amount = money(amountCents)
+	if completedAt.Valid && completedAt.String != "" {
+		t, err := parseTime(completedAt.String)
+		if err != nil {
+			return nil, err
+		}
+		occ.CompletedAt = timestampPB(t)
 	}
-	c.CompletedAt = timestampPB(t)
-	return &c, nil
+	return &occ, nil
 }
 
 func scanUser(row rowScanner) (*v1.User, error) {
@@ -1301,31 +1429,45 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("child is not assigned to this task"))
 	}
 
+	iconType, iconValue, err := taskIconToDB(task.GetIcon())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	id := newID()
 	now := nowUTC()
+	priceCents := task.GetPrice().GetCents()
+	// The task's title, description, icon and price are copied onto the row
+	// here and never revisited: this is the moment the occurrence becomes
+	// history, and history has to keep saying what it said.
+	//
+	// DO NOTHING rather than DO UPDATE on conflict, so a duplicate submit
+	// (a double tap, a retried request) can't quietly reprice an occurrence
+	// that was already completed at a different amount.
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO task_completions (id, task_id, child_id, family_id, due_date, amount_cents, completed_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT (task_id, child_id, due_date) DO UPDATE SET amount_cents = excluded.amount_cents`,
-		id, taskID, childID, task.FamilyId, dueDate, task.PriceCents, formatTime(now),
+		`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, title, description, icon_type, icon_value, amount_cents, completed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT (task_id, child_id, due_date) DO NOTHING`,
+		id, taskID, childID, task.FamilyId, dueDate, task.GetTitle(), task.GetDescription(),
+		iconType, iconValue, priceCents, formatTime(now),
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("complete task: %w", err))
 	}
 
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, task_id, child_id, family_id, due_date, amount_cents, completed_at
-		 FROM task_completions WHERE task_id = ? AND child_id = ? AND due_date = ?`,
+		`SELECT `+occurrenceColumns+` FROM task_occurrences WHERE task_id = ? AND child_id = ? AND due_date = ?`,
 		taskID, childID, dueDate,
 	)
-	completion, err := scanCompletion(row)
+	occurrence, err := scanOccurrence(row)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	occurrence.ChildName = childName
 
-	go s.notifyTaskCompleted(task.FamilyId, s.actingUserID(ctx, task.FamilyId), childName, task.Title, task.PriceCents)
+	go s.notifyTaskCompleted(task.FamilyId, s.actingUserID(ctx, task.FamilyId), childName, task.GetTitle(), priceCents)
 
-	return connect.NewResponse(&v1.CompleteTaskResponse{Completion: completion}), nil
+	return connect.NewResponse(&v1.CompleteTaskResponse{Occurrence: occurrence}), nil
 }
 
 func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.UncompleteTaskRequest]) (*connect.Response[v1.UncompleteTaskResponse], error) {
@@ -1347,8 +1489,14 @@ func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.Unc
 			return nil, err
 		}
 	}
+	// Removing the row rather than nulling completed_at: in this stage an
+	// occurrence is only ever stored because it was completed, so an
+	// uncompleted one has nothing left worth keeping and reverts to being
+	// derived from its task's schedule like any other. (Once occurrences
+	// are frozen ahead of task edits, this becomes an UPDATE that clears
+	// completed_at and keeps the row.)
 	if _, err := s.db.ExecContext(ctx,
-		`DELETE FROM task_completions WHERE task_id = ? AND child_id = ? AND due_date = ?`,
+		`DELETE FROM task_occurrences WHERE task_id = ? AND child_id = ? AND due_date = ?`,
 		taskID, childID, dueDate,
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("uncomplete task: %w", err))
@@ -1356,101 +1504,10 @@ func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.Unc
 	return connect.NewResponse(&v1.UncompleteTaskResponse{}), nil
 }
 
-const (
-	defaultCompletionsLimit = 20
-	maxCompletionsLimit     = 100
-)
-
-func scanCompletionWithNames(row rowScanner) (*v1.TaskCompletion, error) {
-	var c v1.TaskCompletion
-	var completedAt string
-	if err := row.Scan(&c.Id, &c.TaskId, &c.ChildId, &c.FamilyId, &c.DueDate, &c.AmountCents, &completedAt, &c.TaskTitle, &c.ChildName); err != nil {
-		return nil, err
-	}
-	t, err := parseTime(completedAt)
-	if err != nil {
-		return nil, err
-	}
-	c.CompletedAt = timestampPB(t)
-	return &c, nil
-}
-
-func (s *Server) ListTaskCompletions(ctx context.Context, req *connect.Request[v1.ListTaskCompletionsRequest]) (*connect.Response[v1.ListTaskCompletionsResponse], error) {
-	familyID := req.Msg.GetFamilyId()
-	if familyID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("family_id is required"))
-	}
-	if err := s.requireMembership(ctx, familyID); err != nil {
-		return nil, err
-	}
-	childFilter, err := s.selfFilterForChild(ctx, familyID, req.Msg.GetChildId())
-	if err != nil {
-		return nil, err
-	}
-
-	limit := int(req.Msg.GetLimit())
-	if limit <= 0 {
-		limit = defaultCompletionsLimit
-	}
-	if limit > maxCompletionsLimit {
-		limit = maxCompletionsLimit
-	}
-	offset := int(req.Msg.GetOffset())
-	if offset < 0 {
-		offset = 0
-	}
-
-	query := `SELECT tc.id, tc.task_id, tc.child_id, tc.family_id, tc.due_date, tc.amount_cents, tc.completed_at, t.title, u.name
-	           FROM task_completions tc
-	           JOIN tasks t ON t.id = tc.task_id
-	           JOIN users u ON u.id = tc.child_id
-	           WHERE tc.family_id = ?`
-	args := []any{familyID}
-	if childFilter != "" {
-		query += ` AND tc.child_id = ?`
-		args = append(args, childFilter)
-	}
-	if start := req.Msg.GetStartDate(); start != "" {
-		query += ` AND tc.due_date >= ?`
-		args = append(args, start)
-	}
-	if end := req.Msg.GetEndDate(); end != "" {
-		query += ` AND tc.due_date <= ?`
-		args = append(args, end)
-	}
-	if search := strings.TrimSpace(req.Msg.GetSearch()); search != "" {
-		query += ` AND (LOWER(t.title) LIKE '%' || LOWER(?) || '%' OR LOWER(u.name) LIKE '%' || LOWER(?) || '%')`
-		args = append(args, search, search)
-	}
-	query += ` ORDER BY tc.due_date DESC, tc.completed_at DESC LIMIT ? OFFSET ?`
-	// Fetch one extra row to know whether another page exists, without a
-	// separate COUNT(*) query.
-	args = append(args, limit+1, offset)
-
-	rows, err := s.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer rows.Close()
-
-	var completions []*v1.TaskCompletion
-	for rows.Next() {
-		c, err := scanCompletionWithNames(rows)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		completions = append(completions, c)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	hasMore := len(completions) > limit
-	if hasMore {
-		completions = completions[:limit]
-	}
-	return connect.NewResponse(&v1.ListTaskCompletionsResponse{Completions: completions, HasMore: hasMore}), nil
-}
+// Upper bound on a page of occurrences, applied when the caller asks for
+// one. An unlimited request is still allowed (History's "all time" search
+// relies on it); this only caps what an explicit limit can ask for.
+const maxOccurrencesLimit = 100
 
 // ---- Accounting -----------------------------------------------------
 
@@ -1463,32 +1520,38 @@ func mondayOfWeek(t time.Time) time.Time {
 	return t.AddDate(0, 0, -daysSinceMonday)
 }
 
+// earnedClause sums a child's earnings over whatever extra condition the
+// caller adds. The completed_at IS NOT NULL filter is not optional and not
+// a detail: task_occurrences holds rows for chores that were due and never
+// done, and those carry an amount too. Summing without it credits every
+// child for work nobody did. It also matches the partial indexes in
+// schema.sql, so each of these is answered from an index alone.
+const earnedClause = `SELECT COALESCE(SUM(amount_cents), 0) FROM task_occurrences
+	WHERE child_id = ? AND completed_at IS NOT NULL`
+
 func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildSummary, error) {
 	var totalEarned, earnedLast7Days, earnedToday, earnedThisWeek, totalPaidOut sql.NullInt64
 	sevenDaysAgo := formatTime(nowUTC().AddDate(0, 0, -7))
 	today := scheduling.FormatDate(nowUTC())
 	startOfWeek := scheduling.FormatDate(mondayOfWeek(nowUTC()))
 
-	if err := s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ?`,
-		child.Id,
-	).Scan(&totalEarned); err != nil {
+	if err := s.db.QueryRowContext(ctx, earnedClause, child.Id).Scan(&totalEarned); err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND completed_at >= ?`,
+		earnedClause+` AND completed_at >= ?`,
 		child.Id, sevenDaysAgo,
 	).Scan(&earnedLast7Days); err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND due_date = ?`,
+		earnedClause+` AND due_date = ?`,
 		child.Id, today,
 	).Scan(&earnedToday); err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(amount_cents), 0) FROM task_completions WHERE child_id = ? AND due_date >= ?`,
+		earnedClause+` AND due_date >= ?`,
 		child.Id, startOfWeek,
 	).Scan(&earnedThisWeek); err != nil {
 		return nil, err
@@ -1509,13 +1572,13 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 	}
 
 	summary := &v1.ChildSummary{
-		Child:                 child,
-		EarnedLast_7DaysCents: earnedLast7Days.Int64,
-		EarnedTodayCents:      earnedToday.Int64,
-		EarnedThisWeekCents:   earnedThisWeek.Int64,
-		TotalEarnedCents:      totalEarned.Int64,
-		TotalPaidOutCents:     totalPaidOut.Int64,
-		BalanceCents:          totalEarned.Int64 - totalPaidOut.Int64,
+		Child:            child,
+		EarnedLast_7Days: money(earnedLast7Days.Int64),
+		EarnedToday:      money(earnedToday.Int64),
+		EarnedThisWeek:   money(earnedThisWeek.Int64),
+		TotalEarned:      money(totalEarned.Int64),
+		TotalPaidOut:     money(totalPaidOut.Int64),
+		Balance:          money(totalEarned.Int64 - totalPaidOut.Int64),
 	}
 	if lastPayoutAt.Valid {
 		t, err := parseTime(lastPayoutAt.String)
@@ -1630,16 +1693,16 @@ func (s *Server) CreatePayout(ctx context.Context, req *connect.Request[v1.Creat
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("payouts can only be made to children"))
 	}
 
-	amount := req.Msg.GetAmountCents()
+	amount := req.Msg.GetAmount().GetCents()
 	if req.Msg.GetFullPayout() {
 		summary, err := s.computeSummary(ctx, child)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		amount = summary.BalanceCents
+		amount = summary.GetBalance().GetCents()
 	}
 	if amount <= 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("amount_cents must be greater than zero"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("amount must be greater than zero"))
 	}
 
 	id := newID()
@@ -1654,7 +1717,7 @@ func (s *Server) CreatePayout(ctx context.Context, req *connect.Request[v1.Creat
 
 	return connect.NewResponse(&v1.CreatePayoutResponse{
 		Payout: &v1.Payout{
-			Id: id, ChildId: childID, FamilyId: child.FamilyId, AmountCents: amount,
+			Id: id, ChildId: childID, FamilyId: child.FamilyId, Amount: money(amount),
 			FullPayout: req.Msg.GetFullPayout(), Note: req.Msg.GetNote(), CreatedAt: timestampPB(now),
 		},
 	}), nil
@@ -1690,9 +1753,11 @@ func (s *Server) ListPayouts(ctx context.Context, req *connect.Request[v1.ListPa
 	for rows.Next() {
 		var p v1.Payout
 		var createdAt string
-		if err := rows.Scan(&p.Id, &p.ChildId, &p.FamilyId, &p.AmountCents, &p.FullPayout, &p.Note, &createdAt); err != nil {
+		var amountCents int64
+		if err := rows.Scan(&p.Id, &p.ChildId, &p.FamilyId, &amountCents, &p.FullPayout, &p.Note, &createdAt); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		p.Amount = money(amountCents)
 		t, err := parseTime(createdAt)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1776,8 +1841,8 @@ func (s *Server) CreateInvitation(ctx context.Context, req *connect.Request[v1.C
 	now := nowUTC()
 	uid := newID()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO users (id, family_id, name, role, created_at, email) VALUES (?, ?, ?, ?, ?, ?)`,
-		uid, familyID, name, roleStr, formatTime(now), req.Msg.GetEmail(),
+		`INSERT INTO users (id, family_id, name, role, created_at) VALUES (?, ?, ?, ?, ?)`,
+		uid, familyID, name, roleStr, formatTime(now),
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create invited slot: %w", err))
 	}
@@ -1786,15 +1851,15 @@ func (s *Server) CreateInvitation(ctx context.Context, req *connect.Request[v1.C
 	invID := newID()
 	expiresAt := now.Add(invitationTTL)
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO invitations (id, family_id, user_id, email, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		invID, familyID, uid, req.Msg.GetEmail(), token, formatTime(now), formatTime(expiresAt),
+		`INSERT INTO invitations (id, family_id, user_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		invID, familyID, uid, token, formatTime(now), formatTime(expiresAt),
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create invitation: %w", err))
 	}
 
 	return connect.NewResponse(&v1.CreateInvitationResponse{
 		Invitation: &v1.Invitation{
-			Id: invID, FamilyId: familyID, UserId: uid, UserName: name, Email: req.Msg.GetEmail(),
+			Id: invID, FamilyId: familyID, UserId: uid, UserName: name,
 			CreatedAt: timestampPB(now), ExpiresAt: timestampPB(expiresAt), Role: req.Msg.GetRole(),
 			Token: token,
 		},
@@ -1813,7 +1878,7 @@ func (s *Server) ListInvitations(ctx context.Context, req *connect.Request[v1.Li
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT i.id, i.family_id, i.user_id, u.name, u.role, i.email, i.created_at, i.expires_at, i.accepted_at, i.token
+		`SELECT i.id, i.family_id, i.user_id, u.name, u.role, i.created_at, i.expires_at, i.accepted_at, i.token
 		 FROM invitations i JOIN users u ON u.id = i.user_id
 		 WHERE i.family_id = ? ORDER BY i.created_at DESC`,
 		familyID,
@@ -1828,7 +1893,7 @@ func (s *Server) ListInvitations(ctx context.Context, req *connect.Request[v1.Li
 		var inv v1.Invitation
 		var role, createdAt, expiresAt, token string
 		var acceptedAt sql.NullString
-		if err := rows.Scan(&inv.Id, &inv.FamilyId, &inv.UserId, &inv.UserName, &role, &inv.Email, &createdAt, &expiresAt, &acceptedAt, &token); err != nil {
+		if err := rows.Scan(&inv.Id, &inv.FamilyId, &inv.UserId, &inv.UserName, &role, &createdAt, &expiresAt, &acceptedAt, &token); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		inv.Role = roleFromDB(role)
