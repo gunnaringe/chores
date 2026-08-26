@@ -338,7 +338,7 @@ buf generate
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — turns a task's repeat rule (one-off, weekly, or raw cron) into the dates it is due on
-- `internal/server` — Connect service implementation (`push.go` holds VAPID key setup and Web Push sending)
+- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending and `dashboard.go` for the kiosk key
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint
