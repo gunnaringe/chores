@@ -72,7 +72,7 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		childNames[u.GetId()] = u.GetName()
 	}
 
-	stored, err := s.listStoredOccurrences(ctx, familyID)
+	stored, err := s.listStoredOccurrences(ctx, familyID, startStr, endStr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -430,10 +430,17 @@ const occurrenceColumns = `id, task_id, child_id, family_id, due_date, title, de
 // listStoredOccurrences loads every recorded occurrence in the family,
 // keyed the same way the schedule loop keys the ones it derives, so the two
 // can be merged.
-func (s *Server) listStoredOccurrences(ctx context.Context, familyID string) (map[string]*v1.TaskOccurrence, error) {
+func (s *Server) listStoredOccurrences(ctx context.Context, familyID, startDate, endDate string) (map[string]*v1.TaskOccurrence, error) {
+	// Bounded by the requested range. Without this the whole of a family's
+	// history is loaded and turned into protos on every call, including the
+	// Today view, which needs a single day of it — the cost of rendering
+	// one screen then grows with how long the family has been using the
+	// app. The caller discards out-of-range rows anyway, so this is the
+	// same result for strictly less work.
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT `+occurrenceColumns+` FROM task_occurrences WHERE family_id = ?`,
-		familyID,
+		`SELECT `+occurrenceColumns+` FROM task_occurrences
+		 WHERE family_id = ? AND due_date >= ? AND due_date <= ?`,
+		familyID, startDate, endDate,
 	)
 	if err != nil {
 		return nil, err

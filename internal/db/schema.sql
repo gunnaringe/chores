@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS task_occurrences (
     UNIQUE (task_id, child_id, due_date)
 );
 CREATE INDEX IF NOT EXISTS idx_occurrences_child ON task_occurrences(child_id);
-CREATE INDEX IF NOT EXISTS idx_occurrences_family ON task_occurrences(family_id);
+CREATE INDEX IF NOT EXISTS idx_occurrences_family_due ON task_occurrences(family_id, due_date);
 -- Covering partial indexes for the balance aggregates in computeSummary.
 -- The column order matters: each one carries amount_cents as its last
 -- column so the SUM is answered from the index alone, without touching the
