@@ -600,10 +600,15 @@ function taskIconHtml(task) {
   return `<span class="task-icon"><span class="material-symbols-outlined">${escapeHtml(name)}</span></span>`;
 }
 
-// The full official Material Symbols icon name list (fonts.google.com/icons),
-// fetched lazily and cached here — see loadMaterialSymbolNames. Search
-// matches against these names directly (see searchMaterialSymbols) rather
-// than a hand-authored keyword/synonym mapping.
+// The full official Material Symbols icon name list, fetched lazily and
+// cached here — see loadMaterialSymbolNames. Search matches against these
+// names directly (see searchMaterialSymbols) rather than a hand-authored
+// keyword/synonym mapping — the vendored source (see
+// scripts/update-material-symbols.sh) is just a name-to-version map with no
+// synonyms in it, and fonts.google.com/icons' own richer search (e.g.
+// "trash" finding "delete") isn't published data anywhere we could vendor.
+// The task form links out to that page instead, for anyone who knows what
+// they want but not what Google calls it.
 let materialSymbolNamesPromise = null;
 function loadMaterialSymbolNames() {
   if (!materialSymbolNamesPromise) {
@@ -1305,6 +1310,7 @@ function renderTaskForm(existingTask) {
         <div id="task-icon-selected" class="icon-selected" style="display:none;"></div>
         <input type="text" id="task-icon-search" maxlength="64" class="input-full" autocomplete="off" placeholder="${escapeHtml(t("addTask.iconSearchPlaceholder"))}" />
         <div id="task-icon-results" class="icon-choices" style="margin-top:6px;display:none;"></div>
+        <p class="hint" style="margin:6px 0 0;">${escapeHtml(t("addTask.iconSearchHint"))} <a href="https://fonts.google.com/icons" target="_blank" rel="noopener">${escapeHtml(t("addTask.iconSearchLink"))}</a></p>
       </div>
       <div class="field">
         <label>${escapeHtml(labelWithCurrencyUnit(t("addTask.priceLabel")))}</label>
