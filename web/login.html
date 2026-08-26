@@ -9,20 +9,53 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" />
 <script>
-  // Hides icon glyphs until the font is confirmed usable, so a slow or
-  // blocked font load shows a blank icon tile instead of the raw ligature
-  // name ("edit_note") — see the fuller comment on this same script in
-  // index.html and the icons-loading rule in app.css.
+  // Keeps icon glyphs hidden until we know whether the font is actually
+  // usable, then either reveals them or falls back to icons-unavailable —
+  // never to the raw ligature name ("edit_note"). This has to be inline and
+  // in <head> to beat the first paint, so it's a copy of the same script in
+  // index.html rather than a shared file; see the fuller comment there, and
+  // the icons-loading / icons-unavailable rules in app.css.
   document.documentElement.classList.add("icons-loading");
   (function () {
-    var reveal = function () {
-      document.documentElement.classList.remove("icons-loading");
-    };
+    var root = document.documentElement;
+    var FONT = '24px "Material Symbols Outlined"';
+
+    // With the font, "settings" is a single ~24px glyph; without it the word
+    // runs 60px+. Under 2em means the ligature actually substituted.
+    function ligaturesRender() {
+      var probe = document.createElement("span");
+      probe.textContent = "settings";
+      // Inline styles rather than the .material-symbols-outlined class, so
+      // this measures the font itself and not whether app.css has landed.
+      probe.style.cssText =
+        "position:absolute;top:0;left:-9999px;visibility:hidden;white-space:nowrap;" +
+        "font-family:'Material Symbols Outlined';font-size:24px;line-height:1;";
+      document.body.appendChild(probe);
+      var width = probe.getBoundingClientRect().width;
+      document.body.removeChild(probe);
+      return width > 0 && width < 48;
+    }
+
+    // Called from several places and deliberately idempotent, so a font that
+    // turns up late still upgrades the page out of the fallback.
+    function settle() {
+      if (!document.body) {
+        document.addEventListener("DOMContentLoaded", settle);
+        return;
+      }
+      // Put the fallback class on before taking icons-loading off, or the
+      // raw names paint for a frame in between.
+      root.classList.toggle("icons-unavailable", !ligaturesRender());
+      root.classList.remove("icons-loading");
+    }
+
     if (window.FontFace && document.fonts) {
-      document.fonts.load('24px "Material Symbols Outlined"').then(reveal, reveal);
-      setTimeout(reveal, 3000);
+      document.fonts.load(FONT).then(settle, settle);
+      document.fonts.ready.then(settle, settle);
+      // Backstop: neither promise is guaranteed to settle on every browser.
+      setTimeout(settle, 3000);
     } else {
-      reveal();
+      settle();
     }
   })();
 </script>
