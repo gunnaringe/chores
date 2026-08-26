@@ -385,6 +385,14 @@ function render() {
       render();
     })
   );
+  // Settings sits at the end of the same row as the other tab buttons,
+  // rather than up in the topbar — see renderTopbar.
+  const settingsBtn = el(`<button class="secondary" id="open-settings" style="margin-left:auto;">${escapeHtml(t("topbar.settings"))}</button>`);
+  settingsBtn.addEventListener("click", () => {
+    state.tab = "settings";
+    render();
+  });
+  tabs.appendChild(settingsBtn);
   app.appendChild(tabs);
 
   if (activeTab === "home") app.appendChild(renderTodayTab());
@@ -692,15 +700,17 @@ function renderTopbar() {
         `)
       : el(`<span>${escapeHtml(user ? user.name : "")}</span>`);
 
+  // A parent's Settings button lives in the tab row instead (aligned with
+  // Today/History/Tasks/Balance) — see renderApp. A child has no tab row to
+  // put it in, so it stays here, next to the family name.
+  const showSettingsButton = !isParent();
   const bar = el(`
     <div class="topbar">
       <div>
         <div class="family-row" style="display:flex;align-items:center;gap:4px;"></div>
         <p style="margin:0;display:flex;align-items:center;gap:6px;"><span class="pill ${isParent() ? "parent" : "child"}">${escapeHtml(isParent() ? t("role.parent") : t("role.child"))}</span></p>
       </div>
-      <div class="actions">
-        <button class="secondary" id="open-settings">${escapeHtml(t("topbar.settings"))}</button>
-      </div>
+      ${showSettingsButton ? `<div class="actions"><button class="secondary" id="open-settings">${escapeHtml(t("topbar.settings"))}</button></div>` : ""}
     </div>
   `);
   const familyRow = bar.querySelector(".family-row");
@@ -727,10 +737,12 @@ function renderTopbar() {
       })
     );
   }
-  bar.querySelector("#open-settings").addEventListener("click", () => {
-    state.tab = "settings";
-    render();
-  });
+  if (showSettingsButton) {
+    bar.querySelector("#open-settings").addEventListener("click", () => {
+      state.tab = "settings";
+      render();
+    });
+  }
   return bar;
 }
 
