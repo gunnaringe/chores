@@ -487,6 +487,30 @@ function materialIconName(value) {
   return cleaned || "star";
 }
 
+function isOptionalTask(task) {
+  return task.classification === "TASK_CLASSIFICATION_OPTIONAL";
+}
+
+// The mandatory/optional badge. Shared so the Tasks list and History label a
+// task identically — two hand-rolled copies drifted apart the moment one of
+// them was touched.
+function classificationPillHtml(task) {
+  const optional = isOptionalTask(task);
+  return `<span class="pill ${optional ? "optional" : "mandatory"}">${escapeHtml(
+    optional ? t("taskList.optional") : t("taskList.mandatory")
+  )}</span>`;
+}
+
+// Today's occurrences split into what has to happen and what is up for grabs.
+// Groups with nothing in them are dropped, so a child with only required
+// chores doesn't get an empty "Can do" heading.
+function groupOccurrencesByClassification(occurrences) {
+  return [
+    { label: t("today.mustDo"), items: occurrences.filter((o) => !isOptionalTask(o.task)) },
+    { label: t("today.canDo"), items: occurrences.filter((o) => isOptionalTask(o.task)) },
+  ].filter((group) => group.items.length);
+}
+
 // The leading tile in a task row: the task's own icon on a tinted square,
 // falling back to a generic one so every row lines up at the same left
 // edge whether or not an icon was ever picked for it.
@@ -902,6 +926,49 @@ function renderDashboardBar() {
 
 // ---- Today tab (parents): today's status per child, at a glance -----------------------------------------------------
 
+// One of today's occurrences, with its tap-to-complete tick. Shared by the
+// parent's Today tab (and the kiosk, which renders the same view) and by a
+// child's own screen — the two had drifted into duplicate copies of the same
+// markup and the same complete/uncomplete handler.
+function renderOccurrenceRow(occ, childId, opts) {
+  const done = !!occ.completed;
+  const showDescription = !!(opts && opts.showDescription);
+  const description = showDescription && occ.task.description ? " — " + escapeHtml(occ.task.description) : "";
+  const row = el(`
+    <div class="row">
+      <div class="task-row-main">
+        ${taskIconHtml(occ.task)}
+        <div class="task-row-text">
+          <div class="task-title">${escapeHtml(occ.task.title)}</div>
+          <div class="task-meta">kr ${money(occ.task.priceCents)}${description}</div>
+        </div>
+      </div>
+      <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
+    </div>
+  `);
+  row.querySelector("button").addEventListener("click", () =>
+    withError(async () => {
+      const req = { taskId: occ.task.id, childId, dueDate: occ.dueDate };
+      await call(done ? "UncompleteTask" : "CompleteTask", req);
+      await loadFamilyData();
+    })
+  );
+  return row;
+}
+
+// Appends today's tasks under a "Must do" / "Can do" heading each, so what a
+// child actually has to get done reads apart from what's optional extra —
+// previously the two were one undifferentiated list and the distinction only
+// existed as a pill in the parent's task editor.
+function appendOccurrenceSections(container, occurrences, childId, opts) {
+  groupOccurrencesByClassification(occurrences).forEach((group) => {
+    container.appendChild(
+      el(`<div class="section-label occurrence-group">${escapeHtml(group.label)}</div>`)
+    );
+    group.items.forEach((occ) => container.appendChild(renderOccurrenceRow(occ, childId, opts)));
+  });
+}
+
 function renderTodayTab() {
   const wrap = el(`<div></div>`);
   if (!state.summaries.length) {
@@ -929,32 +996,7 @@ function renderTodayTab() {
     if (!todays.length) {
       card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     } else {
-      todays.forEach((occ) => {
-        const done = !!occ.completed;
-        const row = el(`
-          <div class="row">
-            <div class="task-row-main">
-              ${taskIconHtml(occ.task)}
-              <div class="task-row-text">
-                <div class="task-title">${escapeHtml(occ.task.title)}</div>
-                <div class="task-meta">kr ${money(occ.task.priceCents)}</div>
-              </div>
-            </div>
-            <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
-          </div>
-        `);
-        row.querySelector("button").addEventListener("click", () =>
-          withError(async () => {
-            if (done) {
-              await call("UncompleteTask", { taskId: occ.task.id, childId: s.child.id, dueDate: occ.dueDate });
-            } else {
-              await call("CompleteTask", { taskId: occ.task.id, childId: s.child.id, dueDate: occ.dueDate });
-            }
-            await loadFamilyData();
-          })
-        );
-        card.appendChild(row);
-      });
+      appendOccurrenceSections(card, todays, s.child.id);
     }
 
     card.appendChild(el(`
@@ -1001,40 +1043,7 @@ function renderChildOccurrences() {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     return card;
   }
-  mine.forEach((occ) => {
-    const done = !!occ.completed;
-    const row = el(`
-      <div class="row">
-        <div class="task-row-main">
-          ${taskIconHtml(occ.task)}
-          <div class="task-row-text">
-            <div class="task-title">${escapeHtml(occ.task.title)}</div>
-            <div class="task-meta">kr ${money(occ.task.priceCents)}${occ.task.description ? " — " + escapeHtml(occ.task.description) : ""}</div>
-          </div>
-        </div>
-        <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
-      </div>
-    `);
-    row.querySelector("button").addEventListener("click", () =>
-      withError(async () => {
-        if (done) {
-          await call("UncompleteTask", {
-            taskId: occ.task.id,
-            childId: state.userId,
-            dueDate: occ.dueDate,
-          });
-        } else {
-          await call("CompleteTask", {
-            taskId: occ.task.id,
-            childId: state.userId,
-            dueDate: occ.dueDate,
-          });
-        }
-        await loadFamilyData();
-      })
-    );
-    card.appendChild(row);
-  });
+  appendOccurrenceSections(card, mine, state.userId, { showDescription: true });
   return card;
 }
 
@@ -1123,9 +1132,9 @@ function renderTaskList() {
         <div class="task-row-main">
           ${taskIconHtml(t_)}
           <div class="task-row-text">
-            <div class="task-title">${escapeHtml(t_.title)} <span class="pill ${t_.classification === "TASK_CLASSIFICATION_OPTIONAL" ? "optional" : "mandatory"}">${escapeHtml(
-              t_.classification === "TASK_CLASSIFICATION_OPTIONAL" ? t("taskList.optional") : t("taskList.mandatory")
-            )}</span> ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""}</div>
+            <div class="task-title">${escapeHtml(t_.title)} ${classificationPillHtml(t_)} ${
+              t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""
+            }</div>
             <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
           </div>
         </div>
@@ -2086,7 +2095,7 @@ function renderHistoryRow(occ) {
       <div class="task-row-main">
         ${taskIconHtml(occ.task)}
         <div class="task-row-text">
-          <div class="task-title">${escapeHtml(occ.task.title)}</div>
+          <div class="task-title">${escapeHtml(occ.task.title)} ${classificationPillHtml(occ.task)}</div>
           <div class="task-meta">${escapeHtml(occ.childName)} · ${escapeHtml(formatDateStr(occ.dueDate))} · kr ${money(amountCents)}${badge}</div>
         </div>
       </div>

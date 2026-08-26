@@ -98,6 +98,8 @@ const TRANSLATIONS = {
     "history.confirmMarkIncomplete": "Confirm mark not completed",
 
     "today.progress": "{done} of {total} done",
+    "today.mustDo": "Must do",
+    "today.canDo": "Can do",
 
     "childTasks.heading": "Today's tasks",
     "childTasks.empty": "No tasks scheduled for today.",
@@ -307,6 +309,8 @@ const TRANSLATIONS = {
     "history.confirmMarkIncomplete": "Bekreft merking som ikke fullført",
 
     "today.progress": "{done} av {total} gjort",
+    "today.mustDo": "Må gjøre",
+    "today.canDo": "Kan gjøre",
 
     "childTasks.heading": "Dagens oppgaver",
     "childTasks.empty": "Ingen oppgaver planlagt i dag.",

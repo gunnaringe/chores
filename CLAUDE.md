@@ -124,6 +124,37 @@ scrolling content between them — that widens into a centred desktop page above
   overflow its box and intercept clicks meant for its neighbours.
 - Respect `env(safe-area-inset-*)` on anything pinned to a screen edge.
 
+## Pull requests
+
+**A PR that changes anything visible includes screenshots of the change.**
+Reviewers can't run the branch, and a UI diff is unreadable as text — a
+screenshot is the only way the change is actually reviewable. Capture them
+with the `verify-ui` skill, at phone width, and include:
+
+- the screen you changed, before and after where the difference is subtle;
+- both languages if you touched or added any user-facing string, since `nb`
+  is the one that silently falls back;
+- dark mode or a 320px screen when the change involves layout.
+
+GitHub has no API for attaching an image to a PR body, so push the PNGs to a
+throwaway orphan branch and embed them by raw URL — that keeps binaries out
+of `main` and out of the PR's own diff:
+
+```bash
+git worktree add --detach /tmp/prshots
+cd /tmp/prshots
+git checkout --orphan pr-assets/<topic>
+git rm -rf . >/dev/null
+cp /tmp/shots/*.png .
+git add . && git commit -m "Screenshots for <topic>"
+git push -u origin pr-assets/<topic>
+cd - && git worktree remove /tmp/prshots
+```
+
+Then reference them as
+`![](https://raw.githubusercontent.com/<owner>/<repo>/pr-assets/<topic>/<file>.png)`
+and say in the PR that the branch can be deleted once merged.
+
 ## House style
 
 Comments here explain *why*, not *what* — usually the constraint or the bug
