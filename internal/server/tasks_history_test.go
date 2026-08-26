@@ -41,6 +41,13 @@ func newHistoryFixture(t *testing.T, sub string, completed ...string) historyFix
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
+	f := historyFixture{s: s, ctx: ctx, familyID: fam.Msg.Family.Id, childID: child.Msg.User.Id, taskID: task.Msg.Task.Id}
+
+	// A task is never due before it existed, so one created moments ago has
+	// no past to test against. These fixtures work in 2024 dates, so the
+	// task is made to have existed since just before then.
+	f.backdateTo(t, "2023-12-31T00:00:00Z")
+
 	for _, d := range completed {
 		if _, err := s.CompleteTask(ctx, connect.NewRequest(&v1.CompleteTaskRequest{
 			TaskId: task.Msg.Task.Id, ChildId: child.Msg.User.Id, DueDate: d,
@@ -48,7 +55,22 @@ func newHistoryFixture(t *testing.T, sub string, completed ...string) historyFix
 			t.Fatalf("CompleteTask %s: %v", d, err)
 		}
 	}
-	return historyFixture{s: s, ctx: ctx, familyID: fam.Msg.Family.Id, childID: child.Msg.User.Id, taskID: task.Msg.Task.Id}
+	return f
+}
+
+// backdate moves the task's creation date to n days ago, so it has history
+// to have missed. A task can't be due before it existed, so a fixture whose
+// task was created moments ago has no past occurrences to speak of.
+func (f historyFixture) backdate(t *testing.T, days int) {
+	t.Helper()
+	f.backdateTo(t, formatTime(nowUTC().AddDate(0, 0, -days)))
+}
+
+func (f historyFixture) backdateTo(t *testing.T, createdAt string) {
+	t.Helper()
+	if _, err := f.s.db.Exec(`UPDATE tasks SET created_at = ? WHERE id = ?`, createdAt, f.taskID); err != nil {
+		t.Fatalf("backdate task: %v", err)
+	}
 }
 
 func (f historyFixture) summary(t *testing.T) *v1.ChildSummary {

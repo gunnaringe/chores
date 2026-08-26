@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/gunnaringe/chores/gen/chores/v1"
@@ -39,6 +41,39 @@ func New(db *sql.DB) *Server {
 		log.Printf("push notifications disabled: %v", err)
 	}
 	return s
+}
+
+// querier is the subset of *sql.DB that *sql.Tx also satisfies, so a helper
+// can run either standalone or as part of a transaction.
+//
+// This matters more than it looks: the connection pool is capped at one
+// connection (see db.Open), so a transaction holds the *only* connection
+// for its lifetime. A helper that reached for s.db while a transaction was
+// open would block until the request's context expired rather than fail,
+// which is why anything callable from inside a transaction takes a querier
+// instead.
+type querier interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// inTx runs fn inside a transaction, rolling back on error or panic.
+//
+// Authorization and validation are deliberately done by the caller, before
+// this is entered: they only read, they don't need to be atomic with the
+// write, and keeping them out keeps the transaction — and therefore the
+// hold on the single connection — as short as possible.
+func (s *Server) inTx(ctx context.Context, fn func(q querier) error) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func newID() string {
@@ -765,12 +800,12 @@ func (s *Server) validateChildIDs(ctx context.Context, familyID string, childIDs
 }
 
 // setTaskAssignments replaces a task's full set of assigned children.
-func (s *Server) setTaskAssignments(ctx context.Context, taskID string, childIDs []string) error {
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM task_assignments WHERE task_id = ?`, taskID); err != nil {
+func (s *Server) setTaskAssignments(ctx context.Context, q querier, taskID string, childIDs []string) error {
+	if _, err := q.ExecContext(ctx, `DELETE FROM task_assignments WHERE task_id = ?`, taskID); err != nil {
 		return err
 	}
 	for _, id := range childIDs {
-		if _, err := s.db.ExecContext(ctx, `INSERT INTO task_assignments (task_id, child_id) VALUES (?, ?)`, taskID, id); err != nil {
+		if _, err := q.ExecContext(ctx, `INSERT INTO task_assignments (task_id, child_id) VALUES (?, ?)`, taskID, id); err != nil {
 			return err
 		}
 	}
@@ -848,16 +883,21 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	}
 	id := newID()
 	now := nowUTC()
-	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
-		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
-		id, familyID, title, req.Msg.GetDescription(), priceCents, spec.Cron, formatTime(now), iconType, iconValue,
-		string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
-	); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create task: %w", err))
-	}
-	if err := s.setTaskAssignments(ctx, id, childIDs); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("assign task: %w", err))
+	// One step: a task whose assignments didn't land is assigned to nobody,
+	// which means it shows up for nobody and is invisible in every view
+	// except the parent's task list.
+	if err := s.inTx(ctx, func(q querier) error {
+		if _, err := q.ExecContext(ctx,
+			`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
+			 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+			id, familyID, title, req.Msg.GetDescription(), priceCents, spec.Cron, formatTime(now), iconType, iconValue,
+			string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
+		); err != nil {
+			return fmt.Errorf("create task: %w", err)
+		}
+		return s.setTaskAssignments(ctx, q, id, childIDs)
+	}); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&v1.CreateTaskResponse{
 		Task: &v1.Task{
@@ -900,20 +940,41 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ?,
-		 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ? AND deleted_at IS NULL`,
-		req.Msg.GetTitle(), req.Msg.GetDescription(), priceCents, spec.Cron, req.Msg.GetActive(), iconType, iconValue,
-		string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
-	)
+	// Freezing what the task has already produced and applying the edit are
+	// one atomic step. Half of it — history pinned against a task that then
+	// failed to change, or worse, a change applied over history that was
+	// never pinned — would be a silent, permanent misstatement of what a
+	// child earned.
+	notFound := errors.New("task not found")
+	freeze := restatesHistory(existing, req.Msg)
+	err = s.inTx(ctx, func(q querier) error {
+		if freeze {
+			if err := s.freezeOccurrences(ctx, q, existing, nowUTC()); err != nil {
+				return fmt.Errorf("freeze occurrences: %w", err)
+			}
+		}
+		res, err := q.ExecContext(ctx,
+			`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ?,
+			 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ? AND deleted_at IS NULL`,
+			req.Msg.GetTitle(), req.Msg.GetDescription(), priceCents, spec.Cron, req.Msg.GetActive(), iconType, iconValue,
+			string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
+		)
+		if err != nil {
+			return fmt.Errorf("update task: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return notFound
+		}
+		if err := s.setTaskAssignments(ctx, q, taskID, childIDs); err != nil {
+			return fmt.Errorf("assign task: %w", err)
+		}
+		return nil
+	})
+	if errors.Is(err, notFound) {
+		return nil, connect.NewError(connect.CodeNotFound, notFound)
+	}
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("task not found"))
-	}
-	if err := s.setTaskAssignments(ctx, taskID, childIDs); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("assign task: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	task, err := s.getTask(ctx, taskID)
@@ -1129,7 +1190,18 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		if cutoff, ok := occurrenceCutoff(t); ok && cutoff.Before(expandEnd) {
 			expandEnd = cutoff
 		}
-		dates, err := spec.DatesBetween(start, expandEnd)
+		// And it doesn't generate anything from before it existed: a chore
+		// added today was not silently missed all last week. This is the
+		// same reasoning occurrenceFloorDate applies to the family as a
+		// whole, applied per task so that an explicit start_date can't
+		// reach back past a task's own creation. It's also what makes
+		// freezeOccurrences well-defined, since it has to cover exactly the
+		// range this loop would otherwise derive.
+		expandStart := start
+		if created, err := taskCreatedDate(t); err == nil && created.After(expandStart) {
+			expandStart = created
+		}
+		dates, err := spec.DatesBetween(expandStart, expandEnd)
 		if err != nil {
 			continue
 		}
@@ -1217,6 +1289,137 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	}
 
 	return connect.NewResponse(&v1.ListTaskOccurrencesResponse{Occurrences: occurrences, HasMore: hasMore}), nil
+}
+
+// freezeOccurrences records, as rows, every occurrence this task has
+// already produced that nothing has been written about yet — each carrying
+// the task's values as they stand *now*, before the caller changes them.
+//
+// This is what makes editing a task non-retroactive for occurrences nobody
+// completed. A completed occurrence was already frozen when it was
+// completed; an uncompleted past one exists only as a derivation from the
+// task's current schedule and price, so without this an edit would silently
+// restate what last month's missed chores were worth and when they were
+// due.
+//
+// Only dates strictly before today are frozen. Today and later still track
+// the task, which is what you want: correcting a price this morning should
+// apply to this morning's chore, not just tomorrow's.
+//
+// Deliberately not called from DeleteTask. Deletion is soft and changes
+// none of the values an occurrence is derived from, so a deleted task's
+// past reconstructs correctly from the row that's still there — see
+// occurrenceCutoff.
+func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task, now time.Time) error {
+	spec, err := specFromSchedule(task.GetSchedule(), now)
+	if err != nil {
+		return nil // an unparseable schedule produced no occurrences to freeze
+	}
+	start, err := taskCreatedDate(task)
+	if err != nil {
+		return err
+	}
+	end, err := scheduling.ParseDate(scheduling.FormatDate(now))
+	if err != nil {
+		return err
+	}
+	end = end.AddDate(0, 0, -1) // strictly before today
+	if end.Before(start) {
+		return nil
+	}
+	if cutoff, ok := occurrenceCutoff(task); ok && cutoff.Before(end) {
+		end = cutoff
+	}
+	dates, err := spec.DatesBetween(start, end)
+	if err != nil || len(dates) == 0 {
+		return nil
+	}
+	iconType, iconValue, err := taskIconToDB(task.GetIcon())
+	if err != nil {
+		return err
+	}
+
+	// Batched: a daily task a year old freezes a few hundred rows per
+	// assigned child, and this runs inside a transaction holding the only
+	// connection. One statement per row turns a routine edit into a
+	// visible stall.
+	//
+	// DO NOTHING because a row that already exists is either a completion
+	// or an earlier freeze — both already say what this occurrence was,
+	// and neither should be restated.
+	const cols = 10
+	// SQLite's default parameter ceiling is 999; this keeps a chunk well
+	// under it with room for the statement itself.
+	const perChunk = 90
+
+	var args []any
+	flush := func() error {
+		if len(args) == 0 {
+			return nil
+		}
+		rows := len(args) / cols
+		placeholders := strings.TrimSuffix(strings.Repeat("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL),", rows), ",")
+		_, err := q.ExecContext(ctx,
+			`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, title, description, icon_type, icon_value, amount_cents, completed_at)
+			 VALUES `+placeholders+`
+			 ON CONFLICT (task_id, child_id, due_date) DO NOTHING`,
+			args...,
+		)
+		args = args[:0]
+		return err
+	}
+
+	for _, childID := range task.GetChildIds() {
+		for _, d := range dates {
+			args = append(args,
+				newID(), task.GetId(), childID, task.GetFamilyId(), scheduling.FormatDate(d),
+				task.GetTitle(), task.GetDescription(), iconType, iconValue, task.GetPrice().GetCents(),
+			)
+			if len(args)/cols >= perChunk {
+				if err := flush(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return flush()
+}
+
+// restatesHistory reports whether an update would change what an
+// already-due occurrence renders as, and therefore whether the task's past
+// has to be frozen before it is applied.
+//
+// Only the fields an occurrence is derived from count. Pausing or resuming
+// a task changes `active`, which affects whether it comes due from here on
+// but says nothing about what it was worth or called last month — so a
+// pause writes nothing. That distinction matters in practice: freezing is
+// one row per past due date per assigned child, so doing it on every edit
+// would turn pausing a long-running daily chore into a thousand-row write
+// for no gain.
+func restatesHistory(existing *v1.Task, req *v1.UpdateTaskRequest) bool {
+	if existing.GetTitle() != req.GetTitle() || existing.GetDescription() != req.GetDescription() {
+		return true
+	}
+	if existing.GetPrice().GetCents() != req.GetPrice().GetCents() {
+		return true
+	}
+	if !proto.Equal(existing.GetIcon(), req.GetIcon()) || !proto.Equal(existing.GetSchedule(), req.GetSchedule()) {
+		return true
+	}
+	// Assignment changes matter because an occurrence exists per assigned
+	// child: dropping a child would otherwise retract every occurrence they
+	// had already been asked for.
+	was := append([]string(nil), existing.GetChildIds()...)
+	now := dedupeStrings(req.GetChildIds())
+	sort.Strings(was)
+	sort.Strings(now)
+	return !slices.Equal(was, now)
+}
+
+// taskCreatedDate is the calendar date a task came into existence — the
+// first date it can possibly have been due on.
+func taskCreatedDate(t *v1.Task) (time.Time, error) {
+	return scheduling.ParseDate(scheduling.FormatDate(t.GetCreatedAt().AsTime()))
 }
 
 // occurrenceCutoff is the last date a task generates occurrences for. A
@@ -1441,13 +1644,17 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	// here and never revisited: this is the moment the occurrence becomes
 	// history, and history has to keep saying what it said.
 	//
-	// DO NOTHING rather than DO UPDATE on conflict, so a duplicate submit
-	// (a double tap, a retried request) can't quietly reprice an occurrence
-	// that was already completed at a different amount.
+	// On conflict, only completed_at is set, and only when the row isn't
+	// already complete. The row may exist for either of two reasons and
+	// both are handled by that: it was frozen by an earlier task edit (so
+	// it needs completing, at the amount it was frozen at, not the task's
+	// current price), or it is already a completion and this is a duplicate
+	// submit (so nothing should change at all).
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, title, description, icon_type, icon_value, amount_cents, completed_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT (task_id, child_id, due_date) DO NOTHING`,
+		 ON CONFLICT (task_id, child_id, due_date) DO UPDATE SET completed_at = excluded.completed_at
+		 WHERE task_occurrences.completed_at IS NULL`,
 		id, taskID, childID, task.FamilyId, dueDate, task.GetTitle(), task.GetDescription(),
 		iconType, iconValue, priceCents, formatTime(now),
 	)
@@ -1489,14 +1696,13 @@ func (s *Server) UncompleteTask(ctx context.Context, req *connect.Request[v1.Unc
 			return nil, err
 		}
 	}
-	// Removing the row rather than nulling completed_at: in this stage an
-	// occurrence is only ever stored because it was completed, so an
-	// uncompleted one has nothing left worth keeping and reverts to being
-	// derived from its task's schedule like any other. (Once occurrences
-	// are frozen ahead of task edits, this becomes an UPDATE that clears
-	// completed_at and keeps the row.)
+	// Clears the completion but keeps the row, rather than deleting it. The
+	// row may have been frozen by an earlier task edit, in which case it
+	// carries what this occurrence was worth on the day and deleting it
+	// would hand that back to the task's current price. Keeping it also
+	// means un-ticking and re-ticking a chore can't change what it pays.
 	if _, err := s.db.ExecContext(ctx,
-		`DELETE FROM task_occurrences WHERE task_id = ? AND child_id = ? AND due_date = ?`,
+		`UPDATE task_occurrences SET completed_at = NULL WHERE task_id = ? AND child_id = ? AND due_date = ?`,
 		taskID, childID, dueDate,
 	); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("uncomplete task: %w", err))
@@ -1528,6 +1734,22 @@ func mondayOfWeek(t time.Time) time.Time {
 // schema.sql, so each of these is answered from an index alone.
 const earnedClause = `SELECT COALESCE(SUM(amount_cents), 0) FROM task_occurrences
 	WHERE child_id = ? AND completed_at IS NOT NULL`
+
+// childBalanceCents is what the child is currently owed: everything they
+// have earned, less everything already paid out. Takes a querier so a payout
+// can read it inside the same transaction that records against it.
+func (s *Server) childBalanceCents(ctx context.Context, q querier, childID string) (int64, error) {
+	var earned, paidOut sql.NullInt64
+	if err := q.QueryRowContext(ctx, earnedClause, childID).Scan(&earned); err != nil {
+		return 0, err
+	}
+	if err := q.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(amount_cents), 0) FROM payouts WHERE child_id = ?`, childID,
+	).Scan(&paidOut); err != nil {
+		return 0, err
+	}
+	return earned.Int64 - paidOut.Int64, nil
+}
 
 func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildSummary, error) {
 	var totalEarned, earnedLast7Days, earnedToday, earnedThisWeek, totalPaidOut sql.NullInt64
@@ -1693,26 +1915,45 @@ func (s *Server) CreatePayout(ctx context.Context, req *connect.Request[v1.Creat
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("payouts can only be made to children"))
 	}
 
-	amount := req.Msg.GetAmount().GetCents()
-	if req.Msg.GetFullPayout() {
-		summary, err := s.computeSummary(ctx, child)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		amount = summary.GetBalance().GetCents()
-	}
-	if amount <= 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("amount must be greater than zero"))
-	}
-
 	id := newID()
 	now := nowUTC()
-	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO payouts (id, child_id, family_id, amount_cents, full_payout, note, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, childID, child.FamilyId, amount, req.Msg.GetFullPayout(), req.Msg.GetNote(), formatTime(now),
-	); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create payout: %w", err))
+	amount := req.Msg.GetAmount().GetCents()
+
+	// Reading the balance and recording against it has to be one atomic
+	// step. Split across two statements, two concurrent "pay the full
+	// balance" taps both read the same figure and both insert, paying the
+	// child twice and leaving them owing the difference. The single
+	// connection serializes each statement but not the pair.
+	notPositive := errors.New("amount must be greater than zero")
+	tooMuch := errors.New("amount exceeds the child's outstanding balance")
+	err = s.inTx(ctx, func(q querier) error {
+		balance, err := s.childBalanceCents(ctx, q, childID)
+		if err != nil {
+			return err
+		}
+		if req.Msg.GetFullPayout() {
+			amount = balance
+		}
+		if amount <= 0 {
+			return notPositive
+		}
+		if amount > balance {
+			return tooMuch
+		}
+		if _, err := q.ExecContext(ctx,
+			`INSERT INTO payouts (id, child_id, family_id, amount_cents, full_payout, note, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, childID, child.FamilyId, amount, req.Msg.GetFullPayout(), req.Msg.GetNote(), formatTime(now),
+		); err != nil {
+			return fmt.Errorf("create payout: %w", err)
+		}
+		return nil
+	})
+	if errors.Is(err, notPositive) || errors.Is(err, tooMuch) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&v1.CreatePayoutResponse{

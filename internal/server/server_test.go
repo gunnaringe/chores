@@ -31,6 +31,16 @@ func weeklySchedule(days []int32, intervalWeeks int32, anchorDate string) *v1.Sc
 	}}}
 }
 
+// backdateTask makes a task have existed since createdAt. A task is never
+// due before it was created, so any test asserting on occurrences earlier
+// than "now" has to give its task a past first.
+func backdateTask(t *testing.T, s *Server, taskID, createdAt string) {
+	t.Helper()
+	if _, err := s.db.Exec(`UPDATE tasks SET created_at = ? WHERE id = ?`, createdAt, taskID); err != nil {
+		t.Fatalf("backdate task: %v", err)
+	}
+}
+
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	conn, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
@@ -472,6 +482,24 @@ func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
 		t.Fatalf("expected ListChildSummaries to only return the caller's own summary, got %+v", summaries.Msg.Summaries)
 	}
 
+	// Earn something first: a payout can't exceed the child's balance, so
+	// each needs completions to pay out against. A is paid one day's worth,
+	// B two.
+	for _, c := range []struct {
+		childID string
+		dates   []string
+	}{
+		{childAID, []string{"2024-01-01"}},
+		{childBID, []string{"2024-01-01", "2024-01-02"}},
+	} {
+		for _, d := range c.dates {
+			if _, err := s.CompleteTask(ctxParent, connect.NewRequest(&v1.CompleteTaskRequest{
+				TaskId: task.Msg.Task.Id, ChildId: c.childID, DueDate: d,
+			})); err != nil {
+				t.Fatalf("CompleteTask %s %s: %v", c.childID, d, err)
+			}
+		}
+	}
 	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childAID, Amount: money(100)})); err != nil {
 		t.Fatalf("CreatePayout to A: %v", err)
 	}
@@ -634,6 +662,9 @@ func TestTaskRepeatModes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTask WEEKLY: %v", err)
 	}
+	// The anchor week is in the past relative to the test clock, so the
+	// task has to have existed by then to be due on it.
+	backdateTask(t, s, weekly.Msg.Task.Id, "2026-08-01T00:00:00Z")
 	occ, err = s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, StartDate: "2026-08-24", EndDate: "2026-09-14",
 	}))
@@ -980,6 +1011,9 @@ func TestListTaskOccurrences_SearchAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTask Laundry: %v", err)
 	}
+	// Both tasks work in 2024 dates, so both need to have existed by then.
+	backdateTask(t, s, dishes.Msg.Task.Id, "2023-12-31T00:00:00Z")
+	backdateTask(t, s, laundry.Msg.Task.Id, "2023-12-31T00:00:00Z")
 
 	dates := []string{"2024-01-01", "2024-01-02", "2024-01-03"}
 	for _, d := range dates {
@@ -1114,6 +1148,9 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 	if err != nil {
 		t.Fatalf("CreateTask Laundry: %v", err)
 	}
+	// Both tasks work in 2024 dates, so both need to have existed by then.
+	backdateTask(t, s, dishes.Msg.Task.Id, "2023-12-31T00:00:00Z")
+	backdateTask(t, s, laundry.Msg.Task.Id, "2023-12-31T00:00:00Z")
 
 	// Dishes gets completed on 01-02 but not 01-01 or 01-03; Laundry is
 	// completed on 01-01 only.
@@ -1164,7 +1201,9 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 
 	// Laundry: paused, so it only shows up via its one real completion on
 	// 01-01 — not on 01-02/01-03, which were never completed and can no
-	// longer be generated now that the task is paused.
+	// longer be generated now that the task is paused. Pausing changes
+	// nothing an occurrence is derived from, so it doesn't freeze the
+	// task's past either (see restatesHistory).
 	if o, ok := byKey["Laundry|2024-01-01"]; !ok || o.GetCompletedAt() == nil {
 		t.Fatalf("expected Laundry's 01-01 completion to survive pausing the task, got %+v", byKey["Laundry|2024-01-01"])
 	}

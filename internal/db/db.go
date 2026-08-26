@@ -15,7 +15,12 @@ import (
 var schema string
 
 func Open(path string) (*sql.DB, error) {
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)", path)
+	// _txlock=immediate takes the write lock when a transaction begins
+	// rather than when it first writes, so a transaction that reads and
+	// then writes — CreatePayout reading a balance before recording against
+	// it, say — can't fail to upgrade partway through if anything else has
+	// the file open (a backup, a CLI session).
+	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_txlock=immediate", path)
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
