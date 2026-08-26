@@ -2546,16 +2546,13 @@ function renderSettingsTab() {
   // A plain link out to the repo's issue tracker — this is a hobby project
   // (see the welcome page's disclaimer), so "something's wrong, now what"
   // has one answer: file it upstream, there's no in-app support flow.
-  const helpCard = el(`
+  const feedbackCard = el(`
     <div class="card">
-      <h2>${escapeHtml(t("settings.helpHeading"))}</h2>
-      <button type="button" class="secondary block" id="report-issue-btn">${escapeHtml(t("settings.reportIssue"))}</button>
+      <h2>${escapeHtml(t("settings.feedbackHeading"))}</h2>
+      <p class="hint" style="margin:0;">${escapeHtml(t("settings.feedbackHint"))} <a href="https://github.com/gunnaringe/chores/issues/new" target="_blank" rel="noopener">${escapeHtml(t("settings.feedbackLink"))}</a>.</p>
     </div>
   `);
-  helpCard.querySelector("#report-issue-btn").addEventListener("click", () => {
-    window.open("https://github.com/gunnaringe/chores/issues/new", "_blank", "noopener");
-  });
-  wrap.appendChild(helpCard);
+  wrap.appendChild(feedbackCard);
 
   // Managing who's in the family, and inviting new members, isn't something
   // you do often — and isn't relevant to a child at all — so it lives here

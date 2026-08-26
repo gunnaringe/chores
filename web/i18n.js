@@ -71,8 +71,9 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "The server doesn't have push notifications configured.",
     "settings.notificationsDenied": "Notifications are blocked for this site — enable them in your browser's site settings to use this.",
 
-    "settings.helpHeading": "Help",
-    "settings.reportIssue": "Report an issue on GitHub",
+    "settings.feedbackHeading": "Feedback",
+    "settings.feedbackHint": "Do you have any ideas for new features or have found any issues?",
+    "settings.feedbackLink": "Make a ticket here",
 
     "dashboard.enterKeyPrompt": "Enter the dashboard key for your family to continue.",
     "dashboard.keyLabel": "Dashboard key",
@@ -310,8 +311,9 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "Serveren har ikke satt opp push-varsler.",
     "settings.notificationsDenied": "Varsler er blokkert for dette nettstedet — slå dem på i nettleserens nettstedsinnstillinger for å bruke dette.",
 
-    "settings.helpHeading": "Hjelp",
-    "settings.reportIssue": "Meld en feil på GitHub",
+    "settings.feedbackHeading": "Tilbakemelding",
+    "settings.feedbackHint": "Har du ideer til nye funksjoner, eller har du funnet en feil?",
+    "settings.feedbackLink": "Opprett en sak her",
 
     "dashboard.enterKeyPrompt": "Skriv inn dashbord-nøkkelen for familien din for å fortsette.",
     "dashboard.keyLabel": "Dashbord-nøkkel",

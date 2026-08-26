@@ -141,6 +141,21 @@ scrolling content between them — that widens into a centred desktop page above
   Symbols render as ligature text, so until the font loads (or if it never
   does) each glyph is its literal name — `dishwasher_gen` etc. — which will
   overflow its box and intercept clicks meant for its neighbours.
+- **Icon glyphs stay hidden until the font is confirmed loaded.** An inline
+  script in `index.html`/`login.html`'s `<head>` adds `icons-loading` to
+  `<html>`, which `app.css` uses to `visibility: hidden` every
+  `.material-symbols-outlined` glyph; the script removes the class once
+  `document.fonts.load(...)` resolves, or after a 3s timeout regardless, so a
+  font that never arrives doesn't hide icons forever. Without this, a slow or
+  blocked font (ad blocker, restrictive network, or just the ~2.3MB variable
+  font not yet downloaded on first visit) shows the raw ligature name the
+  instant the HTML parses — worse than the overflow case above, since
+  `overflow: hidden` alone just clips that text mid-word rather than hiding
+  it. This can't fully fix the case where the Google Fonts *stylesheet*
+  itself never loads at all (no `@font-face` gets registered, so there's
+  nothing for `document.fonts.load()` to usefully wait on — it rejects
+  almost immediately); it fixes the far more common case where the
+  stylesheet loads but the font *file* is still downloading.
 - Respect `env(safe-area-inset-*)` on anything pinned to a screen edge.
 
 ## Pull requests
