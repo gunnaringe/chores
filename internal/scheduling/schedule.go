@@ -170,7 +170,7 @@ func (s Spec) IsDue(date time.Time) (bool, error) {
 			return false, fmt.Errorf("invalid start_date: %w", err)
 		}
 		weeks := weeksBetween(anchor, date)
-		return ((weeks % interval) + interval) % interval == 0, nil
+		return ((weeks%interval)+interval)%interval == 0, nil
 	case ModeCron:
 		return IsDue(s.Cron, date)
 	default:
