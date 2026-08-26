@@ -108,6 +108,27 @@ message Schedule {
 }
 
 // ---- Tasks ----------------------------------------------------------------
+//
+// Tasks come in two halves, and the distinction is the whole design:
+//
+//   Task            the recurring definition — a rule ("every Monday"), what
+//                   it pays, who it applies to. Holds no state about any
+//                   particular day. Effectively a template, though it keeps
+//                   the name the UI and the family use for it.
+//   TaskOccurrence  one instance of that definition: one task, one child,
+//                   one date.
+//
+// TaskOccurrence repeats the definition's title, description, icon and
+// amount rather than referring back to them. That duplication is load-
+// bearing and must not be "tidied up" into a join: it is what lets a task
+// be renamed, repriced or deleted without rewriting what already happened.
+// Resolving those fields from the Task at read time is precisely the bug
+// this shape exists to prevent — it once let deleting a task erase the
+// earnings behind payouts already made, driving a child's balance negative.
+//
+// The one field deliberately NOT copied is child_name, which resolves live:
+// correcting the spelling of a person's name should fix it everywhere,
+// unlike a task rename, which must not reach backwards.
 
 message Task {
   // 5 was price_cents (int64), superseded by `price`.
