@@ -668,6 +668,17 @@ label {
 .task-row-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .task-row-text { min-width: 0; }
 
+/* The "Must do" / "Can do" heading above each group of today's tasks. Tighter
+   than a standalone .section-label because it sits between rows inside a card,
+   not between cards — and the first one shouldn't push the list away from the
+   child's name above it. */
+.occurrence-group {
+  margin: 14px 0 2px;
+}
+.occurrence-group:first-child {
+  margin-top: 6px;
+}
+
 /* History rows for occurrences that were due but never completed — dimmed
    so a glance at the list still reads as "mostly done things", with the
    pill above doing the explicit labeling. */
