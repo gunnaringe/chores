@@ -3,13 +3,12 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-const CACHE_NAME = "chores-shell-v5";
+const CACHE_NAME = "chores-shell-v6";
 const PRECACHE_URLS = [
   "/app.js",
   "/app.css",
   "/i18n.js",
   "/login.html",
-  "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
@@ -38,8 +37,18 @@ self.addEventListener("activate", (event) => {
 // risks serving a stale login page right after a successful login, forcing
 // a second one to see it clear. Every other document is a fixed static
 // file that's fine to cache.
+// The manifest is excluded for the same reason as "/": it is generated per
+// request now, with the app's name localized to ?lang= (see web/manifest.go).
+// Caching it would hand a Norwegian install the English name, which is
+// exactly the thing that name is supposed to follow.
 function isDynamic(pathname) {
-  return pathname === "/" || pathname.startsWith("/chores.v1.ChoresService/") || pathname.startsWith("/auth/") || pathname.startsWith("/invite/");
+  return (
+    pathname === "/" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname.startsWith("/chores.v1.ChoresService/") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/invite/")
+  );
 }
 
 // Push payloads are plain JSON ({title, body}) built server-side in

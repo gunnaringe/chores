@@ -102,8 +102,18 @@ which holds two complete blocks: `en` and `nb` (Norwegian Bokmål).
 
 **Add every new key to both blocks.** A key missing from `nb` silently falls
 back to English rather than erroring, so a half-translated UI looks fine in
-testing and ships broken. The app's own name, "Chores", is a brand and stays
-untranslated.
+testing and ships broken.
+
+**The app's own name is translated too** — "Chores" in English, "Ukelønn" in
+Norwegian — so never hardcode it. Use `appName()` in JS. The name also has to
+reach three places outside the rendered UI (the tab title, the iOS
+add-to-home-screen name, and the PWA manifest an install reads); `applyAppName()`
+stamps all three, and must be called again whenever the language changes.
+
+Those two names exist **twice**: as the `app.name` key in `web/i18n.js`, and in
+`appNames` in `web/manifest.go`, which serves the manifest with a localized
+name. The manifest is JSON served by Go and the UI is JS, so there is no shared
+definition to point at — change one and you must change the other.
 
 ## CSS
 
@@ -118,6 +128,10 @@ scrolling content between them — that widens into a centred desktop page above
 - **Form text must stay at 16px.** Below that, iOS Safari zooms the viewport
   when a field is focused, which reads as the page lurching sideways mid-typing.
 - **Tap targets are 44px minimum.**
+- **Screenshots on the welcome page live in `web/screenshots/`**, one set per
+  language (`<screen>-<lang>.webp`), embedded like every other asset. There is
+  no image tooling in the sandbox — regenerate and re-encode them through
+  Chromium; the `verify-ui` skill has the recipe.
 - **Any fixed-size icon container must set `overflow: hidden`.** Material
   Symbols render as ligature text, so until the font loads (or if it never
   does) each glyph is its literal name — `dishwasher_gen` etc. — which will

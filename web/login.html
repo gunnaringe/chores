@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Chores</title>
 <link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -18,37 +21,145 @@
 </head>
 <body>
 <div id="app">
-  <main class="content no-tabbar">
-    <div class="hero">
+  <main class="content no-tabbar welcome">
+    <!-- The hero is deliberately the whole first screen and nothing else:
+         someone who already uses the app should never have to read past it,
+         or scroll, to find the same Log in button that has always been here.
+         Everything explaining the app lives below the fold. -->
+    <header class="welcome-hero">
       <img src="/icons/logo.png" alt="" width="96" height="96" class="logo" />
       <h1 id="app-title"></h1>
-      <p id="login-subtitle"></p>
+      <p id="login-tagline"></p>
       <button class="block" id="login-btn" onclick="location.href='/auth/login'"></button>
-      <div style="margin-top:22px;">
-        <select id="lang-switcher" style="width:auto;" aria-label="Language"></select>
+      <div class="welcome-lang">
+        <select id="lang-switcher" style="width:auto;"></select>
       </div>
-    </div>
+    </header>
+
+    <section class="welcome-section">
+      <h2 id="how-heading"></h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+
+    <section class="welcome-section">
+      <div class="shots" id="shots"></div>
+    </section>
+
+    <section class="welcome-section">
+      <div class="card">
+        <h2 id="extras-heading"></h2>
+        <p id="extras-body" style="margin:0;"></p>
+      </div>
+    </section>
+
+    <section class="welcome-section welcome-cta">
+      <h2 id="cta-heading"></h2>
+      <button class="block" id="login-btn-2" onclick="location.href='/auth/login'"></button>
+    </section>
+
+    <footer class="welcome-footer">
+      <h2 id="about-heading"></h2>
+      <p>
+        <a id="source-link" href="https://github.com/gunnaringe/chores" rel="noopener">Source on GitHub</a>
+      </p>
+      <p id="hosting"></p>
+      <p id="built-with"></p>
+    </footer>
   </main>
 </div>
 <script src="/i18n.js"></script>
 <script>
-  document.getElementById("app-title").textContent = window.APP_NAME;
-  document.getElementById("login-subtitle").textContent = t("login.subtitle");
-  document.getElementById("login-btn").textContent = t("login.button");
+  (function () {
+    const text = (id, key) => {
+      document.getElementById(id).textContent = t(key);
+    };
 
-  const switcher = document.getElementById("lang-switcher");
-  switcher.setAttribute("aria-label", t("lang.label"));
-  switcher.innerHTML = window.LANGUAGES.map(
-    (l) => `<option value="${l.code}"${l.code === getLang() ? " selected" : ""}>${l.label}</option>`
-  ).join("");
-  switcher.addEventListener("change", (e) => {
-    setLang(e.target.value);
-    location.reload();
-  });
+    applyAppName();
+    text("app-title", "app.name");
+    text("login-tagline", "login.tagline");
+    text("login-btn", "login.button");
+    text("login-btn-2", "login.button");
+    text("how-heading", "login.howHeading");
+    text("extras-heading", "login.extrasHeading");
+    text("extras-body", "login.extrasBody");
+    text("cta-heading", "login.ctaHeading");
+    text("about-heading", "login.aboutHeading");
+    text("source-link", "login.sourceLink");
+    text("hosting", "login.hosting");
+    text("built-with", "login.builtWith");
 
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
-  }
+    const STEPS = [
+      { icon: "edit_note", title: "login.step1Title", body: "login.step1Body" },
+      { icon: "check_circle", title: "login.step2Title", body: "login.step2Body" },
+      { icon: "savings", title: "login.step3Title", body: "login.step3Body" },
+    ];
+    const steps = document.getElementById("steps");
+    for (const step of STEPS) {
+      const li = document.createElement("li");
+      li.className = "step";
+
+      const icon = document.createElement("span");
+      icon.className = "step-icon material-symbols-outlined";
+      icon.textContent = step.icon;
+
+      const body = document.createElement("div");
+      const h3 = document.createElement("h3");
+      h3.textContent = t(step.title);
+      const p = document.createElement("p");
+      p.textContent = t(step.body);
+      p.style.margin = "0";
+      body.append(h3, p);
+
+      li.append(icon, body);
+      steps.appendChild(li);
+    }
+
+    // Screenshots exist per language, since every word in them is UI text.
+    // Norwegian falls back to the English set if a shot is ever missing.
+    const SHOTS = [
+      { file: "today", caption: "login.shotToday" },
+      { file: "tasks", caption: "login.shotTasks" },
+      { file: "balance", caption: "login.shotBalance" },
+    ];
+    const lang = getLang() === "nb" ? "nb" : "en";
+    const shots = document.getElementById("shots");
+    for (const shot of SHOTS) {
+      const figure = document.createElement("figure");
+      figure.className = "shot";
+
+      const img = document.createElement("img");
+      img.src = `/screenshots/${shot.file}-${lang}.webp`;
+      img.alt = t(shot.caption);
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.width = 390;
+      img.height = 720;
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = `/screenshots/${shot.file}-en.webp`;
+      };
+
+      const caption = document.createElement("figcaption");
+      caption.textContent = t(shot.caption);
+
+      figure.append(img, caption);
+      shots.appendChild(figure);
+    }
+
+    const switcher = document.getElementById("lang-switcher");
+    switcher.setAttribute("aria-label", t("lang.label"));
+    switcher.innerHTML = window.LANGUAGES.map(
+      (l) => `<option value="${l.code}"${l.code === getLang() ? " selected" : ""}>${l.label}</option>`
+    ).join("");
+    switcher.addEventListener("change", (e) => {
+      setLang(e.target.value);
+      location.reload();
+    });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+    }
+  })();
 </script>
 </body>
 </html>

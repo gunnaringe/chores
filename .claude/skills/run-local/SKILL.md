@@ -71,22 +71,39 @@ curl -sS --noproxy '*' http://localhost:8080/app.css | grep -c 'some-new-class'
 
 ## Stopping it cleanly
 
-`pkill -f 'chores -addr=:8080'` **will kill your own shell**: the pattern
-matches the shell's own command line, which contains the string you just
-typed. This is easy to do repeatedly without realising why the session died.
+This is the single most time-wasting thing in this repo. Three separate traps
+stack on top of each other:
 
-Start it under `setsid` with a pidfile instead:
+1. **`pkill -f 'chores -addr=:8080'` kills your own shell.** The pattern
+   matches the shell's own `/proc` command line, because it contains the
+   string you just typed. The shell dies, and it is not obvious why.
+2. **Killing the `go run` pid leaves the server running.** `go run` compiles
+   to `/root/.cache/go-build/<hash>/exe/chores` and execs that as a *child*.
+   Kill the wrapper and the child keeps holding `:8080`, so your next start
+   fails with `address already in use` — while the old binary, with the old
+   embedded assets, quietly keeps serving your browser.
+3. **Matching on the binary path misses it**, because that cache path
+   contains neither `chores` nor `cmd/chores` in the part you would match.
+
+Moving the matcher into a script file only fixes trap 1 *if nothing else on
+the invoking command line repeats the pattern* — which is easy to get wrong.
+
+**Use a process group and a pidfile, and don't scan `/proc` at all:**
 
 ```bash
-setsid go run ./cmd/chores ... > /tmp/chores.log 2>&1 < /dev/null &
-echo $! > /tmp/chores.pid
-# later:
-kill "$(cat /tmp/chores.pid)"
+setsid env AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
+  AUTH0_CLIENT_SECRET=devsecret \
+  go run ./cmd/chores -addr=:8080 -db=/tmp/chores-dev.db \
+  > /tmp/chores.log 2>&1 < /dev/null &
+echo $! > /tmp/chores.pgid
+
+# later — the leading "-" kills the whole group, wrapper and binary together:
+kill -- "-$(cat /tmp/chores.pgid)"
 ```
 
-If you have already lost the pid, match on something that cannot appear in
-your own command line — the compiled binary path under `go-build`, not the
-`go run` invocation.
+If you have already lost the pid and must scan, match the **listen flag**
+(`-addr=:8080`), do it from a standalone script file, and invoke that script
+as the *only* thing on the command line.
 
 ## Talking to the API directly
 
