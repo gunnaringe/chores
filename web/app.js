@@ -1892,14 +1892,36 @@ function renderFamilyTab() {
           // /invite/accept (see cmd/chores/main.go) forces login first if
           // needed, then binds the token and lands them in the app.
           const acceptUrl = `${window.location.origin}/invite/accept?token=${encodeURIComponent(pendingInvite.token)}`;
-          detail.appendChild(el(`
+          const inviteField = el(`
             <div class="field">
               <label>${escapeHtml(t("invitations.linkLabel"))}</label>
               <input type="text" class="input-full" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
               <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
-              <input type="text" class="input-full" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
+              <div class="input-row">
+                <input type="text" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
+                <button type="button" class="secondary btn-icon" title="${escapeHtml(t("invitations.copyLink"))}" aria-label="${escapeHtml(t("invitations.copyLink"))}"><span class="material-symbols-outlined">content_copy</span></button>
+              </div>
             </div>
-          `));
+          `);
+          const copyBtn = inviteField.querySelector(".btn-icon");
+          const copyIcon = copyBtn.querySelector(".material-symbols-outlined");
+          copyBtn.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(acceptUrl);
+              copyIcon.textContent = "check";
+              copyBtn.title = t("invitations.copied");
+              copyBtn.setAttribute("aria-label", t("invitations.copied"));
+              setTimeout(() => {
+                copyIcon.textContent = "content_copy";
+                copyBtn.title = t("invitations.copyLink");
+                copyBtn.setAttribute("aria-label", t("invitations.copyLink"));
+              }, 1500);
+            } catch (e) {
+              state.error = e.message || String(e);
+              render();
+            }
+          });
+          detail.appendChild(inviteField);
         }
         const revokeBtn = el(`<button type="button" class="danger" style="margin-top:10px;">${escapeHtml(t("invitations.revoke"))}</button>`);
         revokeBtn.addEventListener("click", () => {

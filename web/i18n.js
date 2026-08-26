@@ -227,6 +227,8 @@ const TRANSLATIONS = {
     "invitations.inviteDesc": "Creates a one-time code so they can log in with their own account — open their row above to see the invite link until they use it.",
     "invitations.linkLabel": "Invite link — opening it logs them in and accepts automatically",
     "invitations.codeLabel": "Invite code — share it with them",
+    "invitations.copyLink": "Copy invite link",
+    "invitations.copied": "Copied!",
 
     "auth.logout": "Log out",
 
@@ -474,6 +476,8 @@ const TRANSLATIONS = {
     "invitations.inviteDesc": "Oppretter en engangskode så de kan logge inn med sin egen konto — åpne raden deres over for å se invitasjonslenken til de bruker den.",
     "invitations.linkLabel": "Invitasjonslenke — å åpne den logger dem inn og godtar automatisk",
     "invitations.codeLabel": "Invitasjonskode — del den med dem",
+    "invitations.copyLink": "Kopier invitasjonslenke",
+    "invitations.copied": "Kopiert!",
 
     "auth.logout": "Logg ut",
 
