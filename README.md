@@ -182,10 +182,10 @@ None of this is required to run the app — `fly.toml` and the deploy setup
 are specific to the author's own instance, kept here for reference rather
 than as something this repo expects you to reuse. That instance is a single
 Fly.io machine (`primary_region = "arn"`, i.e. Stockholm) with its SQLite
-database on a persistent volume, reachable through CloudFront for DNS, with
-login handled by Auth0 (see Authentication below). The welcome page states
-the same three facts for anyone visiting the running app, not just anyone
-reading this file.
+database on a persistent volume, reachable through Cloudflare, with login
+handled by Auth0's EU region (see Authentication below). The welcome page
+states the same three facts for anyone visiting the running app, not just
+anyone reading this file.
 
 ## Language
 
