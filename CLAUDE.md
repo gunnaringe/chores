@@ -144,18 +144,28 @@ scrolling content between them — that widens into a centred desktop page above
 - **Icon glyphs stay hidden until the font is confirmed loaded.** An inline
   script in `index.html`/`login.html`'s `<head>` adds `icons-loading` to
   `<html>`, which `app.css` uses to `visibility: hidden` every
-  `.material-symbols-outlined` glyph; the script removes the class once
-  `document.fonts.load(...)` resolves, or after a 3s timeout regardless, so a
-  font that never arrives doesn't hide icons forever. Without this, a slow or
-  blocked font (ad blocker, restrictive network, or just the ~2.3MB variable
-  font not yet downloaded on first visit) shows the raw ligature name the
-  instant the HTML parses — worse than the overflow case above, since
-  `overflow: hidden` alone just clips that text mid-word rather than hiding
-  it. This can't fully fix the case where the Google Fonts *stylesheet*
-  itself never loads at all (no `@font-face` gets registered, so there's
-  nothing for `document.fonts.load()` to usefully wait on — it rejects
-  almost immediately); it fixes the far more common case where the
-  stylesheet loads but the font *file* is still downloading.
+  `.material-symbols-outlined` glyph. Without it, a slow or blocked font (ad
+  blocker, restrictive network, or just the ~2.3MB variable font not yet
+  downloaded on first visit) shows the raw ligature name the instant the HTML
+  parses — worse than the overflow case above, since `overflow: hidden` alone
+  just clips that text mid-word rather than hiding it.
+- **Don't decide whether that font loaded with the Font Loading API.** When
+  the Google Fonts *stylesheet* is blocked outright, no `@font-face` is ever
+  registered — and an unregistered family counts as an available *system*
+  font, so `document.fonts.load()` **resolves** and `document.fonts.check()`
+  returns **true**. Both report success for exactly the case that most needs
+  catching, and an earlier version of this script trusted them and revealed
+  the raw names on a real phone. The script instead measures a probe span:
+  with the font, `"settings"` is one ~24px glyph; without it the word runs
+  60px+. It re-runs that check on `fonts.ready` and a 3s backstop, so a font
+  arriving late still upgrades the page.
+- **There are two failure states, not one.** `icons-loading` is the transient
+  "don't know yet"; `icons-unavailable` is terminal, and is what a phone with
+  Google Fonts blocked ends up in permanently. It clamps every glyph to a 1em
+  box and draws a neutral placeholder, so icon-only controls stay visible and
+  tappable instead of turning into blank gaps or overflowing words. Anything
+  that adds a new icon context gets this for free; anything that hardcodes an
+  icon's size in px should still expect the 1em box in that state.
 - Respect `env(safe-area-inset-*)` on anything pinned to a screen edge.
 
 ## Pull requests

@@ -1243,3 +1243,38 @@ label {
 html.icons-loading .material-symbols-outlined {
   visibility: hidden;
 }
+
+/* Terminal fallback: the font is confirmed unusable — the Google Fonts
+   stylesheet was blocked outright, or the font file never arrived. Since
+   Material Symbols are ligature *text*, leaving it at that paints the
+   literal name ("checklist", "dishwasher_gen") at full text width, which
+   overflows the tab bar and every icon button and reads as a broken page.
+   So clamp each glyph to a 1em box, shove the text out of it, and draw a
+   neutral placeholder in its place — icon-only controls stay visible and
+   tappable, and their title/aria-label still says what they do. Sized in
+   em throughout, so each icon keeps whatever font-size its own rule set. */
+html.icons-unavailable .material-symbols-outlined {
+  position: relative;
+  width: 1em;
+  height: 1em;
+  /* Contexts that clamp an icon's width for their own layout would leave the
+     placeholder a rectangle — .chip-caret's max-width: 18px against a 24px
+     font-size made the topbar caret 18x24. Pin both axes so it stays square
+     wherever it lands. */
+  max-width: 1em;
+  max-height: 1em;
+  overflow: hidden;
+  /* Clears the longest ligature name at any icon size. */
+  text-indent: -30em;
+}
+html.icons-unavailable .material-symbols-outlined::before {
+  content: "";
+  position: absolute;
+  top: 0.12em;
+  right: 0.12em;
+  bottom: 0.12em;
+  left: 0.12em;
+  border: 0.085em solid currentColor;
+  border-radius: 0.22em;
+  opacity: 0.45;
+}
