@@ -30,6 +30,14 @@ that space would otherwise sit unused.
   of quick-pick suggestions plus a free-text field. A task only shows up
   for the children it's assigned to, can be edited in place at any time,
   and can be paused (and later resumed) instead of deleted.
+- Editing or deleting a task never rewrites what already happened. Each
+  occurrence records the title, icon, and amount the task had at the moment
+  it was completed, so repricing a chore doesn't revalue last month's work
+  and renaming one doesn't rename it in History. Deleting is a soft delete:
+  the task disappears from the Tasks tab and stops coming due, but every
+  occurrence it produced stays, and so do the earnings behind them — a
+  child's balance is never moved by deleting a task. (Removing a *child*
+  still does take their history with them; see below.)
 - A task's repeat rule is one of three modes: **does not repeat** (due once,
   on a specific date, then never again), **weekly** (day-of-week checkboxes,
   shown Monday-first, plus "every N weeks" — 1 for every week, higher for
@@ -44,9 +52,9 @@ that space would otherwise sit unused.
   group loads a page at a time as you ask for more, rather than pulling a
   family's entire history up front — plus a search box that matches by task
   title or child name across the whole history. Every entry there can be
-  deleted (undoing that completion, e.g. one logged for the wrong child) via
-  a two-step inline confirm — no browser popup, just a "Confirm delete"
-  button that appears in place of the delete button itself. Tasks manages
+  toggled — marking a completion as not done (e.g. one logged for the wrong
+  child), or marking a missed chore as done after the fact — via a two-step
+  inline confirm, no browser popup. Tasks manages
   task definitions (add/edit/pause/delete). Balance handles payouts and
   balance history. The top bar's user name is itself a dropdown for
   switching to a specific child's own restricted view, mainly useful for
@@ -329,7 +337,7 @@ buf generate
 - `proto/` — protobuf service/message definitions
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
-- `internal/scheduling` — cron-expression date matching for recurring tasks
+- `internal/scheduling` — turns a task's repeat rule (one-off, weekly, or raw cron) into the dates it is due on
 - `internal/server` — Connect service implementation (`push.go` holds VAPID key setup and Web Push sending)
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
