@@ -123,6 +123,30 @@ CREATE INDEX IF NOT EXISTS idx_occurrences_earned_by_completed
 CREATE INDEX IF NOT EXISTS idx_occurrences_earned_by_due
     ON task_occurrences(child_id, due_date, amount_cents) WHERE completed_at IS NOT NULL;
 
+-- What a child earned before their occurrence rows were purged.
+--
+-- Occurrence history is kept for a bounded window (see retentionDays in
+-- internal/server), but a balance is money owed and must stay exact
+-- forever. Deleting the rows a balance was computed from is precisely the
+-- bug task_occurrences exists to prevent — it would leave a child who was
+-- paid out from older earnings owing the difference. So the purge moves
+-- value rather than destroying it: the amounts it removes are added here,
+-- in the same transaction as the DELETE.
+--
+-- The invariant, which the reconciliation test asserts directly:
+--
+--   carried_earned_cents + SUM(remaining completed occurrences)
+--
+-- is unchanged by a purge. That is also why the earnings queries are NOT
+-- bounded by the retention window — they sum whatever rows still exist,
+-- so the total is correct whether or not a purge has run yet.
+CREATE TABLE IF NOT EXISTS child_ledger (
+    child_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    carried_earned_cents INTEGER NOT NULL DEFAULT 0,
+    -- When the most recent purge rolled amounts in here; diagnostic only.
+    updated_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS payouts (
     id TEXT PRIMARY KEY,
     child_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

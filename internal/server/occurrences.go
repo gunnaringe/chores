@@ -228,6 +228,14 @@ func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task
 	if err != nil {
 		return err
 	}
+	// Nothing before the retention window is worth freezing — the next
+	// purge would delete it, and the earnings it represents are already
+	// carried in the ledger. This also keeps an edit to a long-lived task
+	// bounded: without it, repricing a three-year-old daily chore wrote a
+	// row per past day.
+	if cutoff, err := scheduling.ParseDate(retentionCutoff(now)); err == nil && cutoff.After(start) {
+		start = cutoff
+	}
 	end, err := scheduling.ParseDate(scheduling.FormatDate(now))
 	if err != nil {
 		return err
@@ -414,8 +422,12 @@ func (s *Server) occurrenceFloorDate(ctx context.Context, familyID string) (stri
 	).Scan(&floor); err != nil {
 		return "", err
 	}
-	if !floor.Valid || floor.String == "" {
-		return scheduling.FormatDate(nowUTC()), nil
+	// Never reaches past the retention window. There is nothing to find
+	// beyond it, and expanding schedules across years to render one page is
+	// what made History cost a second at five years of history.
+	cutoff := retentionCutoff(nowUTC())
+	if !floor.Valid || floor.String < cutoff {
+		return cutoff, nil
 	}
 	return floor.String, nil
 }

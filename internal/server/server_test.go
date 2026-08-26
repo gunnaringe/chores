@@ -1248,17 +1248,33 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 		t.Fatalf("expected page 2 to have the last 2 results and has_more=false, got %d results has_more=%v", len(page2.Msg.Occurrences), page2.Msg.HasMore)
 	}
 
-	// Leaving both start_date and end_date unset spans "all time" for this
-	// family, bounded by when its tasks/completions actually exist —
-	// exercising occurrenceFloorDate.
-	allTime, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+	// Leaving start_date unset no longer means "all time": occurrenceFloorDate
+	// clamps to the retention window, so a search with no dates reaches back
+	// at most retentionDays. This family's history is from 2024 and therefore
+	// out of window entirely.
+	unbounded, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, Search: "laundry",
 	}))
 	if err != nil {
-		t.Fatalf("ListTaskOccurrences all-time search: %v", err)
+		t.Fatalf("ListTaskOccurrences unbounded search: %v", err)
 	}
-	if len(allTime.Msg.Occurrences) != 1 || allTime.Msg.Occurrences[0].DueDate != "2024-01-01" {
-		t.Fatalf("expected exactly the Laundry 01-01 completion, got %+v", allTime.Msg.Occurrences)
+	for _, o := range unbounded.Msg.Occurrences {
+		if o.GetDueDate() < retentionCutoff(nowUTC()) {
+			t.Fatalf("unbounded search reached past the retention window: %+v", o)
+		}
+	}
+
+	// An explicit range is still honoured as given — retention bounds what
+	// is kept and what an open-ended query defaults to, not what a caller
+	// may ask for.
+	explicit, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, Search: "laundry", StartDate: "2024-01-01", EndDate: "2024-01-03",
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences explicit range: %v", err)
+	}
+	if len(explicit.Msg.Occurrences) != 1 || explicit.Msg.Occurrences[0].DueDate != "2024-01-01" {
+		t.Fatalf("expected exactly the Laundry 01-01 completion, got %+v", explicit.Msg.Occurrences)
 	}
 }
 

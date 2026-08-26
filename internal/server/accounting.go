@@ -34,25 +34,50 @@ const earnedClause = `SELECT COALESCE(SUM(amount_cents), 0) FROM task_occurrence
 // have earned, less everything already paid out. Takes a querier so a payout
 // can read it inside the same transaction that records against it.
 func (s *Server) childBalanceCents(ctx context.Context, q querier, childID string) (int64, error) {
-	var earned, paidOut sql.NullInt64
-	if err := q.QueryRowContext(ctx, earnedClause, childID).Scan(&earned); err != nil {
+	earned, err := s.totalEarnedCents(ctx, q, childID)
+	if err != nil {
 		return 0, err
 	}
+	var paidOut sql.NullInt64
 	if err := q.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(amount_cents), 0) FROM payouts WHERE child_id = ?`, childID,
 	).Scan(&paidOut); err != nil {
 		return 0, err
 	}
-	return earned.Int64 - paidOut.Int64, nil
+	return earned - paidOut.Int64, nil
+}
+
+// totalEarnedCents is everything a child has ever earned: what their
+// remaining occurrence rows add up to, plus what was rolled into the ledger
+// when older rows were purged.
+//
+// Deliberately not bounded by the retention window. The two terms move in
+// opposite directions across a purge and their sum is invariant, so this is
+// correct whether a purge ran a moment ago or has never run at all —
+// retention becomes a storage concern rather than an accounting one.
+func (s *Server) totalEarnedCents(ctx context.Context, q querier, childID string) (int64, error) {
+	var earned sql.NullInt64
+	if err := q.QueryRowContext(ctx, earnedClause, childID).Scan(&earned); err != nil {
+		return 0, err
+	}
+	carried, err := s.carriedEarnedCents(ctx, q, childID)
+	if err != nil {
+		return 0, err
+	}
+	return earned.Int64 + carried, nil
 }
 
 func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildSummary, error) {
-	var totalEarned, earnedLast7Days, earnedToday, earnedThisWeek, totalPaidOut sql.NullInt64
+	var earnedLast7Days, earnedToday, earnedThisWeek, totalPaidOut sql.NullInt64
 	sevenDaysAgo := formatTime(nowUTC().AddDate(0, 0, -7))
 	today := scheduling.FormatDate(nowUTC())
 	startOfWeek := scheduling.FormatDate(mondayOfWeek(nowUTC()))
 
-	if err := s.db.QueryRowContext(ctx, earnedClause, child.Id).Scan(&totalEarned); err != nil {
+	// Includes anything carried forward when older occurrences were purged;
+	// the windowed figures below need no such adjustment, since they only
+	// ever look inside the retention window anyway.
+	totalEarned, err := s.totalEarnedCents(ctx, s.db, child.Id)
+	if err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx,
@@ -93,9 +118,9 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 		EarnedLast_7Days: money(earnedLast7Days.Int64),
 		EarnedToday:      money(earnedToday.Int64),
 		EarnedThisWeek:   money(earnedThisWeek.Int64),
-		TotalEarned:      money(totalEarned.Int64),
+		TotalEarned:      money(totalEarned),
 		TotalPaidOut:     money(totalPaidOut.Int64),
-		Balance:          money(totalEarned.Int64 - totalPaidOut.Int64),
+		Balance:          money(totalEarned - totalPaidOut.Int64),
 	}
 	if lastPayoutAt.Valid {
 		t, err := parseTime(lastPayoutAt.String)

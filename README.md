@@ -38,6 +38,16 @@ that space would otherwise sit unused.
   occurrence it produced stays, and so do the earnings behind them — a
   child's balance is never moved by deleting a task. (Removing a *child*
   still does take their history with them; see below.)
+- Occurrence history is kept for a rolling **62 days**, which always covers
+  the current month plus the whole of the previous one — the widest that
+  span ever gets is 61 days (31 January back to 1 December). Expressed as a
+  rolling window rather than calendar months so history ages out a day at a
+  time instead of a month disappearing on the 1st. Balances are *not*
+  affected: when occurrences age out, their earnings are carried into a
+  per-child ledger in the same transaction that deletes them, so what a
+  child has earned and is owed stays exact forever. What's lost beyond the
+  window is the itemisation — which chores made up the total — not the
+  total. Payouts are kept indefinitely.
 - A task's repeat rule is one of three modes: **does not repeat** (due once,
   on a specific date, then never again), **weekly** (day-of-week checkboxes,
   shown Monday-first, plus "every N weeks" — 1 for every week, higher for
@@ -50,8 +60,8 @@ that space would otherwise sit unused.
   balance — all at a glance. History is a browsable log of every completion,
   grouped into Today / Yesterday / Earlier this week / Later — the "Later"
   group loads a page at a time as you ask for more, rather than pulling a
-  family's entire history up front — plus a search box that matches by task
-  title or child name across the whole history. Every entry there can be
+  retained history up front — plus a search box that matches by task
+  title or child name across the retained window. Every entry there can be
   toggled — marking a completion as not done (e.g. one logged for the wrong
   child), or marking a missed chore as done after the fact — via a two-step
   inline confirm, no browser popup. Tasks manages
