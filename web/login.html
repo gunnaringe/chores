@@ -81,6 +81,8 @@
         <a id="source-link" href="https://github.com/gunnaringe/chores" rel="noopener">Source on GitHub</a>
       </p>
       <p id="hosting"></p>
+      <h2 id="tech-stack-heading"></h2>
+      <ul id="tech-stack"></ul>
       <p id="built-with"></p>
       <p id="disclaimer" class="disclaimer"></p>
     </footer>
@@ -105,8 +107,16 @@
     text("about-heading", "login.aboutHeading");
     text("source-link", "login.sourceLink");
     text("hosting", "login.hosting");
+    text("tech-stack-heading", "login.techStackHeading");
     text("built-with", "login.builtWith");
     text("disclaimer", "login.disclaimer");
+
+    const techStack = document.getElementById("tech-stack");
+    for (const key of ["login.techStack1", "login.techStack2", "login.techStack3", "login.techStack4", "login.techStack5", "login.techStack6"]) {
+      const li = document.createElement("li");
+      li.textContent = t(key);
+      techStack.appendChild(li);
+    }
 
     const STEPS = [
       { icon: "edit_note", title: "login.step1Title", body: "login.step1Body" },

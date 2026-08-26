@@ -1052,17 +1052,20 @@ label {
 .step h3 {
   margin: 0 0 4px;
 }
+/* A bare icon rather than a tinted badge tile — tried both, this read
+   cleaner against the card background. Keeps a fixed box (flex: none,
+   width/height) purely so the three icons still line up on the same
+   baseline despite each glyph's slightly different natural shape, and
+   overflow: hidden for the same reason every icon container needs it. */
 .step-icon {
   flex: none;
   width: 40px;
   height: 40px;
-  border-radius: 12px;
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: var(--accent-soft);
   color: var(--accent);
-  font-size: 22px;
+  font-size: 28px;
 }
 
 /* One phone per row on a phone, three across once there's room. The images
@@ -1111,8 +1114,22 @@ label {
   color: var(--faint);
   margin-bottom: 10px;
 }
+/* A second heading further down the footer (tech stack, after "About")
+   needs space above it to separate from the paragraph before it; the
+   first heading sits right against the footer's own top border and
+   shouldn't get that same gap doubled onto it. */
+.welcome-footer h2:not(:first-child) {
+  margin-top: 14px;
+}
 .welcome-footer p {
   margin-bottom: 6px;
+}
+.welcome-footer ul {
+  margin: 0 0 6px;
+  padding-left: 1.1em;
+}
+.welcome-footer li {
+  margin-bottom: 2px;
 }
 .welcome-footer a {
   color: var(--accent);
