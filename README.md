@@ -3,10 +3,17 @@
 A family allowance and chore tracker. Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
-The author's own instance runs at [chores.apphub.casa](https://chores.apphub.casa)
-— see "Hosting" further down for how it's deployed. That's a personal hobby
-setup, not a hosted service anyone can sign up for; run your own from this
-repo instead.
+**The easiest way to use this is the author's own instance at
+[chores.apphub.casa](https://chores.apphub.casa)** — anyone's welcome to log
+in and set up their own family there; nothing about it is limited to the
+author. It's still a personal hobby project run for free in spare time
+(see the disclaimer on its welcome page), so treat it accordingly: no
+uptime promise, and [GitHub issues](https://github.com/gunnaringe/chores/issues)
+is the only support channel. See "Hosting" further down for how it's
+deployed.
+
+Prefer your own copy — your own data, your own uptime — instead of the
+shared instance? See "Running" below.
 
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
@@ -139,6 +146,9 @@ their family via the in-app picker (handing the device to a kid to mark a
 chore done, for example).
 
 ## Running
+
+To self-host instead of using the hosted instance mentioned above, clone
+this repo and run:
 
 ```bash
 go run ./cmd/chores -addr=:8080 -db=chores.db
