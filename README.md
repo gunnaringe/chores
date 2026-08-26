@@ -330,6 +330,20 @@ After editing `proto/chores/v1/chores.proto`:
 buf generate
 ```
 
+## Updating the Material Symbols icon list
+
+`web/material-symbols.json` (the icon names the task icon picker's search
+runs against — see "Parents create tasks..." above) is a point-in-time
+snapshot; Google adds new icons occasionally. Refresh it with:
+
+```bash
+make update-material-symbols
+```
+
+which regenerates the file via `scripts/update-material-symbols.sh` — see
+the script's header comment for where the data comes from. Review the
+diff and commit it like any other change.
+
 ## Project layout
 
 - `proto/` — protobuf service/message definitions
