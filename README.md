@@ -3,6 +3,11 @@
 A family allowance and chore tracker. Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
+The author's own instance runs at [chores.apphub.casa](https://chores.apphub.casa)
+— see "Hosting" further down for how it's deployed. That's a personal hobby
+setup, not a hosted service anyone can sign up for; run your own from this
+repo instead.
+
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
@@ -160,6 +165,17 @@ AUTH0_DOMAIN=your-tenant.eu.auth0.com
 AUTH0_CLIENT_ID=...
 AUTH0_CLIENT_SECRET=...
 ```
+
+## Hosting
+
+None of this is required to run the app — `fly.toml` and the deploy setup
+are specific to the author's own instance, kept here for reference rather
+than as something this repo expects you to reuse. That instance is a single
+Fly.io machine (`primary_region = "arn"`, i.e. Stockholm) with its SQLite
+database on a persistent volume, reachable through CloudFront for DNS, with
+login handled by Auth0 (see Authentication below). The welcome page states
+the same three facts for anyone visiting the running app, not just anyone
+reading this file.
 
 ## Language
 

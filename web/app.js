@@ -43,6 +43,53 @@ const money = (cents) => {
   return (n / 100).toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// ---- currency (device-level display preference) -----------------------
+//
+// Purely cosmetic, like the language choice: which symbol (if any)
+// formatMoney() prefixes onto a number. Never sent to the server and never
+// affects what's stored or compared — amounts stay integer cents
+// everywhere else, exactly as before. Defaults to "" (no symbol) rather
+// than assuming a currency, since this is a hobby project that could be
+// run for any family in any currency — see CURRENCIES below for the
+// curated list a device can pick from instead.
+const CURRENCIES = [
+  { code: "", symbol: "" },
+  { code: "NOK", symbol: "kr" },
+  { code: "SEK", symbol: "kr" },
+  { code: "DKK", symbol: "kr" },
+  { code: "EUR", symbol: "€" },
+  { code: "USD", symbol: "$" },
+  { code: "GBP", symbol: "£" },
+];
+
+function getCurrency() {
+  return localStorage.getItem("chores.currency") || "";
+}
+function setCurrency(code) {
+  if (code) localStorage.setItem("chores.currency", code);
+  else localStorage.removeItem("chores.currency");
+}
+function currencySymbol() {
+  const c = CURRENCIES.find((c) => c.code === getCurrency());
+  return c ? c.symbol : "";
+}
+
+// Every amount shown in the UI goes through this rather than money()
+// directly, so the currency preference only has to be threaded through in
+// one place. With no currency picked (the default) it's just the number.
+function formatMoney(cents) {
+  const symbol = currencySymbol();
+  return symbol ? `${symbol} ${money(cents)}` : money(cents);
+}
+
+// Appends "(symbol)" to a field label when a currency is set — used on the
+// two inputs where someone types an amount (task price, payout amount) so
+// they read consistently with however amounts are displayed elsewhere.
+function labelWithCurrencyUnit(label) {
+  const symbol = currencySymbol();
+  return symbol ? `${label} (${symbol})` : label;
+}
+
 const todayStr = () => {
   const d = new Date();
   const tz = d.getTimezoneOffset();
@@ -308,6 +355,31 @@ function renderLangSwitcher() {
     // The app's name is translated, so the tab title and the name an install
     // would take have to be restamped, not just the rendered UI.
     applyAppName();
+    render();
+  });
+  return card;
+}
+
+// Same shape as renderLangSwitcher — a device-level display preference,
+// not something the server knows about. See formatMoney()'s comment for why
+// "None" is the default rather than an assumed currency.
+function renderCurrencySwitcher() {
+  const current = getCurrency();
+  const options = CURRENCIES.map((c) => {
+    const label = c.code ? `${c.code} — ${c.symbol}` : t("settings.currencyNone");
+    return `<option value="${c.code}" ${c.code === current ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("settings.currencyHeading"))}</h2>
+      <p class="hint" style="margin:0 0 10px;">${escapeHtml(t("settings.currencyHint"))}</p>
+      <select id="currency-switcher" aria-label="${escapeHtml(t("settings.currencyHeading"))}">
+        ${options}
+      </select>
+    </div>
+  `);
+  card.querySelector("#currency-switcher").addEventListener("change", (e) => {
+    setCurrency(e.target.value);
     render();
   });
   return card;
@@ -943,7 +1015,7 @@ function renderOccurrenceRow(occ, childId, opts) {
         ${taskIconHtml(occ.task)}
         <div class="task-row-text">
           <div class="task-title">${escapeHtml(occ.task.title)}</div>
-          <div class="task-meta">kr ${money(occ.task.priceCents)}${description}</div>
+          <div class="task-meta">${formatMoney(occ.task.priceCents)}${description}</div>
         </div>
       </div>
       <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
@@ -1004,8 +1076,8 @@ function renderTodayTab() {
 
     card.appendChild(el(`
       <div class="grid-2 stat-strip">
-        <div class="stat"><div class="value">kr ${money(s.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-        <div class="stat"><div class="value">kr ${money(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+        <div class="stat"><div class="value">${formatMoney(s.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+        <div class="stat"><div class="value">${formatMoney(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
       </div>
     `));
     wrap.appendChild(card);
@@ -1028,9 +1100,9 @@ function renderChildTasksTab() {
     wrap.appendChild(el(`
       <div class="card">
         <div class="grid-3 stat-strip" style="margin-top:0;">
-          <div class="stat"><div class="value">kr ${money(summary.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-          <div class="stat"><div class="value">kr ${money(summary.earnedThisWeekCents)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
-          <div class="stat"><div class="value">kr ${money(summary.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+          <div class="stat"><div class="value">${formatMoney(summary.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+          <div class="stat"><div class="value">${formatMoney(summary.earnedThisWeekCents)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
+          <div class="stat"><div class="value">${formatMoney(summary.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `));
@@ -1138,7 +1210,7 @@ function renderTaskList() {
             <div class="task-title">${escapeHtml(t_.title)} ${classificationPillHtml(t_)} ${
               t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""
             }</div>
-            <div class="task-meta">kr ${money(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
+            <div class="task-meta">${formatMoney(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
           </div>
         </div>
         <div class="actions">
@@ -1235,7 +1307,7 @@ function renderTaskForm(existingTask) {
         <div id="task-icon-results" class="icon-choices" style="margin-top:6px;display:none;"></div>
       </div>
       <div class="field">
-        <label>${escapeHtml(t("addTask.priceLabel"))}</label>
+        <label>${escapeHtml(labelWithCurrencyUnit(t("addTask.priceLabel")))}</label>
         <input type="number" id="task-price" min="0" step="0.5" value="10" inputmode="decimal" class="input-price" />
       </div>
       <div class="field">
@@ -1520,8 +1592,8 @@ function renderAccountingTab() {
     const card = el(`
       <div class="card">
         <div class="grid-2">
-          <div class="stat"><div class="value">kr ${money(s.earnedLast7DaysCents)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
-          <div class="stat"><div class="value">kr ${money(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+          <div class="stat"><div class="value">${formatMoney(s.earnedLast7DaysCents)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
+          <div class="stat"><div class="value">${formatMoney(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `);
@@ -1532,7 +1604,7 @@ function renderAccountingTab() {
       <div class="card">
         <h3>${escapeHtml(t("accounting.payoutHeading"))}</h3>
         <div class="field">
-          <label>${escapeHtml(t("accounting.amountLabel"))}</label>
+          <label>${escapeHtml(labelWithCurrencyUnit(t("accounting.amountLabel")))}</label>
           <p class="hint" style="margin:-2px 0 6px;">${escapeHtml(t("accounting.amountHint"))}</p>
           <input type="number" min="0.01" max="${balanceKr}" step="0.5" inputmode="decimal" class="input-full" id="payout-amount-${s.child.id}" value="${balanceKr.toFixed(2)}" />
         </div>
@@ -1582,7 +1654,7 @@ function renderAccountingTab() {
             el(`
               <div class="row">
                 <span>${new Date(p.createdAt).toLocaleDateString(localeTag())} <span class="pill">${escapeHtml(p.fullPayout ? t("accounting.full") : t("accounting.partial"))}</span> ${p.note ? "— " + escapeHtml(p.note) : ""}</span>
-                <strong>kr ${money(p.amountCents)}</strong>
+                <strong>${formatMoney(p.amountCents)}</strong>
               </div>
             `)
           );
@@ -2099,7 +2171,7 @@ function renderHistoryRow(occ) {
         ${taskIconHtml(occ.task)}
         <div class="task-row-text">
           <div class="task-title">${escapeHtml(occ.task.title)} ${classificationPillHtml(occ.task)}</div>
-          <div class="task-meta">${escapeHtml(occ.childName)} · ${escapeHtml(formatDateStr(occ.dueDate))} · kr ${money(amountCents)}${badge}</div>
+          <div class="task-meta">${escapeHtml(occ.childName)} · ${escapeHtml(formatDateStr(occ.dueDate))} · ${formatMoney(amountCents)}${badge}</div>
         </div>
       </div>
       <div class="actions" style="align-items:center;">
@@ -2440,6 +2512,7 @@ function renderSettingsTab() {
   wrap.appendChild(accountCard);
 
   wrap.appendChild(renderLangSwitcher());
+  wrap.appendChild(renderCurrencySwitcher());
 
   const notifCard = el(`<div class="card"><h2>${escapeHtml(t("settings.notificationsHeading"))}</h2></div>`);
   if (!pushSupported()) {
@@ -2463,6 +2536,20 @@ function renderSettingsTab() {
     notifCard.appendChild(btn);
   }
   wrap.appendChild(notifCard);
+
+  // A plain link out to the repo's issue tracker — this is a hobby project
+  // (see the welcome page's disclaimer), so "something's wrong, now what"
+  // has one answer: file it upstream, there's no in-app support flow.
+  const helpCard = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("settings.helpHeading"))}</h2>
+      <button type="button" class="secondary block" id="report-issue-btn">${escapeHtml(t("settings.reportIssue"))}</button>
+    </div>
+  `);
+  helpCard.querySelector("#report-issue-btn").addEventListener("click", () => {
+    window.open("https://github.com/gunnaringe/chores/issues/new", "_blank", "noopener");
+  });
+  wrap.appendChild(helpCard);
 
   // Managing who's in the family, and inviting new members, isn't something
   // you do often — and isn't relevant to a child at all — so it lives here
