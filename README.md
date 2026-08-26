@@ -324,6 +324,45 @@ the address bar. `web/sw.js` also handles incoming Web Push events (see
 Push notifications above) and focuses or opens the app when a notification
 is tapped.
 
+## Deploying a schema change
+
+The app migrates its own database on startup (`internal/db`), so a deploy
+is the migration. The database holds money owed to children and the volume
+has no rollback of its own, so a migration is worth checking rather than
+assuming.
+
+Take a snapshot first — Fly's automatic dailies don't exist yet on a
+newly created volume:
+
+```bash
+fly volumes snapshots create <volume-id> --app <app>
+```
+
+Pull a copy, **including the `-wal` sidecar**. SQLite keeps recent writes
+there, and a database copied without it can be missing nearly everything
+while still opening cleanly:
+
+```bash
+fly ssh sftp get /data/chores.db ./prod-chores.db --app <app>
+```
+
+```bash
+fly ssh sftp get /data/chores.db-wal ./prod-chores.db-wal --app <app>
+```
+
+Audit the copy, migrate it, and audit it again. `cmd/dbaudit` opens the
+file read-only and understands both the pre- and post-migration layouts,
+so the two runs are directly comparable:
+
+```bash
+go run ./cmd/dbaudit ./prod-chores.db
+```
+
+Every per-child balance it prints has to be identical after the migration.
+Those are the figures a real family sees, and the one class of bug worth
+this whole procedure is the kind that quietly moves them. Running the app
+once against the copy performs the migration; audit it again and diff.
+
 ## Regenerating the Connect/protobuf code
 
 After editing `proto/chores/v1/chores.proto`:
@@ -343,3 +382,4 @@ buf generate
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint
 - `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)
+- `cmd/dbaudit` — read-only report on a database: row counts, data hazards, and per-child balances. Used to check that a migration didn't move anything (see Deploying a schema change)
