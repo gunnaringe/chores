@@ -1895,32 +1895,42 @@ function renderFamilyTab() {
           const inviteField = el(`
             <div class="field">
               <label>${escapeHtml(t("invitations.linkLabel"))}</label>
-              <input type="text" class="input-full" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+              <div class="input-row">
+                <input type="text" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+                <button type="button" class="secondary btn-icon" data-copy="url" title="${escapeHtml(t("invitations.copyLink"))}" aria-label="${escapeHtml(t("invitations.copyLink"))}"><span class="material-symbols-outlined">content_copy</span></button>
+              </div>
               <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
               <div class="input-row">
                 <input type="text" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
-                <button type="button" class="secondary btn-icon" title="${escapeHtml(t("invitations.copyLink"))}" aria-label="${escapeHtml(t("invitations.copyLink"))}"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="secondary btn-icon" data-copy="code" title="${escapeHtml(t("invitations.copyCode"))}" aria-label="${escapeHtml(t("invitations.copyCode"))}"><span class="material-symbols-outlined">content_copy</span></button>
               </div>
             </div>
           `);
-          const copyBtn = inviteField.querySelector(".btn-icon");
-          const copyIcon = copyBtn.querySelector(".material-symbols-outlined");
-          copyBtn.addEventListener("click", async () => {
-            try {
-              await navigator.clipboard.writeText(acceptUrl);
-              copyIcon.textContent = "check";
-              copyBtn.title = t("invitations.copied");
-              copyBtn.setAttribute("aria-label", t("invitations.copied"));
-              setTimeout(() => {
-                copyIcon.textContent = "content_copy";
-                copyBtn.title = t("invitations.copyLink");
-                copyBtn.setAttribute("aria-label", t("invitations.copyLink"));
-              }, 1500);
-            } catch (e) {
-              state.error = e.message || String(e);
-              render();
-            }
-          });
+          // Two separate buttons rather than one, since the link and the raw
+          // code serve different handoffs (send a link vs. read a code aloud)
+          // and a recipient copying one usually doesn't want the other.
+          const wireCopyButton = (selector, value, label) => {
+            const btn = inviteField.querySelector(selector);
+            const icon = btn.querySelector(".material-symbols-outlined");
+            btn.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(value);
+                icon.textContent = "check";
+                btn.title = t("invitations.copied");
+                btn.setAttribute("aria-label", t("invitations.copied"));
+                setTimeout(() => {
+                  icon.textContent = "content_copy";
+                  btn.title = label;
+                  btn.setAttribute("aria-label", label);
+                }, 1500);
+              } catch (e) {
+                state.error = e.message || String(e);
+                render();
+              }
+            });
+          };
+          wireCopyButton('[data-copy="url"]', acceptUrl, t("invitations.copyLink"));
+          wireCopyButton('[data-copy="code"]', pendingInvite.token, t("invitations.copyCode"));
           detail.appendChild(inviteField);
         }
         const revokeBtn = el(`<button type="button" class="danger" style="margin-top:10px;">${escapeHtml(t("invitations.revoke"))}</button>`);

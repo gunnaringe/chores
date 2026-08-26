@@ -228,6 +228,7 @@ const TRANSLATIONS = {
     "invitations.linkLabel": "Invite link — opening it logs them in and accepts automatically",
     "invitations.codeLabel": "Invite code — share it with them",
     "invitations.copyLink": "Copy invite link",
+    "invitations.copyCode": "Copy invite code",
     "invitations.copied": "Copied!",
 
     "auth.logout": "Log out",
@@ -477,6 +478,7 @@ const TRANSLATIONS = {
     "invitations.linkLabel": "Invitasjonslenke — å åpne den logger dem inn og godtar automatisk",
     "invitations.codeLabel": "Invitasjonskode — del den med dem",
     "invitations.copyLink": "Kopier invitasjonslenke",
+    "invitations.copyCode": "Kopier invitasjonskode",
     "invitations.copied": "Kopiert!",
 
     "auth.logout": "Logg ut",
