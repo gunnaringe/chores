@@ -15,13 +15,19 @@ binary. That's an acceptable tradeoff here since the app already needs a
 live connection to its own backend for essentially everything; there's no
 offline mode to preserve.
 
-The layout is fluid rather than tied to fixed device breakpoints: a list
-row's title and its action buttons share one flex line and drop to their
-own line only once they no longer both fit, so the same CSS rule adapts
-correctly from a phone up through a desktop window instead of snapping at
-a couple of hardcoded widths. Fields that are deliberately narrow on
-desktop (price, cron expression, etc.) go full-width below 480px, where
-that space would otherwise sit unused.
+The UI is built mobile-first, as an app shell rather than a page that
+merely reflows: a sticky app bar, a tab bar pinned to the bottom edge under
+the thumb, and the screen scrolling between them, with safe-area padding so
+nothing hides behind a notch or home indicator. Above 760px that same tab
+bar becomes a row of pills under the header and the whole thing reads as an
+ordinary centred desktop page.
+
+Within a screen the layout stays fluid rather than snapping at hardcoded
+widths: a list row's title and its action buttons share one flex line and
+drop to their own line only once they no longer both fit, so the same rule
+adapts from a phone up through a desktop window. Fields that are
+deliberately narrow on desktop (price, cron expression, etc.) go full-width
+below 520px, where that space would otherwise sit unused.
 
 - Parents create tasks with a price, an assignment to one or more children
   (with a "select all" shortcut), and an optional icon shown next to the
@@ -42,29 +48,33 @@ that space would otherwise sit unused.
   every other week and beyond, counted from the date the task was created),
   or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
   every month) for anything the other two can't express.
-- A parent gets four tabs, in this order: **Today**, **History**, **Tasks**,
-  **Balance**. Today is a daily dashboard: for each child, today's tasks and
+- A parent gets five tabs, in this order: **Today**, **History**, **Tasks**,
+  **Balance**, **Settings**. Today is a daily dashboard: for each child, today's tasks and
   their completion status, what they've earned today, and their outstanding
   balance — all at a glance. History is a browsable log of every completion,
   grouped into Today / Yesterday / Earlier this week / Later — the "Later"
   group loads a page at a time as you ask for more, rather than pulling a
   family's entire history up front — plus a search box that matches by task
   title or child name across the whole history. Every entry there can be
-  deleted (undoing that completion, e.g. one logged for the wrong child) via
-  a two-step inline confirm — no browser popup, just a "Confirm delete"
-  button that appears in place of the delete button itself. Tasks manages
-  task definitions (add/edit/pause/delete). Balance handles payouts and
-  balance history. The top bar's user name is itself a dropdown for
+  toggled between completed and not completed via a two-step inline confirm
+  — no browser popup, just a confirm button that appears in place of the
+  toggle itself. That's how a completion logged for the wrong child gets
+  undone (it stays visible as a missed task rather than vanishing), and
+  equally how one missed at the time gets backfilled after the fact. Tasks
+  manages task definitions, with the editor opening as a sheet over the list
+  rather than a form beneath it. Balance handles payouts and balance
+  history. The app bar's user name is itself a dropdown for
   switching to a specific child's own restricted view, mainly useful for
   previewing what a kid sees, or for a parent marking a chore done on
   behalf of a child who doesn't have their own login — that dropdown only
   ever offers children and yourself, never another parent, so one parent's
   login can't casually end up "being" a co-parent.
-- A child gets a single page, no tabs: their own checklist for today, with
-  what they've earned today, this week, and their current balance shown
-  right above it. There's no separate balance/payout page or family-member
-  list for a child to get lost in — those are parent-only concerns, tucked
-  into the Balance tab and the Settings page respectively.
+- A child gets two tabs, **Today** and **Settings**, and Today is the whole
+  app for them: their own checklist, with what they've earned today, this
+  week, and their current balance shown right above it. There's no separate
+  balance/payout page or family-member list for a child to get lost in —
+  those are parent-only concerns, tucked into the Balance tab and the
+  parent's own Settings page respectively.
 - Balance tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
@@ -343,6 +353,14 @@ make update-material-symbols
 which regenerates the file via `scripts/update-material-symbols.sh` — see
 the script's header comment for where the data comes from. Review the
 diff and commit it like any other change.
+
+## Working on this with a coding agent
+
+`CLAUDE.md` holds the notes an agent needs that this README doesn't cover —
+the `go:embed` restart rule, the frontend's footguns, and how to verify a
+change. Two skills live in `.claude/skills/`: `run-local` (start the app
+against the devauth test provider) and `verify-ui` (drive it in a browser and
+screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 
 ## Project layout
 
