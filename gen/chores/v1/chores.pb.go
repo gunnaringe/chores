@@ -74,27 +74,23 @@ func (UserRole) EnumDescriptor() ([]byte, []int) {
 type IconType int32
 
 const (
-	IconType_ICON_TYPE_UNSPECIFIED  IconType = 0
-	IconType_ICON_TYPE_EMOJI        IconType = 1
-	IconType_ICON_TYPE_FONT_AWESOME IconType = 2
+	IconType_ICON_TYPE_UNSPECIFIED IconType = 0
 	// A Google Material Symbols icon name (fonts.google.com/icons), e.g.
-	// "cleaning_services", rendered via the Material Symbols web font.
-	IconType_ICON_TYPE_MATERIAL_SYMBOLS IconType = 3
+	// "cleaning_services", rendered via the Material Symbols web font. The
+	// only supported icon type — kept as an enum (rather than folding into
+	// Icon directly) in case another type is ever added back.
+	IconType_ICON_TYPE_MATERIAL_SYMBOLS IconType = 1
 )
 
 // Enum value maps for IconType.
 var (
 	IconType_name = map[int32]string{
 		0: "ICON_TYPE_UNSPECIFIED",
-		1: "ICON_TYPE_EMOJI",
-		2: "ICON_TYPE_FONT_AWESOME",
-		3: "ICON_TYPE_MATERIAL_SYMBOLS",
+		1: "ICON_TYPE_MATERIAL_SYMBOLS",
 	}
 	IconType_value = map[string]int32{
 		"ICON_TYPE_UNSPECIFIED":      0,
-		"ICON_TYPE_EMOJI":            1,
-		"ICON_TYPE_FONT_AWESOME":     2,
-		"ICON_TYPE_MATERIAL_SYMBOLS": 3,
+		"ICON_TYPE_MATERIAL_SYMBOLS": 1,
 	}
 )
 
@@ -232,11 +228,7 @@ func (TaskClassification) EnumDescriptor() ([]byte, []int) {
 	return file_chores_v1_chores_proto_rawDescGZIP(), []int{3}
 }
 
-// An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
-// character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
-// Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
-// rendered as the CSS classes "fa-solid fa-broom"). For
-// ICON_TYPE_MATERIAL_SYMBOLS, value is a Material Symbols icon name (e.g.
+// An icon shown next to a task. value is a Material Symbols icon name (e.g.
 // "cleaning_services").
 type Icon struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -4837,12 +4829,10 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\bUserRole\x12\x19\n" +
 	"\x15USER_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10USER_ROLE_PARENT\x10\x01\x12\x13\n" +
-	"\x0fUSER_ROLE_CHILD\x10\x02*v\n" +
+	"\x0fUSER_ROLE_CHILD\x10\x02*E\n" +
 	"\bIconType\x12\x19\n" +
-	"\x15ICON_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fICON_TYPE_EMOJI\x10\x01\x12\x1a\n" +
-	"\x16ICON_TYPE_FONT_AWESOME\x10\x02\x12\x1e\n" +
-	"\x1aICON_TYPE_MATERIAL_SYMBOLS\x10\x03*m\n" +
+	"\x15ICON_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aICON_TYPE_MATERIAL_SYMBOLS\x10\x01*m\n" +
 	"\n" +
 	"RepeatMode\x12\x1b\n" +
 	"\x17REPEAT_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +

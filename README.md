@@ -6,13 +6,14 @@ SQLite storage, Buf-generated Connect API.
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
-Font Awesome and Google's Material Symbols are the two external
-dependencies the app pulls in at runtime — Font Awesome from cdnjs (with a
-Subresource Integrity hash pinned in `web/index.html`), Material Symbols
-from Google Fonts — everything else is embedded in the binary. That's an
-acceptable tradeoff here since the app already needs a live connection to
-its own backend for essentially everything; there's no offline mode to
-preserve.
+Google's Material Symbols font is the one external dependency the app
+pulls in at runtime, from Google Fonts — everything else, including the
+icon *name* list used to search it (`web/material-symbols.json`, vendored
+from [`@material-symbols/metadata`](https://www.npmjs.com/package/@material-symbols/metadata),
+a mirror of Google's own Material Symbols codepoints), is embedded in the
+binary. That's an acceptable tradeoff here since the app already needs a
+live connection to its own backend for essentially everything; there's no
+offline mode to preserve.
 
 The layout is fluid rather than tied to fixed device breakpoints: a list
 row's title and its action buttons share one flex line and drop to their
@@ -24,12 +25,17 @@ that space would otherwise sit unused.
 
 - Parents create tasks with a price, an assignment to one or more children
   (with a "select all" shortcut), and an optional icon shown next to the
-  title everywhere the task appears — any emoji, a
-  [Font Awesome](https://fontawesome.com) Free Solid icon, or a
-  [Material Symbols](https://fonts.google.com/icons) icon, each with a row
-  of quick-pick suggestions plus a free-text field. A task only shows up
-  for the children it's assigned to, can be edited in place at any time,
-  and can be paused (and later resumed) instead of deleted.
+  title everywhere the task appears — a
+  [Material Symbols](https://fonts.google.com/icons) icon, picked by typing
+  a search term (matched against the official icon names, underscores
+  treated as spaces — no separate keyword/synonym list) and clicking one of
+  the matches. A task predating Material Symbols becoming the only
+  supported icon type (an emoji or a Font Awesome icon) keeps showing its
+  old icon as plain text rather than losing it, but can't be re-picked
+  through this UI — editing such a task starts with no icon selected. A
+  task only shows up for the children it's assigned to, can be edited in
+  place at any time, and can be paused (and later resumed) instead of
+  deleted.
 - A task's repeat rule is one of three modes: **does not repeat** (due once,
   on a specific date, then never again), **weekly** (day-of-week checkboxes,
   shown Monday-first, plus "every N weeks" — 1 for every week, higher for

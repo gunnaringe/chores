@@ -689,28 +689,27 @@ func TestTaskIcon(t *testing.T) {
 
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_EMOJI, Value: "🧹"},
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS, Value: "cleaning_services"},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
-	if got := task.Msg.Task.Icon; got.GetType() != v1.IconType_ICON_TYPE_EMOJI || got.GetValue() != "🧹" {
-		t.Fatalf("expected emoji icon 🧹 on create, got %+v", got)
+	if got := task.Msg.Task.Icon; got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "cleaning_services" {
+		t.Fatalf("expected material symbols icon cleaning_services on create, got %+v", got)
 	}
 
 	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
 	if err != nil {
 		t.Fatalf("ListTasks: %v", err)
 	}
-	if got := fetched.Msg.Tasks[0].Icon; len(fetched.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_EMOJI || got.GetValue() != "🧹" {
-		t.Fatalf("expected icon 🧹 to persist, got %+v", fetched.Msg.Tasks[0])
+	if got := fetched.Msg.Tasks[0].Icon; len(fetched.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "cleaning_services" {
+		t.Fatalf("expected icon cleaning_services to persist, got %+v", fetched.Msg.Tasks[0])
 	}
 
-	// Reassigning to a Font Awesome icon must round-trip the type too, not
-	// just the value.
+	// Reassigning to a different Material Symbols icon must round-trip.
 	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
 		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100, Active: true,
-		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_FONT_AWESOME, Value: "broom"},
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS, Value: "checkroom"},
 	})); err != nil {
 		t.Fatalf("UpdateTask: %v", err)
 	}
@@ -718,14 +717,14 @@ func TestTaskIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTasks after update: %v", err)
 	}
-	if got := updated.Msg.Tasks[0].Icon; len(updated.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_FONT_AWESOME || got.GetValue() != "broom" {
-		t.Fatalf("expected icon updated to font-awesome:broom, got %+v", updated.Msg.Tasks[0])
+	if got := updated.Msg.Tasks[0].Icon; len(updated.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "checkroom" {
+		t.Fatalf("expected icon updated to material-symbols:checkroom, got %+v", updated.Msg.Tasks[0])
 	}
 
 	// A value with no (valid) type is rejected rather than silently guessed at.
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: fam.Msg.Family.Id, Title: "Ambiguous", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Value: "broom"},
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Value: "checkroom"},
 	})); codeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument for a value with no icon type, got %v", err)
 	}
@@ -740,6 +739,46 @@ func TestTaskIcon(t *testing.T) {
 	}
 	if noIcon.Msg.Task.Icon != nil {
 		t.Fatalf("expected no icon, got %+v", noIcon.Msg.Task.Icon)
+	}
+}
+
+// TestTaskIcon_LegacyTypesReadAsUnspecified covers a task whose icon was
+// set back when emoji and Font Awesome were still supported types: reading
+// it back today must not error or drop the value, even though neither type
+// is choosable anymore — it just reports UNSPECIFIED, leaving the frontend
+// to decide how to fall back.
+func TestTaskIcon_LegacyTypesReadAsUnspecified(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|task-icon-legacy-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	// Simulate a row written back when icon_type could be "emoji" —
+	// CreateTask itself can no longer produce one.
+	if _, err := s.db.ExecContext(ctx, `UPDATE tasks SET icon_type = 'emoji', icon_value = '🧹' WHERE id = ?`, task.Msg.Task.Id); err != nil {
+		t.Fatalf("seed legacy emoji icon: %v", err)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	got := fetched.Msg.Tasks[0].Icon
+	if got.GetType() != v1.IconType_ICON_TYPE_UNSPECIFIED || got.GetValue() != "🧹" {
+		t.Fatalf("expected a legacy emoji icon to read back as (UNSPECIFIED, 🧹), got %+v", got)
 	}
 }
 

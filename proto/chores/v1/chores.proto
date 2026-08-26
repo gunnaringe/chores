@@ -14,18 +14,14 @@ enum UserRole {
 
 enum IconType {
   ICON_TYPE_UNSPECIFIED = 0;
-  ICON_TYPE_EMOJI = 1;
-  ICON_TYPE_FONT_AWESOME = 2;
   // A Google Material Symbols icon name (fonts.google.com/icons), e.g.
-  // "cleaning_services", rendered via the Material Symbols web font.
-  ICON_TYPE_MATERIAL_SYMBOLS = 3;
+  // "cleaning_services", rendered via the Material Symbols web font. The
+  // only supported icon type — kept as an enum (rather than folding into
+  // Icon directly) in case another type is ever added back.
+  ICON_TYPE_MATERIAL_SYMBOLS = 1;
 }
 
-// An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
-// character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
-// Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
-// rendered as the CSS classes "fa-solid fa-broom"). For
-// ICON_TYPE_MATERIAL_SYMBOLS, value is a Material Symbols icon name (e.g.
+// An icon shown next to a task. value is a Material Symbols icon name (e.g.
 // "cleaning_services").
 message Icon {
   IconType type = 1;

@@ -182,10 +182,10 @@ label {
 }
 .tabs button { background: transparent; color: var(--muted); border-color: var(--border); }
 .tabs button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.icon-type-toggle { display: flex; gap: 6px; margin: 6px 0; }
-.icon-type-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.icon-choices { display: flex; flex-wrap: wrap; gap: 4px; }
+.icon-choices { display: flex; flex-wrap: wrap; gap: 4px; max-height: 220px; overflow-y: auto; }
 .icon-choices button { padding: 4px 8px; }
+.icon-selected { padding: 6px 0; }
+.icon-selected .material-symbols-outlined { font-size: 1.3rem; }
 .repeat-mode-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
 .repeat-mode-toggle button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .classification-toggle { display: flex; gap: 6px; }
@@ -285,7 +285,7 @@ label {
    leave unused; on a narrow viewport that same fixed width just wastes the
    little room there is; full width there is both easier to tap and easier
    to read what's typed. */
-.input-icon { width: 12em; }
+.input-icon { width: 18em; }
 .input-price { width: 8em; }
 .input-date { width: 10em; }
 .input-interval { width: 5em; }
