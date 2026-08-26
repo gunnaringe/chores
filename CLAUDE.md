@@ -82,8 +82,13 @@ load of the old UI.
 ## Data conventions
 
 - **Money is integer cents everywhere** (`priceCents`, `amountCents`,
-  `balanceCents`). `money()` formats for display. Never store or compare
-  floats.
+  `balanceCents`). Never store or compare floats. `money()` formats the raw
+  number; anywhere the UI shows an amount to a person, use `formatMoney()`
+  instead — it adds the device's chosen currency symbol (Settings, default
+  "None") ahead of `money()`'s output. That preference is client-only
+  (`localStorage`, like the language choice) and never reaches the server,
+  so server-side text (push notification bodies) can't include a symbol
+  either — see the comment in `internal/server/push.go`.
 - **Dates are `"YYYY-MM-DD"` strings.** Never `new Date(dateStr)` — that parses
   as UTC midnight and renders as the *previous day* in any timezone behind UTC.
   Build from the Y/M/D components instead; `formatDateStr()`, `dayBeforeStr()`
