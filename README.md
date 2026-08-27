@@ -207,7 +207,9 @@ None of this is required to run the app — `fly.toml` and the deploy setup
 are specific to the author's own instance, kept here for reference rather
 than as something this repo expects you to reuse. That instance is a single
 Fly.io machine (`primary_region = "arn"`, i.e. Stockholm) with its SQLite
-database on a persistent volume, reachable through Cloudflare, with login
+database on a persistent volume, reachable through Cloudflare DNS (DNS only
+— Fly's own edge terminates TLS, Cloudflare doesn't proxy the traffic),
+with login
 handled by Auth0's EU region (see Authentication below). The welcome page
 states the same three facts for anyone visiting the running app, not just
 anyone reading this file.
@@ -422,6 +424,20 @@ cleartext HTTP/2 (`http.Server.Protocols.SetUnencryptedHTTP2`) alongside
 HTTP/1.1 on the same port so this works without TLS in local dev, while
 every ordinary HTTP/1.1 caller — the web UI, curl, a reverse proxy that
 doesn't itself speak h2c to the origin — is unaffected.
+
+Reaching it through a reverse proxy needs every leg of the connection to
+actually carry HTTP/2 through, not just terminate TLS with it — a proxy
+that negotiates h2 with the client but falls back to HTTP/1.1 for its own
+connection to the origin will deliver an HTTP/2 request onto a connection
+that can't parse it, which surfaces as a blunt "505 HTTP Version Not
+Supported" rather than anything naming the real cause. On the author's own
+Fly.io instance (see Hosting below — Cloudflare there is DNS only, so
+fly-proxy is the only other hop) this needed two settings in `fly.toml`'s
+`[http_service]`, one per leg: `tls_options.alpn = ["h2", "http/1.1"]` so
+fly-proxy's edge offers h2 to external clients at all (otherwise ALPN falls
+back to http/1.1 regardless of what the app supports), and
+`http_options.h2_backend = true` so fly-proxy in turn forwards to this app
+over h2c instead of always using HTTP/1.1.
 
 ## Installing as an app (PWA)
 
