@@ -426,6 +426,7 @@ function resetTransientUiState() {
   state.addingTask = false;
   confirmingToggleKey = null;
   confirmingDeleteTaskId = null;
+  cloningSourceTask = null;
   confirmingRemoveChildId = null;
   confirmingRevokeInvitationId = null;
   confirmingLeaveFamily = false;
@@ -1155,12 +1156,14 @@ function taskSheetIsOpen() {
 function closeTaskSheet() {
   state.addingTask = false;
   state.editingTaskId = null;
+  cloningSourceTask = null;
 }
 
 function renderAddTaskFab() {
   const fab = el(`<button type="button" class="fab"><span class="material-symbols-outlined">add</span><span>${escapeHtml(t("addTask.addBtn"))}</span></button>`);
   fab.addEventListener("click", () => {
     confirmingDeleteTaskId = null;
+    cloningSourceTask = null;
     state.addingTask = true;
     render();
   });
@@ -1187,7 +1190,7 @@ function renderTaskSheet() {
       </div>
     </div>
   `);
-  backdrop.querySelector(".sheet-body").appendChild(renderTaskForm(editingTask));
+  backdrop.querySelector(".sheet-body").appendChild(renderTaskForm(editingTask, editingTask ? null : cloningSourceTask));
   const close = () => {
     closeTaskSheet();
     render();
@@ -1205,6 +1208,12 @@ function renderTaskSheet() {
 // same module-level, reset-on-navigation pattern as confirmingToggleKey in
 // the History tab, so both confirm flows look and behave identically.
 let confirmingDeleteTaskId = null;
+
+// The task a newly-opened "add task" sheet should prefill from, if it was
+// opened via the clone button rather than the add FAB. Module-level and
+// reset on navigation/close like the other transient UI state above — it's
+// only meant to survive the single render that opens the sheet.
+let cloningSourceTask = null;
 
 function renderTaskList() {
   const card = el(`<div class="card"></div>`);
@@ -1233,6 +1242,7 @@ function renderTaskList() {
               ? `<button class="danger" data-action="confirm-delete">${escapeHtml(t("history.confirmDelete"))}</button>
                  <button type="button" class="secondary" data-action="cancel-delete">${escapeHtml(t("taskList.cancel"))}</button>`
               : `<button class="secondary btn-icon" data-action="edit" title="${escapeHtml(t("taskList.edit"))}" aria-label="${escapeHtml(t("taskList.edit"))}"><span class="material-symbols-outlined">edit</span></button>
+                 <button class="secondary btn-icon" data-action="clone" title="${escapeHtml(t("taskList.clone"))}" aria-label="${escapeHtml(t("taskList.clone"))}"><span class="material-symbols-outlined">content_copy</span></button>
                  <button class="secondary btn-icon" data-action="toggle" title="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}" aria-label="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}"><span class="material-symbols-outlined">${t_.active === false ? "play_arrow" : "pause"}</span></button>
                  <button class="secondary btn-icon" data-action="delete" title="${escapeHtml(t("taskList.delete"))}" aria-label="${escapeHtml(t("taskList.delete"))}" style="color:var(--red);"><span class="material-symbols-outlined">delete</span></button>`
           }
@@ -1243,8 +1253,19 @@ function renderTaskList() {
     const editBtn = row.querySelector('[data-action="edit"]');
     if (editBtn) {
       editBtn.addEventListener("click", () => {
+        cloningSourceTask = null;
         state.addingTask = false;
         state.editingTaskId = t_.id;
+        render();
+      });
+    }
+    const cloneBtn = row.querySelector('[data-action="clone"]');
+    if (cloneBtn) {
+      cloneBtn.addEventListener("click", () => {
+        confirmingDeleteTaskId = null;
+        cloningSourceTask = t_;
+        state.editingTaskId = null;
+        state.addingTask = true;
         render();
       });
     }
@@ -1299,8 +1320,27 @@ function renderTaskList() {
   return card;
 }
 
-function renderTaskForm(existingTask) {
+// "Wash dishes" -> "Wash dishes (copy)"; if that title is already taken by
+// another task, "(copy 2)", "(copy 3)", ... until one is free.
+function cloneTaskTitle(sourceTitle) {
+  const existingTitles = new Set(state.tasks.map((t_) => t_.title));
+  let candidate = `${sourceTitle} ${t("taskList.copySuffix")}`;
+  let n = 2;
+  while (existingTitles.has(candidate)) {
+    candidate = `${sourceTitle} ${t("taskList.copySuffixN", { n })}`;
+    n++;
+  }
+  return candidate;
+}
+
+// `cloneSource` prefills a brand-new (non-edit) form from another task's
+// data, for the task-list clone button — everything below that reads
+// `existingTask` for prefill purposes also accepts a clone source, but
+// `isEdit` stays tied to `existingTask` alone so saving always creates a
+// new task rather than updating the one being cloned from.
+function renderTaskForm(existingTask, cloneSource) {
   const isEdit = !!existingTask;
+  const prefill = existingTask || cloneSource;
   const children = state.users.filter((u) => u.role === "USER_ROLE_CHILD");
   const form = el(`
     <div>
@@ -1363,10 +1403,10 @@ function renderTaskForm(existingTask) {
     </div>
   `);
 
-  if (isEdit) {
-    form.querySelector("#task-title").value = existingTask.title;
-    form.querySelector("#task-desc").value = existingTask.description || "";
-    form.querySelector("#task-price").value = (Number((existingTask.price && existingTask.price.cents) || 0) / 100).toFixed(2);
+  if (prefill) {
+    form.querySelector("#task-title").value = isEdit ? prefill.title : cloneTaskTitle(prefill.title);
+    form.querySelector("#task-desc").value = prefill.description || "";
+    form.querySelector("#task-price").value = (Number((prefill.price && prefill.price.cents) || 0) / 100).toFixed(2);
   }
 
   const iconSearchInput = form.querySelector("#task-icon-search");
@@ -1376,7 +1416,7 @@ function renderTaskForm(existingTask) {
   // Material Symbols icon — a task whose icon predates that being the only
   // supported type (emoji, Font Awesome) starts this form with no icon
   // selected, since there's no way to keep editing that value here.
-  let selectedIconValue = isEdit && existingTask.icon && existingTask.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS" ? materialIconName(existingTask.icon.value) : "";
+  let selectedIconValue = prefill && prefill.icon && prefill.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS" ? materialIconName(prefill.icon.value) : "";
   let materialSymbolNames = [];
   loadMaterialSymbolNames().then((names) => {
     materialSymbolNames = names;
@@ -1438,14 +1478,14 @@ function renderTaskForm(existingTask) {
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
-  const existingSchedule = (isEdit && existingTask.schedule) || {};
+  const existingSchedule = (prefill && prefill.schedule) || {};
   const preCheckedDays = (existingSchedule.weekly && existingSchedule.weekly.daysOfWeek) || [];
   // Tap-to-toggle chips rather than a row of tiny checkboxes: the checkbox
   // is still the source of truth (the save handler reads it by id), it's
   // just hidden inside a target big enough to hit with a thumb.
   dow.forEach((d) => {
     const id = `day-${d.code}`;
-    const checked = isEdit ? preCheckedDays.includes(d.code) : d.code >= 1 && d.code <= 5;
+    const checked = prefill ? preCheckedDays.includes(d.code) : d.code >= 1 && d.code <= 5;
     const label = el(`<label class="toggle-chip">
       <input type="checkbox" id="${id}" ${checked ? "checked" : ""}/>${escapeHtml(d.label)}
     </label>`);
@@ -1453,7 +1493,7 @@ function renderTaskForm(existingTask) {
   });
 
   const classificationButtons = [...form.querySelectorAll(".classification-toggle button")];
-  let selectedClassification = isEdit && existingTask.classification === "TASK_CLASSIFICATION_OPTIONAL" ? "OPTIONAL" : "MANDATORY";
+  let selectedClassification = prefill && prefill.classification === "TASK_CLASSIFICATION_OPTIONAL" ? "OPTIONAL" : "MANDATORY";
   function selectClassification(value) {
     selectedClassification = value;
     classificationButtons.forEach((b) => b.classList.toggle("active", b.dataset.classification === value));
@@ -1493,7 +1533,7 @@ function renderTaskForm(existingTask) {
   if (!children.length) {
     childrenWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.noChildren"))}</p>`));
   } else {
-    const assignedIds = new Set(isEdit ? existingTask.childIds || [] : []);
+    const assignedIds = new Set(prefill ? prefill.childIds || [] : []);
     const checksWrap = el(`<div class="chip-group" style="margin-bottom:10px;"></div>`);
     children.forEach((c) => {
       const label = el(`<label class="toggle-chip">
