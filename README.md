@@ -53,7 +53,10 @@ below 520px, where that space would otherwise sit unused.
   through this UI — editing such a task starts with no icon selected. A
   task only shows up for the children it's assigned to, can be edited in
   place at any time, and can be paused (and later resumed) instead of
-  deleted.
+  deleted. Cloning opens the same create-task sheet pre-filled from an
+  existing task, title suffixed `(copy)` — or `(copy 2)`, `(copy 3)`, etc.
+  if that title is already taken — as a starting point for a similar task
+  rather than building one from scratch.
 - Editing or deleting a task never rewrites what a child earned. An
   occurrence records the amount it was worth at the moment it was recorded,
   and nothing else — so repricing a chore changes what it pays from now on
