@@ -423,6 +423,19 @@ HTTP/1.1 on the same port so this works without TLS in local dev, while
 every ordinary HTTP/1.1 caller — the web UI, curl, a reverse proxy that
 doesn't itself speak h2c to the origin — is unaffected.
 
+Reaching it through a reverse proxy needs every hop in the chain to
+actually carry HTTP/2 through, not just terminate TLS with it — a proxy
+that negotiates h2 with the client but falls back to HTTP/1.1 for its own
+connection to the origin will deliver an HTTP/2 request onto a connection
+that can't parse it, which surfaces as a blunt "505 HTTP Version Not
+Supported" rather than anything naming the real cause. On the author's own
+Fly.io + Cloudflare instance (see Hosting below) this needed two separate
+opt-ins: `fly.toml`'s `[http_service.http_options] h2_backend = true` (so
+fly-proxy forwards to this app over h2c instead of always using HTTP/1.1),
+and Cloudflare's own gRPC support toggle (Network settings) plus "HTTP/2 to
+Origin" (SSL/TLS → Edge Certificates) so its edge carries the same protocol
+the rest of the way in.
+
 ## Installing as an app (PWA)
 
 The web UI is an installable Progressive Web App: `web/manifest.webmanifest`
