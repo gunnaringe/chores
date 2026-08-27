@@ -503,6 +503,19 @@ label {
 }
 .input-row input { flex: 1 1 160px; width: auto; }
 
+/* Styled like a terminal on purpose — the one input in the app that's
+   deliberately theme-independent rather than drawn from the design tokens,
+   since it's illustrating a shell command rather than app content. The
+   same fixed black-and-green look in both light and dark mode is what
+   reads as "terminal" instead of "input field that happens to be dark
+   here". Used for the personal access token page's grpcurl example. */
+.terminal-cmd {
+  background: #0a0e0a;
+  color: #3ddc4a;
+  border-color: #0a0e0a;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 /* On a phone a lone primary action reads better spanning the card. */
 @media (max-width: 520px) {
