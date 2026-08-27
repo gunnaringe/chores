@@ -124,6 +124,15 @@ const (
 	// ChoresServiceUnsubscribeFromPushProcedure is the fully-qualified name of the ChoresService's
 	// UnsubscribeFromPush RPC.
 	ChoresServiceUnsubscribeFromPushProcedure = "/chores.v1.ChoresService/UnsubscribeFromPush"
+	// ChoresServiceCreatePersonalAccessTokenProcedure is the fully-qualified name of the
+	// ChoresService's CreatePersonalAccessToken RPC.
+	ChoresServiceCreatePersonalAccessTokenProcedure = "/chores.v1.ChoresService/CreatePersonalAccessToken"
+	// ChoresServiceListPersonalAccessTokensProcedure is the fully-qualified name of the ChoresService's
+	// ListPersonalAccessTokens RPC.
+	ChoresServiceListPersonalAccessTokensProcedure = "/chores.v1.ChoresService/ListPersonalAccessTokens"
+	// ChoresServiceRevokePersonalAccessTokenProcedure is the fully-qualified name of the
+	// ChoresService's RevokePersonalAccessToken RPC.
+	ChoresServiceRevokePersonalAccessTokenProcedure = "/chores.v1.ChoresService/RevokePersonalAccessToken"
 )
 
 // ChoresServiceClient is a client for the chores.v1.ChoresService service.
@@ -159,6 +168,9 @@ type ChoresServiceClient interface {
 	GetPushConfig(context.Context, *connect.Request[v1.GetPushConfigRequest]) (*connect.Response[v1.GetPushConfigResponse], error)
 	SubscribeToPush(context.Context, *connect.Request[v1.SubscribeToPushRequest]) (*connect.Response[v1.SubscribeToPushResponse], error)
 	UnsubscribeFromPush(context.Context, *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error)
+	CreatePersonalAccessToken(context.Context, *connect.Request[v1.CreatePersonalAccessTokenRequest]) (*connect.Response[v1.CreatePersonalAccessTokenResponse], error)
+	ListPersonalAccessTokens(context.Context, *connect.Request[v1.ListPersonalAccessTokensRequest]) (*connect.Response[v1.ListPersonalAccessTokensResponse], error)
+	RevokePersonalAccessToken(context.Context, *connect.Request[v1.RevokePersonalAccessTokenRequest]) (*connect.Response[v1.RevokePersonalAccessTokenResponse], error)
 }
 
 // NewChoresServiceClient constructs a client for the chores.v1.ChoresService service. By default,
@@ -358,42 +370,63 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(choresServiceMethods.ByName("UnsubscribeFromPush")),
 			connect.WithClientOptions(opts...),
 		),
+		createPersonalAccessToken: connect.NewClient[v1.CreatePersonalAccessTokenRequest, v1.CreatePersonalAccessTokenResponse](
+			httpClient,
+			baseURL+ChoresServiceCreatePersonalAccessTokenProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("CreatePersonalAccessToken")),
+			connect.WithClientOptions(opts...),
+		),
+		listPersonalAccessTokens: connect.NewClient[v1.ListPersonalAccessTokensRequest, v1.ListPersonalAccessTokensResponse](
+			httpClient,
+			baseURL+ChoresServiceListPersonalAccessTokensProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("ListPersonalAccessTokens")),
+			connect.WithClientOptions(opts...),
+		),
+		revokePersonalAccessToken: connect.NewClient[v1.RevokePersonalAccessTokenRequest, v1.RevokePersonalAccessTokenResponse](
+			httpClient,
+			baseURL+ChoresServiceRevokePersonalAccessTokenProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("RevokePersonalAccessToken")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // choresServiceClient implements ChoresServiceClient.
 type choresServiceClient struct {
-	createFamily        *connect.Client[v1.CreateFamilyRequest, v1.CreateFamilyResponse]
-	listFamilies        *connect.Client[v1.ListFamiliesRequest, v1.ListFamiliesResponse]
-	deleteFamily        *connect.Client[v1.DeleteFamilyRequest, v1.DeleteFamilyResponse]
-	updateFamily        *connect.Client[v1.UpdateFamilyRequest, v1.UpdateFamilyResponse]
-	getDashboardConfig  *connect.Client[v1.GetDashboardConfigRequest, v1.GetDashboardConfigResponse]
-	setupDashboard      *connect.Client[v1.SetupDashboardRequest, v1.SetupDashboardResponse]
-	disableDashboard    *connect.Client[v1.DisableDashboardRequest, v1.DisableDashboardResponse]
-	createUser          *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
-	listUsers           *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
-	updateUser          *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
-	leaveFamily         *connect.Client[v1.LeaveFamilyRequest, v1.LeaveFamilyResponse]
-	removeChild         *connect.Client[v1.RemoveChildRequest, v1.RemoveChildResponse]
-	createTask          *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
-	updateTask          *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
-	deleteTask          *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
-	listTasks           *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
-	listTaskOccurrences *connect.Client[v1.ListTaskOccurrencesRequest, v1.ListTaskOccurrencesResponse]
-	completeTask        *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
-	uncompleteTask      *connect.Client[v1.UncompleteTaskRequest, v1.UncompleteTaskResponse]
-	getChildSummary     *connect.Client[v1.GetChildSummaryRequest, v1.GetChildSummaryResponse]
-	listChildSummaries  *connect.Client[v1.ListChildSummariesRequest, v1.ListChildSummariesResponse]
-	createPayout        *connect.Client[v1.CreatePayoutRequest, v1.CreatePayoutResponse]
-	listPayouts         *connect.Client[v1.ListPayoutsRequest, v1.ListPayoutsResponse]
-	getMyMembership     *connect.Client[v1.GetMyMembershipRequest, v1.GetMyMembershipResponse]
-	createInvitation    *connect.Client[v1.CreateInvitationRequest, v1.CreateInvitationResponse]
-	listInvitations     *connect.Client[v1.ListInvitationsRequest, v1.ListInvitationsResponse]
-	revokeInvitation    *connect.Client[v1.RevokeInvitationRequest, v1.RevokeInvitationResponse]
-	acceptInvitation    *connect.Client[v1.AcceptInvitationRequest, v1.AcceptInvitationResponse]
-	getPushConfig       *connect.Client[v1.GetPushConfigRequest, v1.GetPushConfigResponse]
-	subscribeToPush     *connect.Client[v1.SubscribeToPushRequest, v1.SubscribeToPushResponse]
-	unsubscribeFromPush *connect.Client[v1.UnsubscribeFromPushRequest, v1.UnsubscribeFromPushResponse]
+	createFamily              *connect.Client[v1.CreateFamilyRequest, v1.CreateFamilyResponse]
+	listFamilies              *connect.Client[v1.ListFamiliesRequest, v1.ListFamiliesResponse]
+	deleteFamily              *connect.Client[v1.DeleteFamilyRequest, v1.DeleteFamilyResponse]
+	updateFamily              *connect.Client[v1.UpdateFamilyRequest, v1.UpdateFamilyResponse]
+	getDashboardConfig        *connect.Client[v1.GetDashboardConfigRequest, v1.GetDashboardConfigResponse]
+	setupDashboard            *connect.Client[v1.SetupDashboardRequest, v1.SetupDashboardResponse]
+	disableDashboard          *connect.Client[v1.DisableDashboardRequest, v1.DisableDashboardResponse]
+	createUser                *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	listUsers                 *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	updateUser                *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
+	leaveFamily               *connect.Client[v1.LeaveFamilyRequest, v1.LeaveFamilyResponse]
+	removeChild               *connect.Client[v1.RemoveChildRequest, v1.RemoveChildResponse]
+	createTask                *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
+	updateTask                *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
+	deleteTask                *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
+	listTasks                 *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	listTaskOccurrences       *connect.Client[v1.ListTaskOccurrencesRequest, v1.ListTaskOccurrencesResponse]
+	completeTask              *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
+	uncompleteTask            *connect.Client[v1.UncompleteTaskRequest, v1.UncompleteTaskResponse]
+	getChildSummary           *connect.Client[v1.GetChildSummaryRequest, v1.GetChildSummaryResponse]
+	listChildSummaries        *connect.Client[v1.ListChildSummariesRequest, v1.ListChildSummariesResponse]
+	createPayout              *connect.Client[v1.CreatePayoutRequest, v1.CreatePayoutResponse]
+	listPayouts               *connect.Client[v1.ListPayoutsRequest, v1.ListPayoutsResponse]
+	getMyMembership           *connect.Client[v1.GetMyMembershipRequest, v1.GetMyMembershipResponse]
+	createInvitation          *connect.Client[v1.CreateInvitationRequest, v1.CreateInvitationResponse]
+	listInvitations           *connect.Client[v1.ListInvitationsRequest, v1.ListInvitationsResponse]
+	revokeInvitation          *connect.Client[v1.RevokeInvitationRequest, v1.RevokeInvitationResponse]
+	acceptInvitation          *connect.Client[v1.AcceptInvitationRequest, v1.AcceptInvitationResponse]
+	getPushConfig             *connect.Client[v1.GetPushConfigRequest, v1.GetPushConfigResponse]
+	subscribeToPush           *connect.Client[v1.SubscribeToPushRequest, v1.SubscribeToPushResponse]
+	unsubscribeFromPush       *connect.Client[v1.UnsubscribeFromPushRequest, v1.UnsubscribeFromPushResponse]
+	createPersonalAccessToken *connect.Client[v1.CreatePersonalAccessTokenRequest, v1.CreatePersonalAccessTokenResponse]
+	listPersonalAccessTokens  *connect.Client[v1.ListPersonalAccessTokensRequest, v1.ListPersonalAccessTokensResponse]
+	revokePersonalAccessToken *connect.Client[v1.RevokePersonalAccessTokenRequest, v1.RevokePersonalAccessTokenResponse]
 }
 
 // CreateFamily calls chores.v1.ChoresService.CreateFamily.
@@ -551,6 +584,21 @@ func (c *choresServiceClient) UnsubscribeFromPush(ctx context.Context, req *conn
 	return c.unsubscribeFromPush.CallUnary(ctx, req)
 }
 
+// CreatePersonalAccessToken calls chores.v1.ChoresService.CreatePersonalAccessToken.
+func (c *choresServiceClient) CreatePersonalAccessToken(ctx context.Context, req *connect.Request[v1.CreatePersonalAccessTokenRequest]) (*connect.Response[v1.CreatePersonalAccessTokenResponse], error) {
+	return c.createPersonalAccessToken.CallUnary(ctx, req)
+}
+
+// ListPersonalAccessTokens calls chores.v1.ChoresService.ListPersonalAccessTokens.
+func (c *choresServiceClient) ListPersonalAccessTokens(ctx context.Context, req *connect.Request[v1.ListPersonalAccessTokensRequest]) (*connect.Response[v1.ListPersonalAccessTokensResponse], error) {
+	return c.listPersonalAccessTokens.CallUnary(ctx, req)
+}
+
+// RevokePersonalAccessToken calls chores.v1.ChoresService.RevokePersonalAccessToken.
+func (c *choresServiceClient) RevokePersonalAccessToken(ctx context.Context, req *connect.Request[v1.RevokePersonalAccessTokenRequest]) (*connect.Response[v1.RevokePersonalAccessTokenResponse], error) {
+	return c.revokePersonalAccessToken.CallUnary(ctx, req)
+}
+
 // ChoresServiceHandler is an implementation of the chores.v1.ChoresService service.
 type ChoresServiceHandler interface {
 	CreateFamily(context.Context, *connect.Request[v1.CreateFamilyRequest]) (*connect.Response[v1.CreateFamilyResponse], error)
@@ -584,6 +632,9 @@ type ChoresServiceHandler interface {
 	GetPushConfig(context.Context, *connect.Request[v1.GetPushConfigRequest]) (*connect.Response[v1.GetPushConfigResponse], error)
 	SubscribeToPush(context.Context, *connect.Request[v1.SubscribeToPushRequest]) (*connect.Response[v1.SubscribeToPushResponse], error)
 	UnsubscribeFromPush(context.Context, *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error)
+	CreatePersonalAccessToken(context.Context, *connect.Request[v1.CreatePersonalAccessTokenRequest]) (*connect.Response[v1.CreatePersonalAccessTokenResponse], error)
+	ListPersonalAccessTokens(context.Context, *connect.Request[v1.ListPersonalAccessTokensRequest]) (*connect.Response[v1.ListPersonalAccessTokensResponse], error)
+	RevokePersonalAccessToken(context.Context, *connect.Request[v1.RevokePersonalAccessTokenRequest]) (*connect.Response[v1.RevokePersonalAccessTokenResponse], error)
 }
 
 // NewChoresServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -779,6 +830,24 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(choresServiceMethods.ByName("UnsubscribeFromPush")),
 		connect.WithHandlerOptions(opts...),
 	)
+	choresServiceCreatePersonalAccessTokenHandler := connect.NewUnaryHandler(
+		ChoresServiceCreatePersonalAccessTokenProcedure,
+		svc.CreatePersonalAccessToken,
+		connect.WithSchema(choresServiceMethods.ByName("CreatePersonalAccessToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceListPersonalAccessTokensHandler := connect.NewUnaryHandler(
+		ChoresServiceListPersonalAccessTokensProcedure,
+		svc.ListPersonalAccessTokens,
+		connect.WithSchema(choresServiceMethods.ByName("ListPersonalAccessTokens")),
+		connect.WithHandlerOptions(opts...),
+	)
+	choresServiceRevokePersonalAccessTokenHandler := connect.NewUnaryHandler(
+		ChoresServiceRevokePersonalAccessTokenProcedure,
+		svc.RevokePersonalAccessToken,
+		connect.WithSchema(choresServiceMethods.ByName("RevokePersonalAccessToken")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/chores.v1.ChoresService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ChoresServiceCreateFamilyProcedure:
@@ -843,6 +912,12 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceSubscribeToPushHandler.ServeHTTP(w, r)
 		case ChoresServiceUnsubscribeFromPushProcedure:
 			choresServiceUnsubscribeFromPushHandler.ServeHTTP(w, r)
+		case ChoresServiceCreatePersonalAccessTokenProcedure:
+			choresServiceCreatePersonalAccessTokenHandler.ServeHTTP(w, r)
+		case ChoresServiceListPersonalAccessTokensProcedure:
+			choresServiceListPersonalAccessTokensHandler.ServeHTTP(w, r)
+		case ChoresServiceRevokePersonalAccessTokenProcedure:
+			choresServiceRevokePersonalAccessTokenHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -974,4 +1049,16 @@ func (UnimplementedChoresServiceHandler) SubscribeToPush(context.Context, *conne
 
 func (UnimplementedChoresServiceHandler) UnsubscribeFromPush(context.Context, *connect.Request[v1.UnsubscribeFromPushRequest]) (*connect.Response[v1.UnsubscribeFromPushResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.UnsubscribeFromPush is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) CreatePersonalAccessToken(context.Context, *connect.Request[v1.CreatePersonalAccessTokenRequest]) (*connect.Response[v1.CreatePersonalAccessTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.CreatePersonalAccessToken is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) ListPersonalAccessTokens(context.Context, *connect.Request[v1.ListPersonalAccessTokensRequest]) (*connect.Response[v1.ListPersonalAccessTokensResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.ListPersonalAccessTokens is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) RevokePersonalAccessToken(context.Context, *connect.Request[v1.RevokePersonalAccessTokenRequest]) (*connect.Response[v1.RevokePersonalAccessTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.RevokePersonalAccessToken is not implemented"))
 }

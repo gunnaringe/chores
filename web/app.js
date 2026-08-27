@@ -209,6 +209,10 @@ const state = {
   dashboardMode: false, // true when the page was loaded at /dashboard
   dashboardKey: null,
   dashboardConfig: null, // { enabled, dashboardKey } — this family's own kiosk config, shown in Settings
+  // This login's personal access tokens (see settings.apiTokensHeading) —
+  // identity-scoped rather than family-scoped, so unlike dashboardConfig
+  // this is NOT reset in setFamilyId when switching families.
+  personalAccessTokens: null,
 };
 
 function resetHistoryState() {
@@ -432,6 +436,8 @@ function resetTransientUiState() {
   confirmingLeaveFamily = false;
   confirmingDeleteFamily = false;
   expandedFamilyRow = null;
+  confirmingRevokeTokenId = null;
+  newPersonalAccessTokenSecret = null;
 }
 
 function renderTabBar(defs, activeKey) {
@@ -2676,6 +2682,12 @@ function renderSettingsTab() {
   wrap.appendChild(renderCreateFamilySection());
   wrap.appendChild(renderJoinFamilySection());
 
+  // Account-level and rarer still than switching households — a personal
+  // access token acts as this login wherever it's bound, not tied to the
+  // family currently open, so it sits last of all.
+  wrap.appendChild(el(`<div class="section-label">${escapeHtml(t("apiTokens.section"))}</div>`));
+  wrap.appendChild(renderPersonalAccessTokensSection());
+
   return wrap;
 }
 
@@ -2861,6 +2873,142 @@ function renderDashboardSettingsSection() {
     );
     card.appendChild(setupBtn);
   }
+  return card;
+}
+
+// ---- Settings: personal access tokens -----------------------------------------------------
+//
+// A bearer credential for calling the API from outside the browser (a
+// script, a cron job) as this login — not family-scoped like the dashboard
+// key above, so this section sits outside the isParent() family block and
+// is available to a child's own login too, mirroring whatever access that
+// login already has.
+
+let personalAccessTokensLoadInFlight = false;
+function triggerPersonalAccessTokensLoad() {
+  if (personalAccessTokensLoadInFlight || state.personalAccessTokens !== null) return;
+  personalAccessTokensLoadInFlight = true;
+  call("ListPersonalAccessTokens", {})
+    .then((resp) => {
+      state.personalAccessTokens = resp.tokens || [];
+    })
+    .catch((e) => {
+      state.personalAccessTokens = [];
+      state.error = e.message || String(e);
+    })
+    .finally(() => {
+      personalAccessTokensLoadInFlight = false;
+      if (state.tab === "settings") render();
+    });
+}
+
+// The raw secret of a token just created, shown exactly once — like the
+// token itself, this never touches localStorage and is gone the moment the
+// user navigates away or dismisses it.
+let newPersonalAccessTokenSecret = null;
+let confirmingRevokeTokenId = null;
+
+function renderPersonalAccessTokensSection() {
+  const card = el(`<div class="card"><h2>${escapeHtml(t("apiTokens.heading"))}</h2></div>`);
+  card.appendChild(el(`<p class="hint" style="margin:0 0 14px;">${escapeHtml(t("apiTokens.desc"))}</p>`));
+
+  if (newPersonalAccessTokenSecret) {
+    const secretField = el(`
+      <div class="field" style="margin-bottom:16px;">
+        <label>${escapeHtml(t("apiTokens.secretLabel"))}</label>
+        <div class="input-row">
+          <input type="text" readonly value="${escapeHtml(newPersonalAccessTokenSecret)}" onclick="this.select()" />
+          <button type="button" class="secondary btn-icon" data-copy="secret" title="${escapeHtml(t("apiTokens.copySecret"))}" aria-label="${escapeHtml(t("apiTokens.copySecret"))}"><span class="material-symbols-outlined">content_copy</span></button>
+        </div>
+        <p class="hint" style="margin:6px 0 0;color:var(--red);">${escapeHtml(t("apiTokens.secretWarning"))}</p>
+        <button type="button" class="secondary" style="margin-top:10px;" id="dismiss-secret-btn">${escapeHtml(t("apiTokens.secretDismiss"))}</button>
+      </div>
+    `);
+    wireCopyButton(secretField.querySelector('[data-copy="secret"]'), newPersonalAccessTokenSecret, t("apiTokens.copySecret"));
+    secretField.querySelector("#dismiss-secret-btn").addEventListener("click", () => {
+      newPersonalAccessTokenSecret = null;
+      render();
+    });
+    card.appendChild(secretField);
+  }
+
+  if (state.personalAccessTokens === null) {
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("dashboard.loading"))}</p>`));
+    triggerPersonalAccessTokensLoad();
+    return card;
+  }
+
+  if (!state.personalAccessTokens.length) {
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("apiTokens.empty"))}</p>`));
+  } else {
+    state.personalAccessTokens.forEach((tok) => {
+      const confirmingDelete = confirmingRevokeTokenId === tok.id;
+      const lastUsed = tok.lastUsedAt ? t("apiTokens.lastUsed", { date: new Date(tok.lastUsedAt).toLocaleDateString(localeTag()) }) : t("apiTokens.neverUsed");
+      const row = el(`
+        <div class="row">
+          <div class="task-row-main">
+            <div class="task-row-text">
+              <div class="task-title">${escapeHtml(tok.name)}</div>
+              <div class="task-meta">${escapeHtml(t("apiTokens.created", { date: new Date(tok.createdAt).toLocaleDateString(localeTag()) }))} · ${escapeHtml(lastUsed)}</div>
+            </div>
+          </div>
+          <div class="actions">
+            ${
+              confirmingDelete
+                ? `<button class="danger" data-action="confirm-revoke">${escapeHtml(t("history.confirmDelete"))}</button>
+                   <button type="button" class="secondary" data-action="cancel-revoke">${escapeHtml(t("taskList.cancel"))}</button>`
+                : `<button class="secondary btn-icon" data-action="revoke" title="${escapeHtml(t("apiTokens.revoke"))}" aria-label="${escapeHtml(t("apiTokens.revoke"))}" style="color:var(--red);"><span class="material-symbols-outlined">delete</span></button>`
+            }
+          </div>
+        </div>
+      `);
+      const revokeBtn = row.querySelector('[data-action="revoke"]');
+      if (revokeBtn) {
+        revokeBtn.addEventListener("click", () => {
+          confirmingRevokeTokenId = tok.id;
+          render();
+        });
+      }
+      const confirmBtn = row.querySelector('[data-action="confirm-revoke"]');
+      if (confirmBtn) {
+        confirmBtn.addEventListener("click", () =>
+          withError(async () => {
+            confirmingRevokeTokenId = null;
+            await call("RevokePersonalAccessToken", { tokenId: tok.id });
+            state.personalAccessTokens = null;
+          })
+        );
+      }
+      const cancelBtn = row.querySelector('[data-action="cancel-revoke"]');
+      if (cancelBtn) {
+        cancelBtn.addEventListener("click", () => {
+          confirmingRevokeTokenId = null;
+          render();
+        });
+      }
+      card.appendChild(row);
+    });
+  }
+
+  const createField = el(`
+    <div class="field" style="margin-top:16px;">
+      <label>${escapeHtml(t("apiTokens.nameLabel"))}</label>
+      <input type="text" id="new-token-name" class="input-full" placeholder="${escapeHtml(t("apiTokens.namePlaceholder"))}" />
+    </div>
+  `);
+  card.appendChild(createField);
+  const createBtn = el(`<button type="button">${escapeHtml(t("apiTokens.createBtn"))}</button>`);
+  createBtn.addEventListener("click", () =>
+    withError(async () => {
+      const name = createField.querySelector("#new-token-name").value.trim();
+      if (!name) throw new Error(t("apiTokens.nameRequired"));
+      const resp = await call("CreatePersonalAccessToken", { name });
+      newPersonalAccessTokenSecret = resp.secret;
+      state.personalAccessTokens = null;
+    })
+  );
+  card.appendChild(createBtn);
+
   return card;
 }
 

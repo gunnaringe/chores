@@ -201,3 +201,32 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_family ON push_subscriptions(family_id);
+
+-- A personal access token authenticates as a login identity (an Auth0
+-- "sub"), not as any one users row — the same as a session cookie doesn't
+-- belong to one family either. That's why this references auth_subject
+-- rather than a users.id foreign key: the same login can be bound to
+-- several users rows (one per family) or, after being removed from every
+-- family, to none at all, and the token keeps working as "that login" in
+-- either case. A token for a login no longer bound anywhere simply fails
+-- every membership check downstream, the same as a lingering session
+-- cookie for that identity would.
+--
+-- identity_name/identity_email are a snapshot of the creating session's
+-- Identity, not read from any users row, so they stay available to
+-- reconstruct a full auth.Identity even for that no-longer-bound case. See
+-- internal/server/tokens.go.
+--
+-- token_hash is SHA-256 of the raw bearer value; the raw value itself is
+-- never stored anywhere, only returned once at creation time.
+CREATE TABLE IF NOT EXISTS personal_access_tokens (
+    id TEXT PRIMARY KEY,
+    auth_subject TEXT NOT NULL,
+    name TEXT NOT NULL,
+    identity_name TEXT NOT NULL DEFAULT '',
+    identity_email TEXT NOT NULL DEFAULT '',
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_auth_subject ON personal_access_tokens(auth_subject);

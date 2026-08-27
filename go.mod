@@ -4,6 +4,7 @@ go 1.25.6
 
 require (
 	connectrpc.com/connect v1.20.0
+	connectrpc.com/grpcreflect v1.3.0
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/google/uuid v1.6.0
 	github.com/knadh/koanf/parsers/dotenv v1.1.2
