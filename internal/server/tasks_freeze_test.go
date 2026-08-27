@@ -233,3 +233,61 @@ func TestCreatePayout_ConcurrentFullPayoutsCannotOverdraw(t *testing.T) {
 		t.Errorf("paid out %d, want exactly the 300 earned", got)
 	}
 }
+
+// The case that most justifies freezing, and the one that isn't about
+// cosmetics: changing a schedule changes which past dates the task is
+// derived as having been due on. Without a freeze, last month's Mondays
+// simply cease to have existed.
+func TestUpdateTask_ScheduleChangeKeepsPastOccurrences(t *testing.T) {
+	f := newHistoryFixture(t, "auth0|schedule-change")
+	f.backdate(t, 30)
+
+	before := f.occurrencesByDate(t, daysAgo(20), daysAgo(20))
+	if len(before) != 1 {
+		t.Fatalf("expected a daily task to be due 20 days ago, got %+v", before)
+	}
+
+	// Daily -> the 1st of the month only, which almost certainly does not
+	// include that date.
+	if _, err := f.s.UpdateTask(f.ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: f.taskID, Title: "Dishes", Schedule: cronSchedule("0 0 1 * *"),
+		Price: money(100), ChildIds: []string{f.childID}, Active: true,
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+
+	after := f.occurrencesByDate(t, daysAgo(20), daysAgo(20))
+	if len(after) != 1 {
+		t.Fatalf("changing the schedule erased an occurrence that had already come due; got %+v", after)
+	}
+}
+
+// And the same for reassignment: dropping a child must not retract every
+// chore they were ever asked to do.
+func TestUpdateTask_ReassignmentKeepsPastOccurrences(t *testing.T) {
+	f := newHistoryFixture(t, "auth0|reassign")
+	f.backdate(t, 30)
+
+	other, err := f.s.CreateUser(f.ctx, connect.NewRequest(&v1.CreateUserRequest{
+		FamilyId: f.familyID, Name: "Sibling", Role: v1.UserRole_USER_ROLE_CHILD,
+	}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if _, err := f.s.UpdateTask(f.ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: f.taskID, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{other.Msg.User.Id}, Active: true,
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+
+	resp, err := f.s.ListTaskOccurrences(f.ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: f.familyID, StartDate: daysAgo(20), EndDate: daysAgo(20), ChildId: f.childID,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences: %v", err)
+	}
+	if len(resp.Msg.Occurrences) != 1 {
+		t.Fatalf("reassigning the task erased the original child's past occurrences; got %+v", resp.Msg.Occurrences)
+	}
+}
