@@ -501,15 +501,19 @@ label {
   flex-wrap: wrap;
   align-items: center;
 }
-.input-row input { flex: 1 1 160px; width: auto; }
+.input-row input, .input-row textarea { flex: 1 1 160px; width: auto; }
 
-/* Styled like a terminal on purpose — the one input in the app that's
+/* Styled like a terminal on purpose — the one field in the app that's
    deliberately theme-independent rather than drawn from the design tokens,
    since it's illustrating a shell command rather than app content. The
    same fixed black-and-green look in both light and dark mode is what
    reads as "terminal" instead of "input field that happens to be dark
-   here". Used for the personal access token page's grpcurl example. */
+   here". Used for the personal access token page's grpcurl example,
+   itself a <textarea readonly> rather than an <input> so a multi-line
+   command can wrap onto its own lines instead of scrolling sideways. */
 .terminal-cmd {
+  resize: none;
+  line-height: 1.5;
   background: #0a0e0a;
   color: #3ddc4a;
   border-color: #0a0e0a;

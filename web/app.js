@@ -2908,6 +2908,38 @@ function triggerPersonalAccessTokensLoad() {
 let newPersonalAccessTokenSecret = null;
 let confirmingRevokeTokenId = null;
 
+// A readonly, copyable, terminal-styled multi-line command example — one
+// argument per \-continued line, same as a shell would read it back,
+// rather than one crammed line. Shared by the grpcurl and plain-JSON usage
+// examples on the personal access tokens page.
+function renderTerminalCommandField(label, cmd, hint) {
+  // One row per logical line, plus one for headroom: the Authorization
+  // header line is long enough to wrap onto a second visual row on a
+  // narrow phone, and a row count that didn't allow for that would
+  // silently clip the last line instead of just wasting a little space on
+  // a wider screen. Computed from cmd itself rather than a fixed number —
+  // callers' commands don't all have the same number of lines.
+  const rows = cmd.split("\n").length + 1;
+  const field = el(`
+    <div class="field" style="margin-top:16px;">
+      <label>${escapeHtml(label)}</label>
+      <div class="input-row">
+        <textarea class="terminal-cmd" readonly rows="${rows}" onclick="this.select()"></textarea>
+        <button type="button" class="secondary btn-icon" data-copy="usage" title="${escapeHtml(t("apiTokens.copyUsage"))}" aria-label="${escapeHtml(t("apiTokens.copyUsage"))}"><span class="material-symbols-outlined">content_copy</span></button>
+      </div>
+      <p class="hint" style="margin:6px 0 0;">${escapeHtml(hint)}</p>
+    </div>
+  `);
+  // Set as a property rather than baked into the markup: a textarea's
+  // value is its text content, not an attribute, so the usual
+  // value="..." escaping bug can't happen here, but a command containing
+  // a literal " and \ still makes "set it in JS" the simplest correct
+  // option rather than hand-escaping for text-node context.
+  field.querySelector("textarea").value = cmd;
+  wireCopyButton(field.querySelector('[data-copy="usage"]'), cmd, t("apiTokens.copyUsage"));
+  return field;
+}
+
 function renderPersonalAccessTokensSection() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("apiTokens.heading"))}</h2></div>`);
   card.appendChild(el(`<p class="hint" style="margin:0 0 14px;">${escapeHtml(t("apiTokens.desc"))}</p>`));
@@ -2998,25 +3030,18 @@ function renderPersonalAccessTokensSection() {
     // rather than relying on grpcurl's own default-to-443 behavior.
     const locationPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
     const hostAndPort = `${window.location.hostname}:${locationPort}`;
-    // The command contains a literal " (around the header value), so its
-    // value is set as a property below rather than baked into the
-    // template's value="..." attribute — escapeHtml() only escapes
-    // &/</>, safe for text content but not for breaking out of a
-    // double-quoted attribute.
-    const usageCmd = `grpcurl -H "Authorization: Bearer $TOKEN" ${hostAndPort} list`;
-    const usageField = el(`
-      <div class="field" style="margin-top:16px;">
-        <label>${escapeHtml(t("apiTokens.usageLabel"))}</label>
-        <div class="input-row">
-          <input type="text" class="terminal-cmd" readonly onclick="this.select()" />
-          <button type="button" class="secondary btn-icon" data-copy="usage" title="${escapeHtml(t("apiTokens.copyUsage"))}" aria-label="${escapeHtml(t("apiTokens.copyUsage"))}"><span class="material-symbols-outlined">content_copy</span></button>
-        </div>
-        <p class="hint" style="margin:6px 0 0;">${escapeHtml(t("apiTokens.usageHint"))}</p>
-      </div>
-    `);
-    usageField.querySelector("input").value = usageCmd;
-    wireCopyButton(usageField.querySelector('[data-copy="usage"]'), usageCmd, t("apiTokens.copyUsage"));
-    card.appendChild(usageField);
+    // One argument per line (\-continued, same as a shell would read it
+    // back) rather than one crammed line — both more readable and more
+    // "terminal-like" than a single-line field, and it's how a real
+    // multi-arg command usually gets shown in docs.
+    const usageCmd = `grpcurl \\\n  -H "Authorization: Bearer $TOKEN" \\\n  ${hostAndPort} \\\n  list`;
+    // grpcurl needs reflection (this section's whole reason to name it),
+    // but every RPC also accepts plain JSON over HTTP — the same protocol
+    // this app's own frontend calls it with — for anyone without grpcurl
+    // installed, or who'd rather not add a schema-aware tool at all.
+    const jsonCmd = `curl \\\n  -H "Authorization: Bearer $TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{}' \\\n  ${window.location.origin}/chores.v1.ChoresService/ListFamilies`;
+    card.appendChild(renderTerminalCommandField(t("apiTokens.usageLabel"), usageCmd, t("apiTokens.usageHint")));
+    card.appendChild(renderTerminalCommandField(t("apiTokens.usageJsonLabel"), jsonCmd, t("apiTokens.usageJsonHint")));
   }
 
   const createField = el(`
