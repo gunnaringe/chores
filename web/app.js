@@ -560,6 +560,30 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+// Wires an icon button to copy `value` to the clipboard, with a transient
+// checkmark + "Copied!" state before reverting to `label`. Shared by every
+// copy-this-value-next-to-a-readonly-input control in the app (invite
+// link/code, dashboard URL/key) since they're all the same interaction.
+function wireCopyButton(btn, value, label) {
+  const icon = btn.querySelector(".material-symbols-outlined");
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      icon.textContent = "check";
+      btn.title = t("invitations.copied");
+      btn.setAttribute("aria-label", t("invitations.copied"));
+      setTimeout(() => {
+        icon.textContent = "content_copy";
+        btn.title = label;
+        btn.setAttribute("aria-label", label);
+      }, 1500);
+    } catch (e) {
+      state.error = e.message || String(e);
+      render();
+    }
+  });
+}
+
 // Material Symbols are rendered as ligature text content (not a class
 // name), so escapeHtml() alone already makes them injection-safe; this
 // whitelist is just hygiene, matching how the names actually look
@@ -1965,28 +1989,8 @@ function renderFamilyTab() {
           // Two separate buttons rather than one, since the link and the raw
           // code serve different handoffs (send a link vs. read a code aloud)
           // and a recipient copying one usually doesn't want the other.
-          const wireCopyButton = (selector, value, label) => {
-            const btn = inviteField.querySelector(selector);
-            const icon = btn.querySelector(".material-symbols-outlined");
-            btn.addEventListener("click", async () => {
-              try {
-                await navigator.clipboard.writeText(value);
-                icon.textContent = "check";
-                btn.title = t("invitations.copied");
-                btn.setAttribute("aria-label", t("invitations.copied"));
-                setTimeout(() => {
-                  icon.textContent = "content_copy";
-                  btn.title = label;
-                  btn.setAttribute("aria-label", label);
-                }, 1500);
-              } catch (e) {
-                state.error = e.message || String(e);
-                render();
-              }
-            });
-          };
-          wireCopyButton('[data-copy="url"]', acceptUrl, t("invitations.copyLink"));
-          wireCopyButton('[data-copy="code"]', pendingInvite.token, t("invitations.copyCode"));
+          wireCopyButton(inviteField.querySelector('[data-copy="url"]'), acceptUrl, t("invitations.copyLink"));
+          wireCopyButton(inviteField.querySelector('[data-copy="code"]'), pendingInvite.token, t("invitations.copyCode"));
           detail.appendChild(inviteField);
         }
         const revokeBtn = el(`<button type="button" class="danger" style="margin-top:10px;">${escapeHtml(t("invitations.revoke"))}</button>`);
@@ -2808,16 +2812,27 @@ function renderDashboardSettingsSection() {
 
   if (state.dashboardConfig.enabled) {
     const url = `${window.location.origin}/dashboard?key=${encodeURIComponent(state.dashboardConfig.dashboardKey)}`;
-    card.appendChild(el(`
-      <div class="field">
-        <label>${escapeHtml(t("dashboard.urlLabel"))}</label>
-        <input type="text" class="input-full" readonly value="${escapeHtml(url)}" onclick="this.select()" />
+    const fields = el(`
+      <div>
+        <div class="field">
+          <label>${escapeHtml(t("dashboard.urlLabel"))}</label>
+          <div class="input-row">
+            <input type="text" readonly value="${escapeHtml(url)}" onclick="this.select()" />
+            <button type="button" class="secondary btn-icon" data-copy="url" title="${escapeHtml(t("dashboard.copyUrl"))}" aria-label="${escapeHtml(t("dashboard.copyUrl"))}"><span class="material-symbols-outlined">content_copy</span></button>
+          </div>
+        </div>
+        <div class="field">
+          <label>${escapeHtml(t("dashboard.keyLabel"))}</label>
+          <div class="input-row">
+            <input type="text" readonly value="${escapeHtml(state.dashboardConfig.dashboardKey)}" onclick="this.select()" />
+            <button type="button" class="secondary btn-icon" data-copy="key" title="${escapeHtml(t("dashboard.copyKey"))}" aria-label="${escapeHtml(t("dashboard.copyKey"))}"><span class="material-symbols-outlined">content_copy</span></button>
+          </div>
+        </div>
       </div>
-      <div class="field">
-        <label>${escapeHtml(t("dashboard.keyLabel"))}</label>
-        <input type="text" class="input-full" readonly value="${escapeHtml(state.dashboardConfig.dashboardKey)}" onclick="this.select()" />
-      </div>
-    `));
+    `);
+    wireCopyButton(fields.querySelector('[data-copy="url"]'), url, t("dashboard.copyUrl"));
+    wireCopyButton(fields.querySelector('[data-copy="key"]'), state.dashboardConfig.dashboardKey, t("dashboard.copyKey"));
+    card.appendChild(fields);
     const actions = el(`<div class="actions"></div>`);
     const regenBtn = el(`<button class="secondary">${escapeHtml(t("dashboard.regenerate"))}</button>`);
     regenBtn.addEventListener("click", () =>
