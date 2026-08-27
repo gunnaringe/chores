@@ -15,15 +15,30 @@ primary_region = "arn"
   min_machines_running = 1
   processes = ["app"]
 
-# Without this, fly-proxy always speaks plain HTTP/1.1 to the app backend
-# regardless of what the app supports — the Go server accepts cleartext
-# HTTP/2 (see cmd/chores/main.go's srv.Protocols setup), but fly-proxy never
-# knows to use it unless told here. Needed for the gRPC reflection API,
-# whose RPCs are bidirectional streams that HTTP/1.1 can't carry; without
-# it a client that successfully negotiates HTTP/2 with Cloudflare's edge
-# gets a "505 HTTP Version Not Supported" from fly-proxy on the next hop,
-# where the request lands as an unparseable HTTP/2 preface on an
-# HTTP/1.1-only connection.
+# Needed for the gRPC reflection API, whose RPCs are bidirectional streams
+# that HTTP/1.1 can't carry — DNS-only (grey-clouded) is all Cloudflare does
+# for this app, so fly-proxy's own edge is what terminates client TLS, and
+# fly-proxy is the only other hop besides this app itself. Two separate
+# settings, for the two separate legs fly-proxy sits between:
+#
+#   - tls_options.alpn is the client-facing leg: without "h2" advertised
+#     here, fly-proxy's TLS handshake with an external client (grpcurl,
+#     say) never offers h2 as an option, so ALPN falls back to http/1.1
+#     regardless of what the app supports — "http/1.1" stays listed too so
+#     an older client that can't do h2 at all still gets served.
+#   - http_options.h2_backend is the backend-facing leg: without it,
+#     fly-proxy always speaks plain HTTP/1.1 to the app itself, regardless
+#     of what the app supports. The Go server accepts cleartext HTTP/2 (see
+#     cmd/chores/main.go's srv.Protocols setup), but fly-proxy never knows
+#     to use it unless told here.
+#
+# Missing either leg means a client that negotiates HTTP/2 on one side gets
+# its request delivered as an unparseable HTTP/2 preface on an HTTP/1.1-only
+# connection on the other — which fly-proxy (also written in Go) reports
+# back as a "505 HTTP Version Not Supported".
+[http_service.tls_options]
+  alpn = ["h2", "http/1.1"]
+
 [http_service.http_options]
   h2_backend = true
 
