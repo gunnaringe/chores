@@ -819,9 +819,24 @@ type TaskOccurrence struct {
 	// it was completed and never revised afterwards. For one not yet
 	// completed, the task's price as it currently stands.
 	Amount *Money `protobuf:"bytes,9,opt,name=amount,proto3" json:"amount,omitempty"`
-	// Resolved live from the child's user row rather than frozen with the
-	// rest: fixing the spelling of a person's name should correct it
-	// everywhere, unlike a task rename, which must not rewrite history.
+	// Resolved live from child_id's user row, never stored — there is no
+	// child_name column. child_id is the reference; this is a convenience
+	// copy of what it currently points at.
+	//
+	// Deliberately not frozen with the fields above: fixing the spelling of
+	// a person's name should correct it everywhere, unlike a task rename,
+	// which must not reach backwards.
+	//
+	// Resolving through child_id also gets the household-specific name for
+	// free. A child who belongs to two families has a separate user row in
+	// each (users.family_id is per-row, and auth_subject is deliberately not
+	// unique), so they can be "Lisa" in one household and "Lisa Sofie" in
+	// the other, and each family's occurrences show the name that family
+	// uses.
+	//
+	// It travels on the wire at all because the kiosk dashboard needs it:
+	// dashboardAllowedMethods grants a dashboard key exactly four RPCs, and
+	// ListUsers is not among them, so a kiosk cannot resolve names itself.
 	ChildName string `protobuf:"bytes,10,opt,name=child_name,json=childName,proto3" json:"child_name,omitempty"`
 	// Unset while the occurrence is due but not completed — the single
 	// source of truth for whether it's done.
@@ -2701,7 +2716,8 @@ type ListTaskOccurrencesRequest struct {
 	ChildId string `protobuf:"bytes,4,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"` // optional filter
 	// Case-insensitive substring match against the occurrence's title or the
 	// child's name. Optional; when set, start_date/end_date are typically
-	// left unset so the search spans the family's whole history.
+	// left unset, in which case the search spans the retention window — the
+	// whole of what is kept, which is not the same as all time.
 	Search string `protobuf:"bytes,5,opt,name=search,proto3" json:"search,omitempty"`
 	// Page size; when unset (<= 0), all matching occurrences are returned
 	// unpaginated. A max applies when set.
