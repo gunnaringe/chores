@@ -111,6 +111,8 @@ const TRANSLATIONS = {
     "apiTokens.usageLabel": "Example usage",
     "apiTokens.copyUsage": "Copy command",
     "apiTokens.usageHint": "Replace $TOKEN with a token's secret.",
+    "apiTokens.usageJsonLabel": "Or plain JSON",
+    "apiTokens.usageJsonHint": "Every RPC also accepts plain JSON over HTTP — the same protocol this app itself uses. Replace $TOKEN with a token's secret.",
 
     "tabs.today": "Today",
     "tabs.tasks": "Tasks",
@@ -388,6 +390,8 @@ const TRANSLATIONS = {
     "apiTokens.usageLabel": "Eksempel på bruk",
     "apiTokens.copyUsage": "Kopier kommando",
     "apiTokens.usageHint": "Bytt ut $TOKEN med en nøkkels hemmelighet.",
+    "apiTokens.usageJsonLabel": "Eller vanlig JSON",
+    "apiTokens.usageJsonHint": "Alle RPC-er godtar også vanlig JSON over HTTP — samme protokoll appen selv bruker. Bytt ut $TOKEN med en nøkkels hemmelighet.",
 
     "tabs.today": "I dag",
     "tabs.tasks": "Oppgaver",
