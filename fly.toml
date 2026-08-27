@@ -15,6 +15,18 @@ primary_region = "arn"
   min_machines_running = 1
   processes = ["app"]
 
+# Without this, fly-proxy always speaks plain HTTP/1.1 to the app backend
+# regardless of what the app supports — the Go server accepts cleartext
+# HTTP/2 (see cmd/chores/main.go's srv.Protocols setup), but fly-proxy never
+# knows to use it unless told here. Needed for the gRPC reflection API,
+# whose RPCs are bidirectional streams that HTTP/1.1 can't carry; without
+# it a client that successfully negotiates HTTP/2 with Cloudflare's edge
+# gets a "505 HTTP Version Not Supported" from fly-proxy on the next hop,
+# where the request lands as an unparseable HTTP/2 preface on an
+# HTTP/1.1-only connection.
+[http_service.http_options]
+  h2_backend = true
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "256mb"
