@@ -15,6 +15,32 @@ import (
 	"github.com/gunnaringe/chores/internal/scheduling"
 )
 
+// Schedule constructors, so a test that isn't about scheduling can say
+// which shape it wants in one term rather than four correlated fields.
+func cronSchedule(expr string) *v1.Schedule {
+	return &v1.Schedule{Kind: &v1.Schedule_Cron{Cron: &v1.CronSchedule{Expression: expr}}}
+}
+
+func onceSchedule(date string) *v1.Schedule {
+	return &v1.Schedule{Kind: &v1.Schedule_Once{Once: &v1.OnceSchedule{Date: date}}}
+}
+
+func weeklySchedule(days []int32, intervalWeeks int32, anchorDate string) *v1.Schedule {
+	return &v1.Schedule{Kind: &v1.Schedule_Weekly{Weekly: &v1.WeeklySchedule{
+		DaysOfWeek: days, IntervalWeeks: intervalWeeks, AnchorDate: anchorDate,
+	}}}
+}
+
+// backdateTask makes a task have existed since createdAt. A task is never
+// due before it was created, so any test asserting on occurrences earlier
+// than "now" has to give its task a past first.
+func backdateTask(t *testing.T, s *Server, taskID, createdAt string) {
+	t.Helper()
+	if _, err := s.db.Exec(`UPDATE tasks SET created_at = ? WHERE id = ?`, createdAt, taskID); err != nil {
+		t.Fatalf("backdate task: %v", err)
+	}
+}
+
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	conn, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
@@ -125,7 +151,7 @@ func TestFamilyScoping_CrossFamilyAccessDenied(t *testing.T) {
 
 	// Nor create a task in it.
 	if _, err := s.CreateTask(ctxA, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: famB.Msg.Family.Id, Title: "Sneaky task", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: famB.Msg.Family.Id, Title: "Sneaky task", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 	})); codeOf(err) != connect.CodePermissionDenied {
 		t.Fatalf("expected PermissionDenied creating a task in another family, got %v", err)
 	}
@@ -148,7 +174,7 @@ func TestFamilyScoping_CrossFamilyAccessDenied(t *testing.T) {
 		t.Fatalf("CreateUser A: %v", err)
 	}
 	task, err := s.CreateTask(ctxA, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: famA.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: famA.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{child.Msg.User.Id},
 	}))
 	if err != nil {
@@ -244,7 +270,7 @@ func TestInvitationFlow(t *testing.T) {
 	}
 
 	invResp, err := s.CreateInvitation(ctxParent, connect.NewRequest(&v1.CreateInvitationRequest{
-		FamilyId: fam.Msg.Family.Id, Name: "Parent Two", Email: "p2@example.com", Role: v1.UserRole_USER_ROLE_PARENT,
+		FamilyId: fam.Msg.Family.Id, Name: "Parent Two", Role: v1.UserRole_USER_ROLE_PARENT,
 	}))
 	if err != nil {
 		t.Fatalf("CreateInvitation: %v", err)
@@ -352,7 +378,7 @@ func TestChildInvitation_BindsAndRestrictsToSelf(t *testing.T) {
 	for name, err := range map[string]error{
 		"CreateTask": func() error {
 			_, err := s.CreateTask(ctxChild, connect.NewRequest(&v1.CreateTaskRequest{
-				FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+				FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 			}))
 			return err
 		}(),
@@ -382,7 +408,7 @@ func TestChildInvitation_BindsAndRestrictsToSelf(t *testing.T) {
 
 	// But a child can complete their own task and view their own summary.
 	task, err := s.CreateTask(ctxParent, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{childID},
 	}))
 	if err != nil {
@@ -429,7 +455,7 @@ func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
 	childBID := childB.Msg.User.Id
 
 	task, err := s.CreateTask(ctxParent, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{childAID, childBID},
 	}))
 	if err != nil {
@@ -456,10 +482,28 @@ func TestChild_CannotActOnBehalfOfSibling(t *testing.T) {
 		t.Fatalf("expected ListChildSummaries to only return the caller's own summary, got %+v", summaries.Msg.Summaries)
 	}
 
-	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childAID, AmountCents: 100})); err != nil {
+	// Earn something first: a payout can't exceed the child's balance, so
+	// each needs completions to pay out against. A is paid one day's worth,
+	// B two.
+	for _, c := range []struct {
+		childID string
+		dates   []string
+	}{
+		{childAID, []string{"2024-01-01"}},
+		{childBID, []string{"2024-01-01", "2024-01-02"}},
+	} {
+		for _, d := range c.dates {
+			if _, err := s.CompleteTask(ctxParent, connect.NewRequest(&v1.CompleteTaskRequest{
+				TaskId: task.Msg.Task.Id, ChildId: c.childID, DueDate: d,
+			})); err != nil {
+				t.Fatalf("CompleteTask %s %s: %v", c.childID, d, err)
+			}
+		}
+	}
+	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childAID, Amount: money(100)})); err != nil {
 		t.Fatalf("CreatePayout to A: %v", err)
 	}
-	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childBID, AmountCents: 200})); err != nil {
+	if _, err := s.CreatePayout(ctxParent, connect.NewRequest(&v1.CreatePayoutRequest{ChildId: childBID, Amount: money(200)})); err != nil {
 		t.Fatalf("CreatePayout to B: %v", err)
 	}
 	payouts, err := s.ListPayouts(ctxChildA, connect.NewRequest(&v1.ListPayoutsRequest{FamilyId: fam.Msg.Family.Id, ChildId: childBID}))
@@ -491,13 +535,13 @@ func TestTaskAssignment(t *testing.T) {
 	}
 
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "No one", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "No one", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 	})); err == nil {
 		t.Fatal("expected an error creating a task with no assigned children")
 	}
 
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{childA.Msg.User.Id},
 	}))
 	if err != nil {
@@ -539,7 +583,7 @@ func TestTaskAssignment(t *testing.T) {
 
 	// Update can reassign the task to the other child.
 	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
-		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100, Active: true,
+		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100), Active: true,
 		ChildIds: []string{childB.Msg.User.Id},
 	})); err != nil {
 		t.Fatalf("UpdateTask: %v", err)
@@ -569,21 +613,21 @@ func TestTaskRepeatModes(t *testing.T) {
 
 	// A missing repeat_mode is rejected outright.
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "No mode", PriceCents: 100, ChildIds: childIDs,
+		FamilyId: fam.Msg.Family.Id, Title: "No mode", Price: money(100), ChildIds: childIDs,
 	})); codeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument with no repeat_mode, got %v", err)
 	}
 
 	// ONCE: due only on its date, nowhere else.
 	once, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Wash the car", PriceCents: 500, ChildIds: childIDs,
-		RepeatMode: v1.RepeatMode_REPEAT_MODE_ONCE, StartDate: "2026-09-15",
+		FamilyId: fam.Msg.Family.Id, Title: "Wash the car", Price: money(500), ChildIds: childIDs,
+		Schedule: onceSchedule("2026-09-15"),
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask ONCE: %v", err)
 	}
-	if once.Msg.Task.StartDate != "2026-09-15" {
-		t.Fatalf("expected start_date to round-trip, got %q", once.Msg.Task.StartDate)
+	if got := once.Msg.Task.GetSchedule().GetOnce().GetDate(); got != "2026-09-15" {
+		t.Fatalf("expected the one-off date to round-trip, got %q", got)
 	}
 	occ, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, StartDate: "2026-09-01", EndDate: "2026-09-30",
@@ -593,7 +637,7 @@ func TestTaskRepeatModes(t *testing.T) {
 	}
 	var onceDates []string
 	for _, o := range occ.Msg.Occurrences {
-		if o.Task.Id == once.Msg.Task.Id {
+		if o.TaskId == once.Msg.Task.Id {
 			onceDates = append(onceDates, o.DueDate)
 		}
 	}
@@ -601,23 +645,26 @@ func TestTaskRepeatModes(t *testing.T) {
 		t.Fatalf("expected the ONCE task due exactly on 2026-09-15, got %v", onceDates)
 	}
 
-	// A ONCE task with no start_date is rejected.
+	// A one-off with no date is rejected.
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "No date", PriceCents: 100, ChildIds: childIDs,
-		RepeatMode: v1.RepeatMode_REPEAT_MODE_ONCE,
+		FamilyId: fam.Msg.Family.Id, Title: "No date", Price: money(100), ChildIds: childIDs,
+		Schedule: onceSchedule(""),
 	})); codeOf(err) != connect.CodeInvalidArgument {
-		t.Fatalf("expected InvalidArgument for ONCE with no start_date, got %v", err)
+		t.Fatalf("expected InvalidArgument for a one-off with no date, got %v", err)
 	}
 
 	// WEEKLY with an interval > 1: due on the anchor week and every 2nd week
 	// after, not the weeks in between.
 	weekly, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Take out recycling", PriceCents: 50, ChildIds: childIDs,
-		RepeatMode: v1.RepeatMode_REPEAT_MODE_WEEKLY, DaysOfWeek: []int32{1}, RepeatIntervalWeeks: 2, StartDate: "2026-08-24",
+		FamilyId: fam.Msg.Family.Id, Title: "Take out recycling", Price: money(50), ChildIds: childIDs,
+		Schedule: weeklySchedule([]int32{1}, 2, "2026-08-24"),
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask WEEKLY: %v", err)
 	}
+	// The anchor week is in the past relative to the test clock, so the
+	// task has to have existed by then to be due on it.
+	backdateTask(t, s, weekly.Msg.Task.Id, "2026-08-01T00:00:00Z")
 	occ, err = s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, StartDate: "2026-08-24", EndDate: "2026-09-14",
 	}))
@@ -626,7 +673,7 @@ func TestTaskRepeatModes(t *testing.T) {
 	}
 	var weeklyDates []string
 	for _, o := range occ.Msg.Occurrences {
-		if o.Task.Id == weekly.Msg.Task.Id {
+		if o.TaskId == weekly.Msg.Task.Id {
 			weeklyDates = append(weeklyDates, o.DueDate)
 		}
 	}
@@ -641,18 +688,18 @@ func TestTaskRepeatModes(t *testing.T) {
 		}
 	}
 
-	// A WEEKLY task with no days selected is rejected.
+	// A weekly schedule with no days selected is rejected.
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "No days", PriceCents: 100, ChildIds: childIDs,
-		RepeatMode: v1.RepeatMode_REPEAT_MODE_WEEKLY,
+		FamilyId: fam.Msg.Family.Id, Title: "No days", Price: money(100), ChildIds: childIDs,
+		Schedule: weeklySchedule(nil, 1, "2026-08-24"),
 	})); codeOf(err) != connect.CodeInvalidArgument {
-		t.Fatalf("expected InvalidArgument for WEEKLY with no days_of_week, got %v", err)
+		t.Fatalf("expected InvalidArgument for a weekly schedule with no days, got %v", err)
 	}
 
 	// CRON: the raw expression is used as-is (existing behavior).
 	cron, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Pay rent", PriceCents: 0, ChildIds: childIDs,
-		RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 1 * *",
+		FamilyId: fam.Msg.Family.Id, Title: "Pay rent", Price: money(0), ChildIds: childIDs,
+		Schedule: cronSchedule("0 0 1 * *"),
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask CRON: %v", err)
@@ -665,7 +712,7 @@ func TestTaskRepeatModes(t *testing.T) {
 	}
 	var cronDates []string
 	for _, o := range occ.Msg.Occurrences {
-		if o.Task.Id == cron.Msg.Task.Id {
+		if o.TaskId == cron.Msg.Task.Id {
 			cronDates = append(cronDates, o.DueDate)
 		}
 	}
@@ -688,14 +735,14 @@ func TestTaskIcon(t *testing.T) {
 	}
 
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS, Value: "cleaning_services"},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
 	if got := task.Msg.Task.Icon; got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "cleaning_services" {
-		t.Fatalf("expected material symbols icon cleaning_services on create, got %+v", got)
+		t.Fatalf("expected emoji icon 🧹 on create, got %+v", got)
 	}
 
 	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
@@ -703,12 +750,13 @@ func TestTaskIcon(t *testing.T) {
 		t.Fatalf("ListTasks: %v", err)
 	}
 	if got := fetched.Msg.Tasks[0].Icon; len(fetched.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "cleaning_services" {
-		t.Fatalf("expected icon cleaning_services to persist, got %+v", fetched.Msg.Tasks[0])
+		t.Fatalf("expected icon 🧹 to persist, got %+v", fetched.Msg.Tasks[0])
 	}
 
-	// Reassigning to a different Material Symbols icon must round-trip.
+	// Reassigning to a Font Awesome icon must round-trip the type too, not
+	// just the value.
 	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
-		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100, Active: true,
+		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100), Active: true,
 		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS, Value: "checkroom"},
 	})); err != nil {
 		t.Fatalf("UpdateTask: %v", err)
@@ -718,20 +766,20 @@ func TestTaskIcon(t *testing.T) {
 		t.Fatalf("ListTasks after update: %v", err)
 	}
 	if got := updated.Msg.Tasks[0].Icon; len(updated.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "checkroom" {
-		t.Fatalf("expected icon updated to material-symbols:checkroom, got %+v", updated.Msg.Tasks[0])
+		t.Fatalf("expected icon updated to font-awesome:broom, got %+v", updated.Msg.Tasks[0])
 	}
 
 	// A value with no (valid) type is rejected rather than silently guessed at.
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Ambiguous", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Value: "checkroom"},
+		FamilyId: fam.Msg.Family.Id, Title: "Ambiguous", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Value: "broom"},
 	})); codeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument for a value with no icon type, got %v", err)
 	}
 
 	// No icon at all is fine and comes back as nil, not a zero-value Icon.
 	noIcon, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "No icon", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "No icon", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{child.Msg.User.Id},
 	}))
 	if err != nil {
@@ -739,116 +787,6 @@ func TestTaskIcon(t *testing.T) {
 	}
 	if noIcon.Msg.Task.Icon != nil {
 		t.Fatalf("expected no icon, got %+v", noIcon.Msg.Task.Icon)
-	}
-}
-
-// TestTaskIcon_LegacyTypesReadAsUnspecified covers a task whose icon was
-// set back when emoji and Font Awesome were still supported types: reading
-// it back today must not error or drop the value, even though neither type
-// is choosable anymore — it just reports UNSPECIFIED, leaving the frontend
-// to decide how to fall back.
-func TestTaskIcon_LegacyTypesReadAsUnspecified(t *testing.T) {
-	s := newTestServer(t)
-	ctx := withIdentity("auth0|task-icon-legacy-tester")
-
-	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
-	if err != nil {
-		t.Fatalf("CreateFamily: %v", err)
-	}
-	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id},
-	}))
-	if err != nil {
-		t.Fatalf("CreateTask: %v", err)
-	}
-	// Simulate a row written back when icon_type could be "emoji" —
-	// CreateTask itself can no longer produce one.
-	if _, err := s.db.ExecContext(ctx, `UPDATE tasks SET icon_type = 'emoji', icon_value = '🧹' WHERE id = ?`, task.Msg.Task.Id); err != nil {
-		t.Fatalf("seed legacy emoji icon: %v", err)
-	}
-
-	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
-	if err != nil {
-		t.Fatalf("ListTasks: %v", err)
-	}
-	got := fetched.Msg.Tasks[0].Icon
-	if got.GetType() != v1.IconType_ICON_TYPE_UNSPECIFIED || got.GetValue() != "🧹" {
-		t.Fatalf("expected a legacy emoji icon to read back as (UNSPECIFIED, 🧹), got %+v", got)
-	}
-}
-
-func TestTaskClassification(t *testing.T) {
-	s := newTestServer(t)
-	ctx := withIdentity("auth0|task-classification-tester")
-
-	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
-	if err != nil {
-		t.Fatalf("CreateFamily: %v", err)
-	}
-	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
-	if err != nil {
-		t.Fatalf("CreateUser: %v", err)
-	}
-
-	// An unset classification defaults to MANDATORY, same as a task created
-	// before this field existed.
-	unset, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id},
-	}))
-	if err != nil {
-		t.Fatalf("CreateTask: %v", err)
-	}
-	if got := unset.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
-		t.Fatalf("expected default classification MANDATORY, got %v", got)
-	}
-
-	optional, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Tidy room", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
-		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL,
-	}))
-	if err != nil {
-		t.Fatalf("CreateTask: %v", err)
-	}
-	if got := optional.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
-		t.Fatalf("expected classification OPTIONAL, got %v", got)
-	}
-
-	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
-	if err != nil {
-		t.Fatalf("ListTasks: %v", err)
-	}
-	byID := map[string]*v1.Task{}
-	for _, tk := range fetched.Msg.Tasks {
-		byID[tk.Id] = tk
-	}
-	if got := byID[unset.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
-		t.Fatalf("expected persisted classification MANDATORY, got %v", got)
-	}
-	if got := byID[optional.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
-		t.Fatalf("expected persisted classification OPTIONAL, got %v", got)
-	}
-
-	// Updating flips it back to MANDATORY.
-	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
-		TaskId: optional.Msg.Task.Id, Title: "Tidy room", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100, Active: true,
-		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY,
-	})); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
-	}
-	updated, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
-	if err != nil {
-		t.Fatalf("ListTasks after update: %v", err)
-	}
-	for _, tk := range updated.Msg.Tasks {
-		if tk.Id == optional.Msg.Task.Id && tk.Classification != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
-			t.Fatalf("expected classification updated to MANDATORY, got %v", tk.Classification)
-		}
 	}
 }
 
@@ -922,7 +860,7 @@ func TestChild_CanBeMemberOfMultipleFamilies(t *testing.T) {
 	// The two family memberships are fully independent: a task and
 	// completion in family A must not be visible or actionable from B.
 	taskA, err := s.CreateTask(ctxParentA, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: famA.Msg.Family.Id, Title: "Chore A", Schedule: "0 0 * * *", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, PriceCents: 100,
+		FamilyId: famA.Msg.Family.Id, Title: "Chore A", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 		ChildIds: []string{membership.Msg.Memberships[0].User.Id},
 	}))
 	if err != nil {
@@ -1009,8 +947,8 @@ func TestChildSummary_EarnedThisWeek(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{child.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
@@ -1035,15 +973,15 @@ func TestChildSummary_EarnedThisWeek(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetChildSummary: %v", err)
 	}
-	if got := resp.Msg.Summary.EarnedThisWeekCents; got != 100 {
+	if got := resp.Msg.Summary.GetEarnedThisWeek().GetCents(); got != 100 {
 		t.Fatalf("expected earned_this_week_cents to count only this Monday's completion (100), got %d", got)
 	}
-	if got := resp.Msg.Summary.TotalEarnedCents; got != 200 {
+	if got := resp.Msg.Summary.GetTotalEarned().GetCents(); got != 200 {
 		t.Fatalf("expected total_earned_cents to count both completions (200), got %d", got)
 	}
 }
 
-func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
+func TestListTaskOccurrences_SearchAndPagination(t *testing.T) {
 	s := newTestServer(t)
 	ctx := withIdentity("auth0|list-completions-tester")
 
@@ -1060,19 +998,22 @@ func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
 		t.Fatalf("CreateUser B: %v", err)
 	}
 	dishes, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{childA.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{childA.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask Dishes: %v", err)
 	}
 	laundry, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Laundry", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 200, ChildIds: []string{childB.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Laundry", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(200), ChildIds: []string{childB.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask Laundry: %v", err)
 	}
+	// Both tasks work in 2024 dates, so both need to have existed by then.
+	backdateTask(t, s, dishes.Msg.Task.Id, "2023-12-31T00:00:00Z")
+	backdateTask(t, s, laundry.Msg.Task.Id, "2023-12-31T00:00:00Z")
 
 	dates := []string{"2024-01-01", "2024-01-02", "2024-01-03"}
 	for _, d := range dates {
@@ -1088,67 +1029,96 @@ func TestListTaskCompletions_SearchAndPagination(t *testing.T) {
 		t.Fatalf("CompleteTask Laundry: %v", err)
 	}
 
-	// Search by task title (case-insensitive substring).
-	resp, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{FamilyId: fam.Msg.Family.Id, Search: "dish"}))
+	// Search matches the occurrence's own title, case-insensitively. The
+	// range is bounded to the three seeded days because these are daily
+	// cron tasks: unbounded, they'd expand to every date since the task was
+	// created, completed or not.
+	const (
+		rangeStart = "2024-01-01"
+		rangeEnd   = "2024-01-03"
+	)
+	resp, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: rangeStart, EndDate: rangeEnd, Search: "dish",
+	}))
 	if err != nil {
-		t.Fatalf("ListTaskCompletions search by title: %v", err)
+		t.Fatalf("ListTaskOccurrences search by title: %v", err)
 	}
-	if len(resp.Msg.Completions) != 3 {
-		t.Fatalf("expected 3 Dishes completions matching %q, got %d", "dish", len(resp.Msg.Completions))
+	if len(resp.Msg.Occurrences) != 3 {
+		t.Fatalf("expected 3 Dishes occurrences matching %q, got %d", "dish", len(resp.Msg.Occurrences))
 	}
-	for _, c := range resp.Msg.Completions {
-		if c.TaskTitle != "Dishes" || c.ChildName != "Alice" {
-			t.Fatalf("expected denormalized task_title/child_name on results, got %+v", c)
+	for _, o := range resp.Msg.Occurrences {
+		if o.GetTitle() != "Dishes" {
+			t.Fatalf("search returned a non-matching occurrence: %+v", o)
+		}
+		if o.GetCompletedAt() == nil {
+			t.Fatalf("expected every Dishes occurrence in range to be completed, got %+v", o)
+		}
+		if o.GetAmount().GetCents() != 100 {
+			t.Fatalf("expected the recorded amount of 100, got %+v", o.GetAmount())
 		}
 	}
 
-	// Search by child name.
-	resp, err = s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{FamilyId: fam.Msg.Family.Id, Search: "bob"}))
-	if err != nil {
-		t.Fatalf("ListTaskCompletions search by child name: %v", err)
-	}
-	if len(resp.Msg.Completions) != 1 || resp.Msg.Completions[0].TaskTitle != "Laundry" {
-		t.Fatalf("expected exactly the Laundry completion for Bob, got %+v", resp.Msg.Completions)
-	}
-
-	// Pagination over the 3 Dishes completions (ordered by due_date DESC):
-	// a page of 2 reports has_more, and the next page picks up the rest.
-	page1, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{
-		FamilyId: fam.Msg.Family.Id, ChildId: childA.Msg.User.Id, Limit: 2, Offset: 0,
+	// Search also matches the child's name, and returns occurrences whether
+	// or not they were completed — Bob did the laundry on the 1st only.
+	resp, err = s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: rangeStart, EndDate: rangeEnd, Search: "bob",
 	}))
 	if err != nil {
-		t.Fatalf("ListTaskCompletions page 1: %v", err)
+		t.Fatalf("ListTaskOccurrences search by child name: %v", err)
 	}
-	if len(page1.Msg.Completions) != 2 || !page1.Msg.HasMore {
-		t.Fatalf("expected page 1 to have 2 results and has_more=true, got %d results has_more=%v", len(page1.Msg.Completions), page1.Msg.HasMore)
+	if len(resp.Msg.Occurrences) != 3 {
+		t.Fatalf("expected Bob's 3 Laundry occurrences, got %+v", resp.Msg.Occurrences)
 	}
-	if page1.Msg.Completions[0].DueDate != "2024-01-03" || page1.Msg.Completions[1].DueDate != "2024-01-02" {
-		t.Fatalf("expected page 1 in due_date DESC order, got %+v", page1.Msg.Completions)
+	var completed int
+	for _, o := range resp.Msg.Occurrences {
+		if o.GetTitle() != "Laundry" || o.GetChildName() != "Bob" {
+			t.Fatalf("search by child name returned %+v", o)
+		}
+		if o.GetCompletedAt() != nil {
+			completed++
+		}
+	}
+	if completed != 1 {
+		t.Fatalf("expected exactly 1 of Bob's occurrences to be completed, got %d", completed)
 	}
 
-	page2, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{
-		FamilyId: fam.Msg.Family.Id, ChildId: childA.Msg.User.Id, Limit: 2, Offset: 2,
+	// Pagination, newest due date first.
+	page1, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: rangeStart, EndDate: rangeEnd, Search: "dish", Limit: 2,
 	}))
 	if err != nil {
-		t.Fatalf("ListTaskCompletions page 2: %v", err)
+		t.Fatalf("ListTaskOccurrences page 1: %v", err)
 	}
-	if len(page2.Msg.Completions) != 1 || page2.Msg.HasMore {
-		t.Fatalf("expected page 2 to have the last result and has_more=false, got %d results has_more=%v", len(page2.Msg.Completions), page2.Msg.HasMore)
+	if len(page1.Msg.Occurrences) != 2 || !page1.Msg.HasMore {
+		t.Fatalf("expected page 1 to have 2 results and has_more=true, got %d results has_more=%v", len(page1.Msg.Occurrences), page1.Msg.HasMore)
 	}
-	if page2.Msg.Completions[0].DueDate != "2024-01-01" {
-		t.Fatalf("expected the last remaining completion to be 2024-01-01, got %+v", page2.Msg.Completions[0])
+	if page1.Msg.Occurrences[0].DueDate != "2024-01-03" || page1.Msg.Occurrences[1].DueDate != "2024-01-02" {
+		t.Fatalf("expected page 1 in due_date DESC order, got %+v", page1.Msg.Occurrences)
+	}
+
+	page2, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: rangeStart, EndDate: rangeEnd, Search: "dish", Limit: 2, Offset: 2,
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences page 2: %v", err)
+	}
+	if len(page2.Msg.Occurrences) != 1 || page2.Msg.HasMore {
+		t.Fatalf("expected page 2 to have the last result and has_more=false, got %d results has_more=%v", len(page2.Msg.Occurrences), page2.Msg.HasMore)
+	}
+	if page2.Msg.Occurrences[0].DueDate != "2024-01-01" {
+		t.Fatalf("expected the last remaining occurrence to be 2024-01-01, got %+v", page2.Msg.Occurrences[0])
 	}
 
 	// start_date/end_date bound the range (used for the "recent" bucket:
 	// today/yesterday/this week).
-	ranged, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{
-		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-02", EndDate: "2024-01-03",
+	ranged, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, StartDate: "2024-01-02", EndDate: "2024-01-03", Search: "dish",
 	}))
 	if err != nil {
-		t.Fatalf("ListTaskCompletions ranged: %v", err)
+		t.Fatalf("ListTaskOccurrences ranged: %v", err)
 	}
-	if len(ranged.Msg.Completions) != 2 {
-		t.Fatalf("expected 2 completions in [2024-01-02, 2024-01-03], got %d: %+v", len(ranged.Msg.Completions), ranged.Msg.Completions)
+	if len(ranged.Msg.Occurrences) != 2 {
+		t.Fatalf("expected 2 Dishes occurrences in [2024-01-02, 2024-01-03], got %d: %+v", len(ranged.Msg.Occurrences), ranged.Msg.Occurrences)
 	}
 }
 
@@ -1165,19 +1135,22 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 		t.Fatalf("CreateUser: %v", err)
 	}
 	dishes, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{child.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask Dishes: %v", err)
 	}
 	laundry, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Laundry", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 200, ChildIds: []string{child.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Laundry", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(200), ChildIds: []string{child.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask Laundry: %v", err)
 	}
+	// Both tasks work in 2024 dates, so both need to have existed by then.
+	backdateTask(t, s, dishes.Msg.Task.Id, "2023-12-31T00:00:00Z")
+	backdateTask(t, s, laundry.Msg.Task.Id, "2023-12-31T00:00:00Z")
 
 	// Dishes gets completed on 01-02 but not 01-01 or 01-03; Laundry is
 	// completed on 01-01 only.
@@ -1196,8 +1169,8 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 	// occurrences for that range, even though a paused task no longer
 	// generates any occurrences of its own.
 	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
-		TaskId: laundry.Msg.Task.Id, Title: "Laundry", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 200, Active: false, ChildIds: []string{child.Msg.User.Id},
+		TaskId: laundry.Msg.Task.Id, Title: "Laundry", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(200), Active: false, ChildIds: []string{child.Msg.User.Id},
 	})); err != nil {
 		t.Fatalf("UpdateTask pause Laundry: %v", err)
 	}
@@ -1211,7 +1184,7 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 
 	byKey := map[string]*v1.TaskOccurrence{}
 	for _, o := range resp.Msg.Occurrences {
-		byKey[o.Task.Title+"|"+o.DueDate] = o
+		byKey[o.Title+"|"+o.DueDate] = o
 	}
 
 	// Dishes: three occurrences (active task), only 01-02 completed.
@@ -1221,15 +1194,17 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 			t.Fatalf("expected a Dishes occurrence on %s, got %+v", d, resp.Msg.Occurrences)
 		}
 		wantCompleted := d == "2024-01-02"
-		if o.Completed != wantCompleted {
-			t.Fatalf("Dishes on %s: expected completed=%v, got %v", d, wantCompleted, o.Completed)
+		if completed := o.GetCompletedAt() != nil; completed != wantCompleted {
+			t.Fatalf("Dishes on %s: expected completed=%v, got %v", d, wantCompleted, o.GetCompletedAt() != nil)
 		}
 	}
 
 	// Laundry: paused, so it only shows up via its one real completion on
 	// 01-01 — not on 01-02/01-03, which were never completed and can no
-	// longer be generated now that the task is paused.
-	if o, ok := byKey["Laundry|2024-01-01"]; !ok || !o.Completed {
+	// longer be generated now that the task is paused. Pausing changes
+	// nothing an occurrence is derived from, so it doesn't freeze the
+	// task's past either (see restatesHistory).
+	if o, ok := byKey["Laundry|2024-01-01"]; !ok || o.GetCompletedAt() == nil {
 		t.Fatalf("expected Laundry's 01-01 completion to survive pausing the task, got %+v", byKey["Laundry|2024-01-01"])
 	}
 	if _, ok := byKey["Laundry|2024-01-02"]; ok {
@@ -1273,17 +1248,33 @@ func TestListTaskOccurrences_IncludesIncompleteAndPausedTaskHistory(t *testing.T
 		t.Fatalf("expected page 2 to have the last 2 results and has_more=false, got %d results has_more=%v", len(page2.Msg.Occurrences), page2.Msg.HasMore)
 	}
 
-	// Leaving both start_date and end_date unset spans "all time" for this
-	// family, bounded by when its tasks/completions actually exist —
-	// exercising occurrenceFloorDate.
-	allTime, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+	// Leaving start_date unset no longer means "all time": occurrenceFloorDate
+	// clamps to the retention window, so a search with no dates reaches back
+	// at most retentionDays. This family's history is from 2024 and therefore
+	// out of window entirely.
+	unbounded, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, Search: "laundry",
 	}))
 	if err != nil {
-		t.Fatalf("ListTaskOccurrences all-time search: %v", err)
+		t.Fatalf("ListTaskOccurrences unbounded search: %v", err)
 	}
-	if len(allTime.Msg.Occurrences) != 1 || allTime.Msg.Occurrences[0].DueDate != "2024-01-01" {
-		t.Fatalf("expected exactly the Laundry 01-01 completion, got %+v", allTime.Msg.Occurrences)
+	for _, o := range unbounded.Msg.Occurrences {
+		if o.GetDueDate() < retentionCutoff(nowUTC()) {
+			t.Fatalf("unbounded search reached past the retention window: %+v", o)
+		}
+	}
+
+	// An explicit range is still honoured as given — retention bounds what
+	// is kept and what an open-ended query defaults to, not what a caller
+	// may ask for.
+	explicit, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
+		FamilyId: fam.Msg.Family.Id, Search: "laundry", StartDate: "2024-01-01", EndDate: "2024-01-03",
+	}))
+	if err != nil {
+		t.Fatalf("ListTaskOccurrences explicit range: %v", err)
+	}
+	if len(explicit.Msg.Occurrences) != 1 || explicit.Msg.Occurrences[0].DueDate != "2024-01-01" {
+		t.Fatalf("expected exactly the Laundry 01-01 completion, got %+v", explicit.Msg.Occurrences)
 	}
 }
 
@@ -1417,8 +1408,8 @@ func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
 		t.Fatalf("CreateUser child: %v", err)
 	}
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{child.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
@@ -1455,12 +1446,16 @@ func TestRemoveChild_CascadesAssignmentsAndHistory(t *testing.T) {
 	if len(updatedTask.Msg.Tasks) != 1 || len(updatedTask.Msg.Tasks[0].ChildIds) != 0 {
 		t.Fatalf("expected the removed child's assignment to be gone, got %+v", updatedTask.Msg.Tasks[0].ChildIds)
 	}
-	completions, err := s.ListTaskCompletions(ctx, connect.NewRequest(&v1.ListTaskCompletionsRequest{FamilyId: fam.Msg.Family.Id}))
+	// Removing a child takes their history with them — deliberately, unlike
+	// deleting a task, which now keeps it.
+	occurrences, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{FamilyId: fam.Msg.Family.Id}))
 	if err != nil {
-		t.Fatalf("ListTaskCompletions: %v", err)
+		t.Fatalf("ListTaskOccurrences: %v", err)
 	}
-	if len(completions.Msg.Completions) != 0 {
-		t.Fatalf("expected the removed child's completion history to be gone, got %+v", completions.Msg.Completions)
+	for _, o := range occurrences.Msg.Occurrences {
+		if o.GetCompletedAt() != nil {
+			t.Fatalf("expected the removed child's completion history to be gone, got %+v", o)
+		}
 	}
 	payouts, err := s.ListPayouts(ctx, connect.NewRequest(&v1.ListPayoutsRequest{FamilyId: fam.Msg.Family.Id}))
 	if err != nil {
@@ -1487,8 +1482,8 @@ func TestDeleteFamily_RemovesEverything(t *testing.T) {
 		t.Fatalf("CreateUser child: %v", err)
 	}
 	if _, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{child.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{child.Msg.User.Id},
 	})); err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
@@ -1546,8 +1541,8 @@ func TestDashboardKey_ReadsAndCompletesTasksForTheWholeFamily(t *testing.T) {
 		t.Fatalf("CreateUser B: %v", err)
 	}
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Dishes", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{childA.Msg.User.Id, childB.Msg.User.Id},
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{childA.Msg.User.Id, childB.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
@@ -1633,7 +1628,7 @@ func TestDashboardKey_NeverUnlocksParentOnlyActions(t *testing.T) {
 	dashCtx := dashboardTestContext(t, s, setup.Msg.DashboardKey)
 
 	if _, err := s.CreateTask(dashCtx, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: fam.Msg.Family.Id, Title: "Sneaky task", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *", PriceCents: 100,
+		FamilyId: fam.Msg.Family.Id, Title: "Sneaky task", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
 	})); codeOf(err) != connect.CodePermissionDenied {
 		t.Fatalf("expected PermissionDenied creating a task via dashboard access, got %v", err)
 	}
@@ -1675,8 +1670,8 @@ func TestDashboardKey_ScopedToItsOwnFamily(t *testing.T) {
 		t.Fatalf("CreateUser B: %v", err)
 	}
 	taskB, err := s.CreateTask(ctxB, connect.NewRequest(&v1.CreateTaskRequest{
-		FamilyId: famB.Msg.Family.Id, Title: "Chore B", RepeatMode: v1.RepeatMode_REPEAT_MODE_CRON, Schedule: "0 0 * * *",
-		PriceCents: 100, ChildIds: []string{childB.Msg.User.Id},
+		FamilyId: famB.Msg.Family.Id, Title: "Chore B", Schedule: cronSchedule("0 0 * * *"),
+		Price: money(100), ChildIds: []string{childB.Msg.User.Id},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask B: %v", err)
@@ -1730,5 +1725,110 @@ func TestDisableDashboard_RevokesTheKey(t *testing.T) {
 	}
 	if setup2.Msg.DashboardKey == setup.Msg.DashboardKey {
 		t.Fatal("expected regenerating to produce a different key")
+	}
+}
+
+func TestTaskIcon_LegacyTypesReadAsUnspecified(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|task-icon-legacy-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	// Simulate a row written back when icon_type could be "emoji" —
+	// CreateTask itself can no longer produce one.
+	if _, err := s.db.ExecContext(ctx, `UPDATE tasks SET icon_type = 'emoji', icon_value = '🧹' WHERE id = ?`, task.Msg.Task.Id); err != nil {
+		t.Fatalf("seed legacy emoji icon: %v", err)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	got := fetched.Msg.Tasks[0].Icon
+	if got.GetType() != v1.IconType_ICON_TYPE_UNSPECIFIED || got.GetValue() != "🧹" {
+		t.Fatalf("expected a legacy emoji icon to read back as (UNSPECIFIED, 🧹), got %+v", got)
+	}
+}
+
+func TestTaskClassification(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|task-classification-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	// An unset classification defaults to MANDATORY, same as a task created
+	// before this field existed.
+	unset, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := unset.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+		t.Fatalf("expected default classification MANDATORY, got %v", got)
+	}
+
+	optional, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Tidy room", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL,
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := optional.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
+		t.Fatalf("expected classification OPTIONAL, got %v", got)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	byID := map[string]*v1.Task{}
+	for _, tk := range fetched.Msg.Tasks {
+		byID[tk.Id] = tk
+	}
+	if got := byID[unset.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+		t.Fatalf("expected persisted classification MANDATORY, got %v", got)
+	}
+	if got := byID[optional.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
+		t.Fatalf("expected persisted classification OPTIONAL, got %v", got)
+	}
+
+	// Updating flips it back to MANDATORY.
+	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: optional.Msg.Task.Id, Title: "Tidy room", Schedule: cronSchedule("0 0 * * *"), Price: money(100), Active: true,
+		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY,
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	updated, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks after update: %v", err)
+	}
+	for _, tk := range updated.Msg.Tasks {
+		if tk.Id == optional.Msg.Task.Id && tk.Classification != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+			t.Fatalf("expected classification updated to MANDATORY, got %v", tk.Classification)
+		}
 	}
 }

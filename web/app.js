@@ -82,6 +82,14 @@ function formatMoney(cents) {
   return symbol ? `${symbol} ${money(cents)}` : money(cents);
 }
 
+// Formats a Money message from the API — task.price, occurrence.amount, and
+// the ChildSummary figures. Amounts come off the wire as protobuf int64,
+// which protojson encodes as a *string*, so formatMoney's Number() coercion
+// is doing real work rather than being defensive.
+function formatAmount(m) {
+  return formatMoney(m && m.cents);
+}
+
 // Appends "(symbol)" to a field label when a currency is set — used on the
 // two inputs where someone types an amount (task price, payout amount) so
 // they read consistently with however amounts are displayed elsewhere.
@@ -147,21 +155,22 @@ function formatDateStr(s) {
 // Describes a task's repeat rule (one-off date, weekly pattern, or raw
 // cron) for display in the task list.
 function repeatLabel(t_) {
-  const dow = DOW();
-  switch (t_.repeatMode) {
-    case "REPEAT_MODE_ONCE":
-      return t("taskList.onceOn", { date: formatDateStr(t_.startDate) });
-    case "REPEAT_MODE_WEEKLY": {
-      const days = t_.daysOfWeek || [];
-      const dayLabel = days.length && days.length < 7 ? dow.filter((d) => days.includes(d.code)).map((d) => d.label).join(", ") : t("taskList.everyDay");
-      const interval = t_.repeatIntervalWeeks || 1;
-      return interval > 1 ? t("taskList.everyNWeeks", { n: interval, days: dayLabel }) : dayLabel;
-    }
-    case "REPEAT_MODE_CRON":
-      return t_.schedule;
-    default:
-      return "";
+  const sched = t_.schedule || {};
+  if (sched.once) {
+    return t("taskList.onceOn", { date: formatDateStr(sched.once.date) });
   }
+  if (sched.weekly) {
+    const days = sched.weekly.daysOfWeek || [];
+    const dow = DOW();
+    const dayLabel =
+      days.length && days.length < 7 ? dow.filter((d) => days.includes(d.code)).map((d) => d.label).join(", ") : t("taskList.everyDay");
+    const interval = Number(sched.weekly.intervalWeeks || 1);
+    return interval > 1 ? t("taskList.everyNWeeks", { n: interval, days: dayLabel }) : dayLabel;
+  }
+  if (sched.cron) {
+    return sched.cron.expression;
+  }
+  return "";
 }
 
 // ---- state -----------------------------------------------------------
@@ -581,8 +590,8 @@ function classificationPillHtml(task) {
 // chores doesn't get an empty "Can do" heading.
 function groupOccurrencesByClassification(occurrences) {
   return [
-    { label: t("today.mustDo"), items: occurrences.filter((o) => !isOptionalTask(o.task)) },
-    { label: t("today.canDo"), items: occurrences.filter((o) => isOptionalTask(o.task)) },
+    { label: t("today.mustDo"), items: occurrences.filter((o) => !isOptionalTask(o)) },
+    { label: t("today.canDo"), items: occurrences.filter((o) => isOptionalTask(o)) },
   ].filter((group) => group.items.length);
 }
 
@@ -1011,16 +1020,16 @@ function renderDashboardBar() {
 // child's own screen — the two had drifted into duplicate copies of the same
 // markup and the same complete/uncomplete handler.
 function renderOccurrenceRow(occ, childId, opts) {
-  const done = !!occ.completed;
+  const done = !!occ.completedAt;
   const showDescription = !!(opts && opts.showDescription);
-  const description = showDescription && occ.task.description ? " — " + escapeHtml(occ.task.description) : "";
+  const description = showDescription && occ.description ? " — " + escapeHtml(occ.description) : "";
   const row = el(`
     <div class="row">
       <div class="task-row-main">
-        ${taskIconHtml(occ.task)}
+        ${taskIconHtml(occ)}
         <div class="task-row-text">
-          <div class="task-title">${escapeHtml(occ.task.title)}</div>
-          <div class="task-meta">${formatMoney(occ.task.priceCents)}${description}</div>
+          <div class="task-title">${escapeHtml(occ.title)}</div>
+          <div class="task-meta">${formatAmount(occ.amount)}${description}</div>
         </div>
       </div>
       <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
@@ -1028,7 +1037,7 @@ function renderOccurrenceRow(occ, childId, opts) {
   `);
   row.querySelector("button").addEventListener("click", () =>
     withError(async () => {
-      const req = { taskId: occ.task.id, childId, dueDate: occ.dueDate };
+      const req = { taskId: occ.taskId, childId, dueDate: occ.dueDate };
       await call(done ? "UncompleteTask" : "CompleteTask", req);
       await loadFamilyData();
     })
@@ -1057,8 +1066,8 @@ function renderTodayTab() {
   }
 
   state.summaries.forEach((s) => {
-    const todays = state.occurrences.filter((o) => o.childId === s.child.id && o.task.active !== false);
-    const doneCount = todays.filter((o) => o.completed).length;
+    const todays = state.occurrences.filter((o) => o.childId === s.child.id);
+    const doneCount = todays.filter((o) => o.completedAt).length;
     const card = el(`
       <div class="card">
         <div class="row" style="padding-top:0;">
@@ -1081,8 +1090,8 @@ function renderTodayTab() {
 
     card.appendChild(el(`
       <div class="grid-2 stat-strip">
-        <div class="stat"><div class="value">${formatMoney(s.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-        <div class="stat"><div class="value">${formatMoney(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+        <div class="stat"><div class="value">${formatAmount(s.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+        <div class="stat"><div class="value">${formatAmount(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
       </div>
     `));
     wrap.appendChild(card);
@@ -1105,9 +1114,9 @@ function renderChildTasksTab() {
     wrap.appendChild(el(`
       <div class="card">
         <div class="grid-3 stat-strip" style="margin-top:0;">
-          <div class="stat"><div class="value">${formatMoney(summary.earnedTodayCents)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-          <div class="stat"><div class="value">${formatMoney(summary.earnedThisWeekCents)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
-          <div class="stat"><div class="value">${formatMoney(summary.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(summary.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(summary.earnedThisWeek)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(summary.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `));
@@ -1118,7 +1127,7 @@ function renderChildTasksTab() {
 
 function renderChildOccurrences() {
   const card = el(`<div class="card"><h2>${escapeHtml(t("childTasks.heading"))}</h2></div>`);
-  const mine = state.occurrences.filter((o) => o.task.active !== false && o.childId === state.userId);
+  const mine = state.occurrences.filter((o) => o.childId === state.userId);
   if (!mine.length) {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     return card;
@@ -1215,7 +1224,7 @@ function renderTaskList() {
             <div class="task-title">${escapeHtml(t_.title)} ${classificationPillHtml(t_)} ${
               t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""
             }</div>
-            <div class="task-meta">${formatMoney(t_.priceCents)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
+            <div class="task-meta">${formatAmount(t_.price)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
           </div>
         </div>
         <div class="actions">
@@ -1243,16 +1252,14 @@ function renderTaskList() {
     if (toggleBtn) {
       toggleBtn.addEventListener("click", () =>
         withError(async () => {
+          // Pause/resume resends the task unchanged apart from `active`, so
+          // the schedule and price go back exactly as they arrived.
           await call("UpdateTask", {
             taskId: t_.id,
             title: t_.title,
             description: t_.description,
-            priceCents: t_.priceCents,
+            price: t_.price,
             schedule: t_.schedule,
-            repeatMode: t_.repeatMode,
-            daysOfWeek: t_.daysOfWeek,
-            repeatIntervalWeeks: t_.repeatIntervalWeeks,
-            startDate: t_.startDate,
             active: t_.active === false,
             childIds: t_.childIds,
             icon: t_.icon,
@@ -1359,7 +1366,7 @@ function renderTaskForm(existingTask) {
   if (isEdit) {
     form.querySelector("#task-title").value = existingTask.title;
     form.querySelector("#task-desc").value = existingTask.description || "";
-    form.querySelector("#task-price").value = (Number(existingTask.priceCents || 0) / 100).toFixed(2);
+    form.querySelector("#task-price").value = (Number((existingTask.price && existingTask.price.cents) || 0) / 100).toFixed(2);
   }
 
   const iconSearchInput = form.querySelector("#task-icon-search");
@@ -1431,7 +1438,8 @@ function renderTaskForm(existingTask) {
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
-  const preCheckedDays = isEdit ? existingTask.daysOfWeek || [] : [];
+  const existingSchedule = (isEdit && existingTask.schedule) || {};
+  const preCheckedDays = (existingSchedule.weekly && existingSchedule.weekly.daysOfWeek) || [];
   // Tap-to-toggle chips rather than a row of tiny checkboxes: the checkbox
   // is still the source of truth (the save handler reads it by id), it's
   // just hidden inside a target big enough to hit with a thumb.
@@ -1461,12 +1469,15 @@ function renderTaskForm(existingTask) {
   const intervalWeeksInput = form.querySelector("#task-interval-weeks");
   const cronInput = form.querySelector("#task-cron");
 
-  const repeatModeKey = { REPEAT_MODE_ONCE: "ONCE", REPEAT_MODE_WEEKLY: "WEEKLY", REPEAT_MODE_CRON: "CRON" };
-  let selectedRepeatMode = isEdit ? repeatModeKey[existingTask.repeatMode] || "WEEKLY" : "WEEKLY";
+  // The schedule is a oneof: exactly one of once/weekly/cron is present,
+  // and which one it is selects the mode the form opens on.
+  let selectedRepeatMode = "WEEKLY";
+  if (existingSchedule.once) selectedRepeatMode = "ONCE";
+  else if (existingSchedule.cron) selectedRepeatMode = "CRON";
 
-  onceDateInput.value = (isEdit && existingTask.repeatMode === "REPEAT_MODE_ONCE" && existingTask.startDate) || todayStr();
-  intervalWeeksInput.value = (isEdit && existingTask.repeatIntervalWeeks) || 1;
-  cronInput.value = (isEdit && existingTask.repeatMode === "REPEAT_MODE_CRON" && existingTask.schedule) || "";
+  onceDateInput.value = (existingSchedule.once && existingSchedule.once.date) || todayStr();
+  intervalWeeksInput.value = (existingSchedule.weekly && Number(existingSchedule.weekly.intervalWeeks)) || 1;
+  cronInput.value = (existingSchedule.cron && existingSchedule.cron.expression) || "";
 
   function selectRepeatMode(mode) {
     selectedRepeatMode = mode;
@@ -1513,34 +1524,39 @@ function renderTaskForm(existingTask) {
       if (!(priceKr >= 0)) throw new Error(t("addTask.pricePositive"));
       if (!childIds.length) throw new Error(t("addTask.childRequired"));
 
-      let repeatMode, schedule, daysOfWeek, repeatIntervalWeeks, startDate;
+      // Exactly one branch of the oneof, so an invalid combination — a
+      // one-off carrying a cron expression, say — can't be built here.
+      let schedule;
       if (selectedRepeatMode === "ONCE") {
-        repeatMode = "REPEAT_MODE_ONCE";
-        startDate = onceDateInput.value;
-        if (!startDate) throw new Error(t("addTask.onceDateRequired"));
+        const date = onceDateInput.value;
+        if (!date) throw new Error(t("addTask.onceDateRequired"));
+        schedule = { once: { date } };
       } else if (selectedRepeatMode === "WEEKLY") {
-        repeatMode = "REPEAT_MODE_WEEKLY";
-        daysOfWeek = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
+        const daysOfWeek = dow.filter((d) => form.querySelector(`#day-${d.code}`).checked).map((d) => d.code);
         if (!daysOfWeek.length) throw new Error(t("addTask.daysRequired"));
-        repeatIntervalWeeks = parseInt(intervalWeeksInput.value || "1", 10);
-        if (!(repeatIntervalWeeks >= 1)) throw new Error(t("addTask.intervalPositive"));
-        startDate = isEdit && existingTask.repeatMode === "REPEAT_MODE_WEEKLY" ? existingTask.startDate : todayStr();
+        const intervalWeeks = parseInt(intervalWeeksInput.value || "1", 10);
+        if (!(intervalWeeks >= 1)) throw new Error(t("addTask.intervalPositive"));
+        // Keep the existing anchor when a task was already weekly, so
+        // editing something else about it doesn't shift which weeks an
+        // every-N-weeks task falls on.
+        const anchorDate = (existingSchedule.weekly && existingSchedule.weekly.anchorDate) || todayStr();
+        schedule = { weekly: { daysOfWeek, intervalWeeks, anchorDate } };
       } else {
-        repeatMode = "REPEAT_MODE_CRON";
-        schedule = cronInput.value.trim();
-        if (!schedule) throw new Error(t("addTask.cronRequired"));
+        const expression = cronInput.value.trim();
+        if (!expression) throw new Error(t("addTask.cronRequired"));
+        schedule = { cron: { expression } };
       }
 
       const classification = `TASK_CLASSIFICATION_${selectedClassification}`;
-      const repeatFields = { repeatMode, schedule, daysOfWeek, repeatIntervalWeeks, startDate };
+      const price = { cents: Math.round(priceKr * 100) };
       if (isEdit) {
         await call("UpdateTask", {
           taskId: existingTask.id,
           title,
           description,
           icon,
-          priceCents: Math.round(priceKr * 100),
-          ...repeatFields,
+          price,
+          schedule,
           childIds,
           active: existingTask.active !== false,
           classification,
@@ -1551,8 +1567,8 @@ function renderTaskForm(existingTask) {
           title,
           description,
           icon,
-          priceCents: Math.round(priceKr * 100),
-          ...repeatFields,
+          price,
+          schedule,
           childIds,
           classification,
         });
@@ -1598,13 +1614,13 @@ function renderAccountingTab() {
     const card = el(`
       <div class="card">
         <div class="grid-2">
-          <div class="stat"><div class="value">${formatMoney(s.earnedLast7DaysCents)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
-          <div class="stat"><div class="value">${formatMoney(s.balanceCents)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(s.earnedLast7Days)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `);
     wrapForChild.appendChild(card);
-    const balanceCents = Number(s.balanceCents || 0);
+    const balanceCents = Number((s.balance && s.balance.cents) || 0);
     const balanceKr = balanceCents / 100;
     const payoutForm = el(`
       <div class="card">
@@ -1639,7 +1655,7 @@ function renderAccountingTab() {
         await call("CreatePayout", {
           childId: s.child.id,
           fullPayout: amountCents === balanceCents,
-          amountCents,
+          amount: { cents: amountCents },
           note,
         });
         await loadFamilyData();
@@ -1660,7 +1676,7 @@ function renderAccountingTab() {
             el(`
               <div class="row">
                 <span>${new Date(p.createdAt).toLocaleDateString(localeTag())} <span class="pill">${escapeHtml(p.fullPayout ? t("accounting.full") : t("accounting.partial"))}</span> ${p.note ? "— " + escapeHtml(p.note) : ""}</span>
-                <strong>${formatMoney(p.amountCents)}</strong>
+                <strong>${formatAmount(p.amount)}</strong>
               </div>
             `)
           );
@@ -2162,7 +2178,7 @@ function onHistorySearchInput(query) {
 // optional nested `completion`), so task+child+date (mirroring the server's
 // completionKey) is what ties a rendered row back to the right occurrence.
 function occurrenceKey(occ) {
-  return `${occ.task.id}|${occ.childId}|${occ.dueDate}`;
+  return `${occ.taskId}|${occ.childId}|${occ.dueDate}`;
 }
 
 // Which occurrence (by occurrenceKey) is showing its inline "are you sure"
@@ -2176,14 +2192,16 @@ let confirmingToggleKey = null;
 // it stays visible as a missed task rather than disappearing), and equally
 // how a missed task gets backfilled as done after the fact.
 async function toggleOccurrenceCompletion(occ) {
-  if (occ.completed) {
-    await call("UncompleteTask", { taskId: occ.task.id, childId: occ.childId, dueDate: occ.dueDate });
-    occ.completed = false;
-    occ.completion = null;
+  if (occ.completedAt) {
+    await call("UncompleteTask", { taskId: occ.taskId, childId: occ.childId, dueDate: occ.dueDate });
+    occ.completedAt = null;
   } else {
-    const resp = await call("CompleteTask", { taskId: occ.task.id, childId: occ.childId, dueDate: occ.dueDate });
-    occ.completed = true;
-    occ.completion = resp.completion;
+    // The response carries the amount actually recorded, which for an
+    // already-recorded occurrence is what it was frozen at rather than the
+    // task's current price.
+    const resp = await call("CompleteTask", { taskId: occ.taskId, childId: occ.childId, dueDate: occ.dueDate });
+    occ.completedAt = resp.occurrence ? resp.occurrence.completedAt : null;
+    if (resp.occurrence) occ.amount = resp.occurrence.amount;
   }
   // Reloads historyRecent along with everything else the change affects —
   // the child's earned-today/this-week figures and balance. historyLater
@@ -2195,21 +2213,20 @@ async function toggleOccurrenceCompletion(occ) {
 function renderHistoryRow(occ) {
   const key = occurrenceKey(occ);
   const confirming = confirmingToggleKey === key;
-  const amountCents = occ.completed ? (occ.completion ? occ.completion.amountCents : 0) : occ.task.priceCents;
-  const actionIcon = occ.completed ? "close" : "check";
-  const actionLabel = occ.completed ? t("history.markIncomplete") : t("history.markComplete");
-  const confirmLabel = occ.completed ? t("history.confirmMarkIncomplete") : t("history.confirmMarkComplete");
-  const badge = occ.completed ? "" : ` · <span class="pill notcompleted">${escapeHtml(t("history.notCompletedBadge"))}</span>`;
+  const actionIcon = occ.completedAt ? "close" : "check";
+  const actionLabel = occ.completedAt ? t("history.markIncomplete") : t("history.markComplete");
+  const confirmLabel = occ.completedAt ? t("history.confirmMarkIncomplete") : t("history.confirmMarkComplete");
+  const badge = occ.completedAt ? "" : ` · <span class="pill notcompleted">${escapeHtml(t("history.notCompletedBadge"))}</span>`;
   // The amount rides in the meta line rather than as a separate right-hand
   // column: on a phone, name + date + money + button competing for one row
   // just wrapped the button onto a line of its own.
   const row = el(`
-    <div class="row${occ.completed ? "" : " history-row-incomplete"}">
+    <div class="row${occ.completedAt ? "" : " history-row-incomplete"}">
       <div class="task-row-main">
-        ${taskIconHtml(occ.task)}
+        ${taskIconHtml(occ)}
         <div class="task-row-text">
-          <div class="task-title">${escapeHtml(occ.task.title)} ${classificationPillHtml(occ.task)}</div>
-          <div class="task-meta">${escapeHtml(occ.childName)} · ${escapeHtml(formatDateStr(occ.dueDate))} · ${formatMoney(amountCents)}${badge}</div>
+          <div class="task-title">${escapeHtml(occ.title)} ${classificationPillHtml(occ)}</div>
+          <div class="task-meta">${escapeHtml(occ.childName)} · ${escapeHtml(formatDateStr(occ.dueDate))} · ${formatAmount(occ.amount)}${badge}</div>
         </div>
       </div>
       <div class="actions" style="align-items:center;">
@@ -2290,7 +2307,7 @@ function renderHistoryTab() {
   // (see loadFamilyData/loadHistoryLater/loadHistorySearch); this just
   // controls which of them get rendered, so toggling the checkbox never
   // needs a fresh network round trip.
-  const visible = (occs) => (state.historyShowIncomplete ? occs : occs.filter((o) => o.completed));
+  const visible = (occs) => (state.historyShowIncomplete ? occs : occs.filter((o) => o.completedAt));
 
   if (state.historySearchResults !== null) {
     const results = renderHistoryGroup(t("history.searchResultsHeading"), visible(state.historySearchResults));

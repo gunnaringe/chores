@@ -3,7 +3,16 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-const CACHE_NAME = "chores-shell-v15";
+// Bump this whenever a release changes app.js in a way that cannot talk to
+// the older server, or vice versa. The fetch handler below is cache-first,
+// so without a bump an already-installed client loads fresh index.html
+// against a *cached* app.js — fine for a cosmetic change, broken for an
+// API change, since the stale script sends fields the server no longer
+// accepts.
+//
+// v16: prices and amounts became a Money message, the repeat fields became
+// a Schedule oneof, and completions folded into occurrences.
+const CACHE_NAME = "chores-shell-v16";
 const PRECACHE_URLS = [
   "/app.js",
   "/app.css",

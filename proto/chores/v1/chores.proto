@@ -6,6 +6,15 @@ option go_package = "github.com/gunnaringe/chores/gen/chores/v1;choresv1";
 
 import "google/protobuf/timestamp.proto";
 
+// An amount of money, always as a whole number of minor units — never a
+// float, which can't represent an exact number of øre. There is one
+// currency per deployment and it isn't carried here; if the app ever needs
+// per-family currencies, this is the message that gains the field, and
+// every amount in the API comes along for free.
+message Money {
+  int64 cents = 1;
+}
+
 enum UserRole {
   USER_ROLE_UNSPECIFIED = 0;
   USER_ROLE_PARENT = 1;
@@ -41,25 +50,86 @@ message User {
   UserRole role = 4;
   google.protobuf.Timestamp created_at = 5;
   string email = 6;
-  // Whether this user is bound to a login identity (only ever true for
-  // parents, since children don't log in themselves). A parent row created
-  // via an invitation stays unbound until the invite is accepted.
+  // Whether this user is bound to a login identity. Both parents and
+  // children can be — a child old enough to have their own account joins
+  // via an invitation exactly as a co-parent does, and their login is then
+  // scoped to their own tasks and accounting. A user row created via an
+  // invitation stays unbound until that invite is accepted, and a child
+  // too young for an account simply stays unbound forever, acted on by a
+  // parent's session or the kiosk dashboard.
   bool auth_bound = 7;
 }
 
-enum RepeatMode {
-  REPEAT_MODE_UNSPECIFIED = 0;
-  // Due exactly once, on start_date. Never recurs.
-  REPEAT_MODE_ONCE = 1;
-  // Due on each of days_of_week, every repeat_interval_weeks weeks, counted
-  // from start_date.
-  REPEAT_MODE_WEEKLY = 2;
-  // Due whenever the raw cron expression in `schedule` matches — the
-  // general-purpose escape hatch for schedules WEEKLY can't express (e.g.
-  // "the 1st of every month").
-  REPEAT_MODE_CRON = 3;
+// ---- Schedules ------------------------------------------------------------
+
+// Due exactly once, on `date`. Never recurs.
+message OnceSchedule {
+  // YYYY-MM-DD.
+  string date = 1;
 }
 
+// Due on each of days_of_week, every interval_weeks weeks, counted from
+// anchor_date.
+message WeeklySchedule {
+  // 0=Sunday..6=Saturday, matching time.Weekday. Must be non-empty.
+  repeated int32 days_of_week = 1;
+  // How many weeks between due weeks; 1 means every week. Must be >= 1.
+  int32 interval_weeks = 2;
+  // YYYY-MM-DD — the reference week interval_weeks is counted from.
+  // Irrelevant when the interval is 1, but always populated so that
+  // changing the interval later stays well-defined.
+  string anchor_date = 3;
+}
+
+// Due whenever a raw cron expression matches — the general-purpose escape
+// hatch for schedules WeeklySchedule can't express (e.g. "the 1st of every
+// month").
+message CronSchedule {
+  // Standard 5-field cron expression (minute hour day-of-month month
+  // day-of-week), e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and
+  // Friday.
+  string expression = 1;
+}
+
+// When a task is due. Exactly one kind is set — which is the point of
+// modelling it as a oneof rather than a mode enum beside five loose
+// fields, where nothing structural stopped a one-off task from also
+// carrying a cron expression.
+message Schedule {
+  oneof kind {
+    OnceSchedule once = 1;
+    WeeklySchedule weekly = 2;
+    CronSchedule cron = 3;
+  }
+}
+
+// ---- Tasks ----------------------------------------------------------------
+//
+// Tasks come in two halves, and the distinction is the whole design:
+//
+//   Task            the recurring definition — a rule ("every Monday"), what
+//                   it pays, who it applies to. Holds no state about any
+//                   particular day. Effectively a template, though it keeps
+//                   the name the UI and the family use for it.
+//   TaskOccurrence  one instance of that definition: one task, one child,
+//                   one date.
+//
+// A TaskOccurrence copies exactly one thing from its definition: the
+// amount. That copy is load-bearing and must not be "tidied up" into a
+// join — resolving it from the Task at read time is precisely the bug this
+// shape exists to prevent, which once let deleting a task erase the
+// earnings behind payouts already made and drive a child's balance
+// negative.
+//
+// Everything else an occurrence displays — its title, description, icon,
+// and the child's name — is read live. Deletion is soft, so both rows
+// outlive the occurrence, and a task is purged only once its occurrences
+// have aged out. That means correcting a name or a title fixes it
+// everywhere, which is what you want for a label and emphatically not what
+// you want for money.
+
+// Whether a chore is expected or merely available — Today splits its list
+// into "Must do" and "Can do" on this.
 enum TaskClassification {
   TASK_CLASSIFICATION_UNSPECIFIED = 0;
   TASK_CLASSIFICATION_MANDATORY = 1;
@@ -67,15 +137,16 @@ enum TaskClassification {
 }
 
 message Task {
+  // 5 was price_cents (int64), superseded by `price`.
+  // 6 was schedule (a raw cron string), 11-14 were repeat_mode,
+  // days_of_week, repeat_interval_weeks and start_date — all superseded by
+  // the `schedule` message.
+  reserved 5, 6, 11, 12, 13, 14;
+
   string id = 1;
   string family_id = 2;
   string title = 3;
   string description = 4;
-  int64 price_cents = 5;
-  // Standard 5-field cron expression (minute hour day-of-month month day-of-week),
-  // e.g. "0 0 * * 1,3,5" for every Monday, Wednesday and Friday. Only
-  // meaningful (and only ever populated) when repeat_mode is CRON.
-  string schedule = 6;
   bool active = 7;
   google.protobuf.Timestamp created_at = 8;
   // The children this task applies to. Always non-empty for a task created
@@ -83,75 +154,117 @@ message Task {
   repeated string child_ids = 9;
   // Optional icon shown next to the task. Absent means no icon.
   Icon icon = 10;
-  RepeatMode repeat_mode = 11;
-  // Days this task is due on, 0=Sunday..6=Saturday. Only meaningful when
-  // repeat_mode is WEEKLY.
-  repeated int32 days_of_week = 12;
-  // How many weeks between due weeks; 1 means every week. Only meaningful
-  // when repeat_mode is WEEKLY.
-  int32 repeat_interval_weeks = 13;
-  // YYYY-MM-DD. For ONCE, the one-off due date. For WEEKLY, the reference
-  // week repeat_interval_weeks is counted from (irrelevant when it's 1, but
-  // always populated so changing the interval later stays well-defined).
-  // Unused for CRON.
-  string start_date = 14;
   TaskClassification classification = 15;
+  // What completing this task earns.
+  Money price = 16;
+  Schedule schedule = 17;
+  // Set once the task has been deleted. Deletion is soft: the row survives
+  // so that the occurrences it already produced keep rendering, and so the
+  // schedule remains available to reconstruct past occurrences that were
+  // never completed. A deleted task generates no occurrences on or after
+  // this date, is excluded from ListTasks, and can't be edited or
+  // completed. Nothing currently returns a deleted task, so this is unset
+  // on every Task the API hands out today.
+  google.protobuf.Timestamp deleted_at = 18;
 }
 
-message TaskCompletion {
+// One instance of a task, for one child, on one calendar date — the single
+// unit the app actually deals in. Today lists them, History lists them,
+// earnings sum them, and the kiosk ticks them off.
+//
+// An occurrence exists as a stored row once something has been recorded
+// about it (today: being completed). Otherwise it's derived on the fly from
+// its task's schedule and carries no id. Either way the fields below are
+// populated identically, so a caller never has to care which it is.
+message TaskOccurrence {
   string id = 1;
-  string task_id = 2;
-  string child_id = 3;
-  string family_id = 4;
-  // The calendar date (YYYY-MM-DD) the task instance was due/completed for.
+  string family_id = 2;
+  // The task this came from. Stays populated after that task is deleted —
+  // it's a historical reference, not a foreign key.
+  string task_id = 3;
+  string child_id = 4;
+  // YYYY-MM-DD.
   string due_date = 5;
-  int64 amount_cents = 6;
-  google.protobuf.Timestamp completed_at = 7;
-  // Denormalized at read time from the task/child rows as they are *now*
-  // (not as they were when completed), so History never needs a second
-  // round trip to resolve names — and still renders sensibly for a task
-  // that's since been renamed or paused.
-  string task_title = 8;
-  string child_name = 9;
+
+  // Read live from task_id, never stored — the same treatment child_name
+  // gets, and for the same reason. Deletion is soft, so a task row outlives
+  // every occurrence it produced and is itself purged only once they have
+  // all aged out; renaming a chore therefore corrects it everywhere rather
+  // than leaving older entries under the old name.
+  string title = 6;
+  string description = 7;
+  Icon icon = 8;
+
+  // The one field that IS fixed at the moment the occurrence is recorded,
+  // and never revised: money is what restating would falsify. Repricing a
+  // task changes what it pays from now on and leaves what it already paid
+  // alone. For an occurrence not yet recorded, this is the task's price as
+  // it currently stands.
+  Money amount = 9;
+
+  // Resolved live from child_id's user row, never stored — there is no
+  // child_name column. child_id is the reference; this is a convenience
+  // copy of what it currently points at.
+  //
+  // Deliberately not frozen with the fields above: fixing the spelling of
+  // a person's name should correct it everywhere, unlike a task rename,
+  // which must not reach backwards.
+  //
+  // Resolving through child_id also gets the household-specific name for
+  // free. A child who belongs to two families has a separate user row in
+  // each (users.family_id is per-row, and auth_subject is deliberately not
+  // unique), so they can be "Lisa" in one household and "Lisa Sofie" in
+  // the other, and each family's occurrences show the name that family
+  // uses.
+  //
+  // It travels on the wire at all because the kiosk dashboard needs it:
+  // dashboardAllowedMethods grants a dashboard key exactly four RPCs, and
+  // ListUsers is not among them, so a kiosk cannot resolve names itself.
+  string child_name = 10;
+
+  // Read live from the task, like title and icon: Today splits its list
+  // into "Must do" and "Can do" on this, and the kiosk has no way to fetch
+  // tasks of its own.
+  TaskClassification classification = 12;
+
+  // Unset while the occurrence is due but not completed — the single
+  // source of truth for whether it's done.
+  google.protobuf.Timestamp completed_at = 11;
 }
 
 message Payout {
+  // 4 was amount_cents (int64), superseded by `amount`.
+  reserved 4;
+
   string id = 1;
   string child_id = 2;
   string family_id = 3;
-  int64 amount_cents = 4;
   bool full_payout = 5;
   string note = 6;
   google.protobuf.Timestamp created_at = 7;
+  Money amount = 8;
 }
 
 message ChildSummary {
+  // 2-5 and 7-8 were the *_cents int64 variants of the Money fields below.
+  reserved 2, 3, 4, 5, 7, 8;
+
   User child = 1;
-  int64 earned_last_7_days_cents = 2;
-  int64 balance_cents = 3;
-  int64 total_earned_cents = 4;
-  int64 total_paid_out_cents = 5;
   google.protobuf.Timestamp last_payout_at = 6;
-  int64 earned_today_cents = 7;
+
+  Money earned_last_7_days = 9;
+  Money balance = 10;
+  Money total_earned = 11;
+  Money total_paid_out = 12;
+  Money earned_today = 13;
   // Sum of completions due since the current calendar week's Monday
   // (through today), matching the Monday-first week the UI shows
-  // elsewhere — distinct from earned_last_7_days_cents, which is a
-  // rolling window rather than a calendar week.
-  int64 earned_this_week_cents = 8;
+  // elsewhere — distinct from earned_last_7_days, which is a rolling
+  // window rather than a calendar week.
+  Money earned_this_week = 14;
 }
 
-// Represents one occurrence of a recurring task, for one of the children it
-// applies to, on a given date, joined with whether it has already been
-// completed. A task assigned to several children produces one occurrence
-// per assigned child for each due date.
-message TaskOccurrence {
-  Task task = 1;
-  string due_date = 2;
-  bool completed = 3;
-  TaskCompletion completion = 4;
-  string child_id = 5;
-  string child_name = 6;
-}
+// ---- Families -------------------------------------------------------------
 
 message CreateFamilyRequest {
   string name = 1;
@@ -199,7 +312,7 @@ message DisableDashboardRequest {
 }
 message DisableDashboardResponse {}
 
-// Deletes the family outright: every user, task, completion, payout,
+// Deletes the family outright: every user, task, occurrence, payout,
 // invitation, and push subscription tied to it, via cascading foreign
 // keys. Any parent in the family may do this — there's no "last parent"
 // restriction here, unlike LeaveFamily, since deleting is the family's own
@@ -216,6 +329,8 @@ message UpdateFamilyRequest {
 message UpdateFamilyResponse {
   Family family = 1;
 }
+
+// ---- Users ----------------------------------------------------------------
 
 message CreateUserRequest {
   string family_id = 1;
@@ -253,7 +368,7 @@ message LeaveFamilyRequest {
 message LeaveFamilyResponse {}
 
 // A parent removing a child from the family. This cascades away the
-// child's task assignments, completion history, and payout history along
+// child's task assignments, occurrence history, and payout history along
 // with their user row, so it's meant to be used deliberately (the UI
 // confirms with a typed word, not just a click) rather than for routine
 // cleanup.
@@ -262,56 +377,59 @@ message RemoveChildRequest {
 }
 message RemoveChildResponse {}
 
+// ---- Tasks ----------------------------------------------------------------
+
 message CreateTaskRequest {
+  // 4 was price_cents, 5 was schedule (raw cron), 8-11 were repeat_mode,
+  // days_of_week, repeat_interval_weeks and start_date.
+  reserved 4, 5, 8, 9, 10, 11;
+
   string family_id = 1;
   string title = 2;
   string description = 3;
-  int64 price_cents = 4;
-  // Raw cron expression; required and validated only when repeat_mode is
-  // CRON.
-  string schedule = 5;
   // Which children this task applies to. Must be non-empty and every id
   // must be a child in family_id.
   repeated string child_ids = 6;
   // Optional icon shown next to the task. Omit for no icon.
   Icon icon = 7;
-  RepeatMode repeat_mode = 8;
-  // Required (non-empty) when repeat_mode is WEEKLY.
-  repeated int32 days_of_week = 9;
-  // WEEKLY only; defaults to 1 (every week) if unset or less than 1.
-  int32 repeat_interval_weeks = 10;
-  // Required when repeat_mode is ONCE. Optional for WEEKLY (defaults to
-  // today); ignored for CRON.
-  string start_date = 11;
-  // Must be MANDATORY or OPTIONAL.
+  // Must be MANDATORY or OPTIONAL; unset defaults to MANDATORY.
   TaskClassification classification = 12;
+  Money price = 13;
+  // Required. Exactly one kind must be set, and populated consistently —
+  // see the per-kind field comments.
+  Schedule schedule = 14;
 }
 message CreateTaskResponse {
   Task task = 1;
 }
 
 message UpdateTaskRequest {
+  // 4 was price_cents, 5 was schedule (raw cron), 9-12 were repeat_mode,
+  // days_of_week, repeat_interval_weeks and start_date.
+  reserved 4, 5, 9, 10, 11, 12;
+
   string task_id = 1;
   string title = 2;
   string description = 3;
-  int64 price_cents = 4;
-  string schedule = 5;
   bool active = 6;
   // Replaces the task's full set of assigned children. Must be non-empty.
   repeated string child_ids = 7;
   // Optional icon shown next to the task. Omit for no icon.
   Icon icon = 8;
-  RepeatMode repeat_mode = 9;
-  repeated int32 days_of_week = 10;
-  int32 repeat_interval_weeks = 11;
-  string start_date = 12;
-  // Must be MANDATORY or OPTIONAL.
+  // Must be MANDATORY or OPTIONAL; unset defaults to MANDATORY.
   TaskClassification classification = 13;
+  Money price = 14;
+  Schedule schedule = 15;
 }
 message UpdateTaskResponse {
   Task task = 1;
 }
 
+// Soft-deletes the task: it stops generating occurrences from today
+// onwards and disappears from ListTasks, but the occurrences it already
+// produced — completed and merely due alike — remain, along with the
+// earnings they represent. Deleting a task therefore never moves a child's
+// balance.
 message DeleteTaskRequest {
   string task_id = 1;
 }
@@ -324,22 +442,22 @@ message ListTasksResponse {
   repeated Task tasks = 1;
 }
 
-// Lists the due occurrences of tasks between two dates (inclusive),
-// indicating which are already completed. Without child_id, returns
-// occurrences for every child in the family (a bound child's login always
-// gets only their own, regardless of what's requested). A completion that
-// exists for a task no longer generating occurrences (e.g. since paused)
-// is still included, so history is never lost by pausing a task.
+// Lists the occurrences of tasks due between two dates (inclusive),
+// completed and not. Without child_id, returns occurrences for every child
+// in the family (a bound child's login always gets only their own,
+// regardless of what's requested). An occurrence recorded against a task
+// that no longer generates it — since paused, or deleted — is still
+// included, so history is never lost by pausing or deleting a task.
 message ListTaskOccurrencesRequest {
   string family_id = 1;
   string start_date = 2; // YYYY-MM-DD; optional, defaults to the earliest
-                          // date any task or completion in the family could
-                          // exist from
+                          // date any occurrence in the family could exist from
   string end_date = 3;   // YYYY-MM-DD; optional, defaults to today
   string child_id = 4;   // optional filter
-  // Case-insensitive substring match against the task's title or the
+  // Case-insensitive substring match against the occurrence's title or the
   // child's name. Optional; when set, start_date/end_date are typically
-  // left unset so the search spans the family's whole history.
+  // left unset, in which case the search spans the retention window — the
+  // whole of what is kept, which is not the same as all time.
   string search = 5;
   // Page size; when unset (<= 0), all matching occurrences are returned
   // unpaginated. A max applies when set.
@@ -359,7 +477,7 @@ message CompleteTaskRequest {
   string due_date = 3; // YYYY-MM-DD, defaults to today if empty
 }
 message CompleteTaskResponse {
-  TaskCompletion completion = 1;
+  TaskOccurrence occurrence = 1;
 }
 
 message UncompleteTaskRequest {
@@ -369,25 +487,7 @@ message UncompleteTaskRequest {
 }
 message UncompleteTaskResponse {}
 
-message ListTaskCompletionsRequest {
-  string family_id = 1;
-  string child_id = 2; // optional filter
-  string start_date = 3; // optional inclusive lower bound on due_date
-  string end_date = 4;   // optional inclusive upper bound on due_date
-  // Case-insensitive substring match against the task's title or the
-  // child's name. Optional; when set, start_date/end_date are typically
-  // left unset so the search spans the family's whole history.
-  string search = 5;
-  // Page size; the server applies a default and a max if unset or <= 0.
-  int32 limit = 6;
-  int32 offset = 7;
-}
-message ListTaskCompletionsResponse {
-  repeated TaskCompletion completions = 1;
-  // True if more completions exist beyond this page (offset + limit) —
-  // drives the History tab's "load more" button for older entries.
-  bool has_more = 2;
-}
+// ---- Accounting -----------------------------------------------------------
 
 message GetChildSummaryRequest {
   string child_id = 1;
@@ -404,12 +504,15 @@ message ListChildSummariesResponse {
 }
 
 message CreatePayoutRequest {
+  // 3 was amount_cents (int64), superseded by `amount`.
+  reserved 3;
+
   string child_id = 1;
-  // If full_payout is true, amount_cents is ignored and the child's full
+  // If full_payout is true, amount is ignored and the child's full
   // outstanding balance is paid out.
   bool full_payout = 2;
-  int64 amount_cents = 3;
   string note = 4;
+  Money amount = 5;
 }
 message CreatePayoutResponse {
   Payout payout = 1;
@@ -422,6 +525,8 @@ message ListPayoutsRequest {
 message ListPayoutsResponse {
   repeated Payout payouts = 1;
 }
+
+// ---- Membership and invitations -------------------------------------------
 
 // One family a login identity is bound to as a specific family member.
 // Usually there's exactly one (a parent belongs to one household), but a
@@ -448,11 +553,15 @@ message GetMyMembershipResponse {
 // can be shared/copied at any time before it's accepted — once accepted_at
 // is set, token is omitted since it's no longer usable.
 message Invitation {
+  // 5 was email, dropped along with the invite form's email field: an
+  // invitation was never matched against an address, so recording one was
+  // decoration.
+  reserved 5;
+
   string id = 1;
   string family_id = 2;
   string user_id = 3;
   string user_name = 4;
-  string email = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp expires_at = 7;
   google.protobuf.Timestamp accepted_at = 8;
@@ -461,12 +570,12 @@ message Invitation {
 }
 
 message CreateInvitationRequest {
+  // 3 was email — see Invitation.
+  reserved 3;
+
   string family_id = 1;
   // Display name for the new slot this invitation grants access to.
   string name = 2;
-  // Informational only (shown in the pending-invites list) — accepting an
-  // invitation is not restricted to any particular login's email address.
-  string email = 3;
   // Must be PARENT or CHILD. Only parents may create invitations of either
   // kind.
   UserRole role = 4;
@@ -498,6 +607,8 @@ message AcceptInvitationResponse {
   User user = 1;
   Family family = 2;
 }
+
+// ---- Push notifications ---------------------------------------------------
 
 // A browser's Web Push subscription (from PushManager.subscribe()), tied to
 // whichever user was active in this browser when notifications were
@@ -557,7 +668,6 @@ service ChoresService {
 
   rpc CompleteTask(CompleteTaskRequest) returns (CompleteTaskResponse);
   rpc UncompleteTask(UncompleteTaskRequest) returns (UncompleteTaskResponse);
-  rpc ListTaskCompletions(ListTaskCompletionsRequest) returns (ListTaskCompletionsResponse);
 
   rpc GetChildSummary(GetChildSummaryRequest) returns (GetChildSummaryResponse);
   rpc ListChildSummaries(ListChildSummariesRequest) returns (ListChildSummariesResponse);

@@ -54,6 +54,28 @@ below 520px, where that space would otherwise sit unused.
   task only shows up for the children it's assigned to, can be edited in
   place at any time, and can be paused (and later resumed) instead of
   deleted.
+- Editing or deleting a task never rewrites what a child earned. An
+  occurrence records the amount it was worth at the moment it was recorded,
+  and nothing else — so repricing a chore changes what it pays from now on
+  and leaves last month's earnings alone. Its title and icon are read live
+  from the task, so correcting a name fixes it everywhere rather than
+  leaving older entries under the old one; the same treatment a child's own
+  name gets. Deleting is a soft delete: the task disappears from the Tasks
+  tab and stops coming due, but every occurrence it produced stays, and so
+  do the earnings behind them — a child's balance is never moved by
+  deleting a task. The hidden row is reclaimed once its occurrences have
+  aged out and nothing can still need its title. (Removing a *child* still
+  does take their history with them; see below.)
+- Occurrence history is kept for a rolling **62 days**, which always covers
+  the current month plus the whole of the previous one — the widest that
+  span ever gets is 61 days (31 January back to 1 December). Expressed as a
+  rolling window rather than calendar months so history ages out a day at a
+  time instead of a month disappearing on the 1st. Balances are *not*
+  affected: when occurrences age out, their earnings are carried into a
+  per-child ledger in the same transaction that deletes them, so what a
+  child has earned and is owed stays exact forever. What's lost beyond the
+  window is the itemisation — which chores made up the total — not the
+  total. Payouts are kept indefinitely.
 - A task's repeat rule is one of three modes: **does not repeat** (due once,
   on a specific date, then never again), **weekly** (day-of-week checkboxes,
   shown Monday-first, plus "every N weeks" — 1 for every week, higher for
@@ -66,8 +88,8 @@ below 520px, where that space would otherwise sit unused.
   balance — all at a glance. History is a browsable log of every completion,
   grouped into Today / Yesterday / Earlier this week / Later — the "Later"
   group loads a page at a time as you ask for more, rather than pulling a
-  family's entire history up front — plus a search box that matches by task
-  title or child name across the whole history. Every entry there can be
+  whole retained window up front — plus a search box that matches by task
+  title or child name across that window. Every entry there can be
   toggled between completed and not completed via a two-step inline confirm
   — no browser popup, just a confirm button that appears in place of the
   toggle itself. That's how a completion logged for the wrong child gets
@@ -378,6 +400,45 @@ the address bar. `web/sw.js` also handles incoming Web Push events (see
 Push notifications above) and focuses or opens the app when a notification
 is tapped.
 
+## Deploying a schema change
+
+The app migrates its own database on startup (`internal/db`), so a deploy
+is the migration. The database holds money owed to children and the volume
+has no rollback of its own, so a migration is worth checking rather than
+assuming.
+
+Take a snapshot first — Fly's automatic dailies don't exist yet on a
+newly created volume:
+
+```bash
+fly volumes snapshots create <volume-id> --app <app>
+```
+
+Pull a copy, **including the `-wal` sidecar**. SQLite keeps recent writes
+there, and a database copied without it can be missing nearly everything
+while still opening cleanly:
+
+```bash
+fly ssh sftp get /data/chores.db ./prod-chores.db --app <app>
+```
+
+```bash
+fly ssh sftp get /data/chores.db-wal ./prod-chores.db-wal --app <app>
+```
+
+Audit the copy, migrate it, and audit it again. `cmd/dbaudit` opens the
+file read-only and understands both the pre- and post-migration layouts,
+so the two runs are directly comparable:
+
+```bash
+go run ./cmd/dbaudit ./prod-chores.db
+```
+
+Every per-child balance it prints has to be identical after the migration.
+Those are the figures a real family sees, and the one class of bug worth
+this whole procedure is the kind that quietly moves them. Running the app
+once against the copy performs the migration; audit it again and diff.
+
 ## Regenerating the Connect/protobuf code
 
 After editing `proto/chores/v1/chores.proto`:
@@ -414,8 +475,9 @@ screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — cron-expression date matching for recurring tasks
-- `internal/server` — Connect service implementation (`push.go` holds VAPID key setup and Web Push sending)
+- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending and `dashboard.go` for the kiosk key
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint
 - `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)
+- `cmd/dbaudit` — read-only report on a database: row counts, data hazards, and per-child balances. Used to check that a migration didn't move anything (see Deploying a schema change)

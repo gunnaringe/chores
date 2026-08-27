@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"io/fs"
@@ -108,6 +109,11 @@ func main() {
 	defer conn.Close()
 
 	svc := server.New(conn)
+	// Occurrence history is kept for a bounded window (see retentionDays).
+	// The earnings a purge removes are carried into each child's ledger in
+	// the same transaction, so a balance never depends on whether — or
+	// when — this has run.
+	svc.StartRetention(context.Background())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/auth/login", authMgr.LoginHandler)
