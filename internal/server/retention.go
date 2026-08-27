@@ -61,6 +61,25 @@ func (s *Server) purgeExpiredOccurrences(ctx context.Context, now time.Time) (de
 			return fmt.Errorf("purge occurrences: %w", err)
 		}
 		deleted, _ = res.RowsAffected()
+
+		// Soft-deleted tasks are kept only so their occurrences can resolve
+		// a title; once those have aged out, the row has no readers left.
+		//
+		// deleted_at < cutoff is exactly the right test: a deleted task
+		// stops generating occurrences on the day it went, and can't be
+		// completed against afterwards, so its newest possible occurrence
+		// is dated on or before deleted_at. If that is already outside the
+		// window, the DELETE above has just removed every one of them.
+		//
+		// Same transaction as that DELETE, deliberately. Reversed or split,
+		// a task could vanish while its occurrences remained, leaving
+		// history with nothing to read a title from.
+		if _, err := q.ExecContext(ctx,
+			`DELETE FROM tasks WHERE deleted_at IS NOT NULL AND SUBSTR(deleted_at, 1, 10) < ?`,
+			cutoff,
+		); err != nil {
+			return fmt.Errorf("purge deleted tasks: %w", err)
+		}
 		return nil
 	})
 	return deleted, err

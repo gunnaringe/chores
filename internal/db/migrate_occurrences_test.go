@@ -157,20 +157,15 @@ func TestOpen_MigratesCompletionsToOccurrences(t *testing.T) {
 	}
 
 	// Every completion becomes a completed occurrence, keeping the amount
-	// recorded at the time rather than the task's current price.
-	var title, description, iconType, iconValue, completedAt string
+	// recorded at the time rather than the task's current price. Titles and
+	// icons are not copied (they read from the task), so amount and
+	// completed_at are the whole of what has to survive.
+	var completedAt string
 	var amount int64
 	if err := conn.QueryRow(`
-		SELECT title, description, icon_type, icon_value, amount_cents, completed_at
-		FROM task_occurrences WHERE id = 'c2'`,
-	).Scan(&title, &description, &iconType, &iconValue, &amount, &completedAt); err != nil {
+		SELECT amount_cents, completed_at FROM task_occurrences WHERE id = 'c2'`,
+	).Scan(&amount, &completedAt); err != nil {
 		t.Fatalf("read migrated occurrence: %v", err)
-	}
-	if title != "Take out the rubbish" || description != "Both bins" {
-		t.Errorf("snapshot = %q/%q, want the task's title and description", title, description)
-	}
-	if iconType != "emoji" || iconValue != "X" {
-		t.Errorf("icon snapshot = %q/%q, want emoji/X", iconType, iconValue)
 	}
 	// c2 was completed at 2000 while the task now costs 2500. The recorded
 	// amount is the one that must survive.
@@ -222,13 +217,17 @@ func TestOpen_DeletingATaskNoLongerErasesHistory(t *testing.T) {
 		t.Fatalf("earnings dropped to %d after deleting a task; want 5500 kept", earned)
 	}
 
-	// And an occurrence still says what it said, with no task left to join to.
-	var title string
-	if err := conn.QueryRow(`SELECT title FROM task_occurrences WHERE id = 'c1'`).Scan(&title); err != nil {
+	// And the rows themselves are still there, amounts intact, with no task
+	// left to join to. This is the SQL-level guarantee; the application only
+	// ever hard-deletes a task once its occurrences have aged out, so a
+	// title is always resolvable in practice.
+	var amount int64
+	if err := conn.QueryRow(
+		`SELECT amount_cents FROM task_occurrences WHERE id = 'c1'`).Scan(&amount); err != nil {
 		t.Fatalf("read orphaned occurrence: %v", err)
 	}
-	if title != "Take out the rubbish" {
-		t.Errorf("title = %q, want the snapshot to survive its task", title)
+	if amount != 2500 {
+		t.Errorf("amount = %d, want the recorded 2500 to survive its task", amount)
 	}
 }
 

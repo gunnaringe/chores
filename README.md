@@ -30,14 +30,18 @@ that space would otherwise sit unused.
   of quick-pick suggestions plus a free-text field. A task only shows up
   for the children it's assigned to, can be edited in place at any time,
   and can be paused (and later resumed) instead of deleted.
-- Editing or deleting a task never rewrites what already happened. Each
-  occurrence records the title, icon, and amount the task had at the moment
-  it was completed, so repricing a chore doesn't revalue last month's work
-  and renaming one doesn't rename it in History. Deleting is a soft delete:
-  the task disappears from the Tasks tab and stops coming due, but every
-  occurrence it produced stays, and so do the earnings behind them — a
-  child's balance is never moved by deleting a task. (Removing a *child*
-  still does take their history with them; see below.)
+- Editing or deleting a task never rewrites what a child earned. An
+  occurrence records the amount it was worth at the moment it was recorded,
+  and nothing else — so repricing a chore changes what it pays from now on
+  and leaves last month's earnings alone. Its title and icon are read live
+  from the task, so correcting a name fixes it everywhere rather than
+  leaving older entries under the old one; the same treatment a child's own
+  name gets. Deleting is a soft delete: the task disappears from the Tasks
+  tab and stops coming due, but every occurrence it produced stays, and so
+  do the earnings behind them — a child's balance is never moved by
+  deleting a task. The hidden row is reclaimed once its occurrences have
+  aged out and nothing can still need its title. (Removing a *child* still
+  does take their history with them; see below.)
 - Occurrence history is kept for a rolling **62 days**, which always covers
   the current month plus the whole of the previous one — the widest that
   span ever gets is 61 days (31 January back to 1 December). Expressed as a

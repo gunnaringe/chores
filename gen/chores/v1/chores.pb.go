@@ -809,15 +809,19 @@ type TaskOccurrence struct {
 	ChildId string `protobuf:"bytes,4,opt,name=child_id,json=childId,proto3" json:"child_id,omitempty"`
 	// YYYY-MM-DD.
 	DueDate string `protobuf:"bytes,5,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
-	// How the task read when this occurrence was recorded. Copied onto the
-	// stored row rather than joined at read time, so that renaming or
-	// repricing a task never rewrites what already happened.
+	// Read live from task_id, never stored — the same treatment child_name
+	// gets, and for the same reason. Deletion is soft, so a task row outlives
+	// every occurrence it produced and is itself purged only once they have
+	// all aged out; renaming a chore therefore corrects it everywhere rather
+	// than leaving older entries under the old name.
 	Title       string `protobuf:"bytes,6,opt,name=title,proto3" json:"title,omitempty"`
 	Description string `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
 	Icon        *Icon  `protobuf:"bytes,8,opt,name=icon,proto3" json:"icon,omitempty"`
-	// For a completed occurrence, what the child earned — fixed at the moment
-	// it was completed and never revised afterwards. For one not yet
-	// completed, the task's price as it currently stands.
+	// The one field that IS fixed at the moment the occurrence is recorded,
+	// and never revised: money is what restating would falsify. Repricing a
+	// task changes what it pays from now on and leaves what it already paid
+	// alone. For an occurrence not yet recorded, this is the task's price as
+	// it currently stands.
 	Amount *Money `protobuf:"bytes,9,opt,name=amount,proto3" json:"amount,omitempty"`
 	// Resolved live from child_id's user row, never stored — there is no
 	// child_name column. child_id is the reference; this is a convenience

@@ -58,8 +58,10 @@ func TestUpdateTask_FreezesUncompletedPastOccurrences(t *testing.T) {
 	if got := after.GetAmount().GetCents(); got != 100 {
 		t.Errorf("yesterday is now worth %d; the edit restated an occurrence that had already come due", got)
 	}
-	if got := after.GetTitle(); got != "Dishes" {
-		t.Errorf("yesterday is now titled %q; the edit renamed history", got)
+	// The title, by contrast, is read live and is *meant* to follow the
+	// rename — it's a label, not money.
+	if got := after.GetTitle(); got != "Dishes, properly" {
+		t.Errorf("yesterday is titled %q; a rename should reach every occurrence", got)
 	}
 
 	// Today and later do track the edit — correcting a price this morning

@@ -94,13 +94,16 @@ CREATE TABLE IF NOT EXISTS task_occurrences (
     child_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
     due_date TEXT NOT NULL,
-    -- How the task read when this row was written, copied rather than
-    -- joined at read time so that renaming or repricing a task never
-    -- rewrites what already happened.
-    title TEXT NOT NULL DEFAULT '',
-    description TEXT NOT NULL DEFAULT '',
-    icon_type TEXT NOT NULL DEFAULT '',
-    icon_value TEXT NOT NULL DEFAULT '',
+    -- What this occurrence was worth, fixed when the row was written and
+    -- never revised.
+    --
+    -- The only thing copied here rather than read from the task, because
+    -- money is the only thing rewriting would falsify. Title, description
+    -- and icon resolve live from task_id instead: deletion is soft, so the
+    -- task row outlives every occurrence it produced (and is itself purged
+    -- only once they have all aged out), which means renaming a chore
+    -- corrects it everywhere — the same treatment a child's name already
+    -- gets.
     amount_cents INTEGER NOT NULL,
     -- NULL means the occurrence is due but not completed. Every earnings
     -- query MUST filter on this being non-NULL, or amounts for chores

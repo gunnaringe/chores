@@ -71,6 +71,10 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 	for _, u := range usersResp.Msg.GetUsers() {
 		childNames[u.GetId()] = u.GetName()
 	}
+	tasksByID := make(map[string]*v1.Task, len(tasks))
+	for _, t := range tasks {
+		tasksByID[t.GetId()] = t
+	}
 
 	stored, err := s.listStoredOccurrences(ctx, familyID, startStr, endStr)
 	if err != nil {
@@ -123,11 +127,11 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 				key := occurrenceKey(t.GetId(), childID, dateStr)
 				seen[key] = true
 				if occ, ok := stored[key]; ok {
-					// A stored row wins outright: its title and amount are
-					// what they were when it was recorded, and re-deriving
-					// them from the task as it stands now is exactly the
-					// rewriting-of-history this model removes.
-					occ.ChildName = childNames[childID]
+					// A stored row wins on the amount — that was fixed when
+					// it was recorded and must not be restated. Its labels
+					// still come from the task, so a rename reaches every
+					// entry rather than leaving old ones behind.
+					labelOccurrence(occ, t, childNames[childID])
 					occurrences = append(occurrences, occ)
 					continue
 				}
@@ -138,8 +142,7 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 
 	// A stored occurrence the loop above didn't reach — its task has since
 	// been paused, or its schedule no longer covers that date — is still a
-	// real, paid completion. It carries its own title and amount, so it
-	// renders with no task row involved at all.
+	// real, paid completion and must still appear.
 	for key, occ := range stored {
 		if seen[key] {
 			continue
@@ -150,7 +153,12 @@ func (s *Server) ListTaskOccurrences(ctx context.Context, req *connect.Request[v
 		if childFilter != "" && occ.GetChildId() != childFilter {
 			continue
 		}
-		occ.ChildName = childNames[occ.GetChildId()]
+		// tasksByID covers deleted tasks too, so this resolves for anything
+		// still within the retention window. A miss can only mean the task
+		// was purged while its occurrences were not, which the purge does in
+		// one transaction to prevent — the row still renders, just unlabelled,
+		// rather than being dropped and quietly losing a completion.
+		labelOccurrence(occ, tasksByID[occ.GetTaskId()], childNames[occ.GetChildId()])
 		occurrences = append(occurrences, occ)
 	}
 
@@ -251,11 +259,6 @@ func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task
 	if err != nil || len(dates) == 0 {
 		return nil
 	}
-	iconType, iconValue, err := taskIconToDB(task.GetIcon())
-	if err != nil {
-		return err
-	}
-
 	// Batched: a daily task a year old freezes a few hundred rows per
 	// assigned child, and this runs inside a transaction holding the only
 	// connection. One statement per row turns a routine edit into a
@@ -264,7 +267,7 @@ func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task
 	// DO NOTHING because a row that already exists is either a completion
 	// or an earlier freeze — both already say what this occurrence was,
 	// and neither should be restated.
-	const cols = 10
+	const cols = 6
 	// SQLite's default parameter ceiling is 999; this keeps a chunk well
 	// under it with room for the statement itself.
 	const perChunk = 90
@@ -275,9 +278,9 @@ func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task
 			return nil
 		}
 		rows := len(args) / cols
-		placeholders := strings.TrimSuffix(strings.Repeat("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL),", rows), ",")
+		placeholders := strings.TrimSuffix(strings.Repeat("(?, ?, ?, ?, ?, ?, NULL),", rows), ",")
 		_, err := q.ExecContext(ctx,
-			`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, title, description, icon_type, icon_value, amount_cents, completed_at)
+			`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, amount_cents, completed_at)
 			 VALUES `+placeholders+`
 			 ON CONFLICT (task_id, child_id, due_date) DO NOTHING`,
 			args...,
@@ -290,7 +293,7 @@ func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task
 		for _, d := range dates {
 			args = append(args,
 				newID(), task.GetId(), childID, task.GetFamilyId(), scheduling.FormatDate(d),
-				task.GetTitle(), task.GetDescription(), iconType, iconValue, task.GetPrice().GetCents(),
+				task.GetPrice().GetCents(),
 			)
 			if len(args)/cols >= perChunk {
 				if err := flush(); err != nil {
@@ -314,13 +317,13 @@ func (s *Server) freezeOccurrences(ctx context.Context, q querier, task *v1.Task
 // would turn pausing a long-running daily chore into a thousand-row write
 // for no gain.
 func restatesHistory(existing *v1.Task, req *v1.UpdateTaskRequest) bool {
-	if existing.GetTitle() != req.GetTitle() || existing.GetDescription() != req.GetDescription() {
-		return true
-	}
+	// Title, description and icon are absent on purpose: those resolve
+	// from the task at read time now, so changing them reaches existing
+	// occurrences by design and there is nothing to pin first.
 	if existing.GetPrice().GetCents() != req.GetPrice().GetCents() {
 		return true
 	}
-	if !proto.Equal(existing.GetIcon(), req.GetIcon()) || !proto.Equal(existing.GetSchedule(), req.GetSchedule()) {
+	if !proto.Equal(existing.GetSchedule(), req.GetSchedule()) {
 		return true
 	}
 	// Assignment changes matter because an occurrence exists per assigned
@@ -352,6 +355,20 @@ func occurrenceCutoff(t *v1.Task) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return cutoff, true
+}
+
+// labelOccurrence fills in the parts of an occurrence that are read rather
+// than recorded: the task's title, description and icon, and the child's
+// current name. The amount is untouched — it was fixed when the row was
+// written, and it is the one field a later edit must never restate.
+func labelOccurrence(occ *v1.TaskOccurrence, task *v1.Task, childName string) {
+	occ.ChildName = childName
+	if task == nil {
+		return
+	}
+	occ.Title = task.GetTitle()
+	occ.Description = task.GetDescription()
+	occ.Icon = task.GetIcon()
 }
 
 // occurrenceFromTask builds the occurrence for a date nothing has been
@@ -436,8 +453,7 @@ func occurrenceKey(taskID, childID, dueDate string) string {
 	return taskID + "|" + childID + "|" + dueDate
 }
 
-const occurrenceColumns = `id, task_id, child_id, family_id, due_date, title, description,
-	icon_type, icon_value, amount_cents, completed_at`
+const occurrenceColumns = `id, task_id, child_id, family_id, due_date, amount_cents, completed_at`
 
 // listStoredOccurrences loads every recorded occurrence in the family,
 // keyed the same way the schedule loop keys the ones it derives, so the two
@@ -481,14 +497,12 @@ type rowScanner interface {
 // TaskOccurrence proto for why that one is deliberately not frozen.
 func scanOccurrence(row rowScanner) (*v1.TaskOccurrence, error) {
 	var occ v1.TaskOccurrence
-	var iconType, iconValue string
 	var amountCents int64
 	var completedAt sql.NullString
 	if err := row.Scan(&occ.Id, &occ.TaskId, &occ.ChildId, &occ.FamilyId, &occ.DueDate,
-		&occ.Title, &occ.Description, &iconType, &iconValue, &amountCents, &completedAt); err != nil {
+		&amountCents, &completedAt); err != nil {
 		return nil, err
 	}
-	occ.Icon = taskIconFromDB(iconType, iconValue)
 	occ.Amount = money(amountCents)
 	if completedAt.Valid && completedAt.String != "" {
 		t, err := parseTime(completedAt.String)

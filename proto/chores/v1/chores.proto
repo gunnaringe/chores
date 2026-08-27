@@ -118,17 +118,19 @@ message Schedule {
 //   TaskOccurrence  one instance of that definition: one task, one child,
 //                   one date.
 //
-// TaskOccurrence repeats the definition's title, description, icon and
-// amount rather than referring back to them. That duplication is load-
-// bearing and must not be "tidied up" into a join: it is what lets a task
-// be renamed, repriced or deleted without rewriting what already happened.
-// Resolving those fields from the Task at read time is precisely the bug
-// this shape exists to prevent — it once let deleting a task erase the
-// earnings behind payouts already made, driving a child's balance negative.
+// A TaskOccurrence copies exactly one thing from its definition: the
+// amount. That copy is load-bearing and must not be "tidied up" into a
+// join — resolving it from the Task at read time is precisely the bug this
+// shape exists to prevent, which once let deleting a task erase the
+// earnings behind payouts already made and drive a child's balance
+// negative.
 //
-// The one field deliberately NOT copied is child_name, which resolves live:
-// correcting the spelling of a person's name should fix it everywhere,
-// unlike a task rename, which must not reach backwards.
+// Everything else an occurrence displays — its title, description, icon,
+// and the child's name — is read live. Deletion is soft, so both rows
+// outlive the occurrence, and a task is purged only once its occurrences
+// have aged out. That means correcting a name or a title fixes it
+// everywhere, which is what you want for a label and emphatically not what
+// you want for money.
 
 message Task {
   // 5 was price_cents (int64), superseded by `price`.
@@ -179,15 +181,20 @@ message TaskOccurrence {
   // YYYY-MM-DD.
   string due_date = 5;
 
-  // How the task read when this occurrence was recorded. Copied onto the
-  // stored row rather than joined at read time, so that renaming or
-  // repricing a task never rewrites what already happened.
+  // Read live from task_id, never stored — the same treatment child_name
+  // gets, and for the same reason. Deletion is soft, so a task row outlives
+  // every occurrence it produced and is itself purged only once they have
+  // all aged out; renaming a chore therefore corrects it everywhere rather
+  // than leaving older entries under the old name.
   string title = 6;
   string description = 7;
   Icon icon = 8;
-  // For a completed occurrence, what the child earned — fixed at the moment
-  // it was completed and never revised afterwards. For one not yet
-  // completed, the task's price as it currently stands.
+
+  // The one field that IS fixed at the moment the occurrence is recorded,
+  // and never revised: money is what restating would falsify. Repricing a
+  // task changes what it pays from now on and leaves what it already paid
+  // alone. For an occurrence not yet recorded, this is the task's price as
+  // it currently stands.
   Money amount = 9;
 
   // Resolved live from child_id's user row, never stored — there is no

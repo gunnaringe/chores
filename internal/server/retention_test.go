@@ -17,8 +17,8 @@ import (
 func (f historyFixture) completeOn(t *testing.T, date string, amountCents int64) {
 	t.Helper()
 	if _, err := f.s.db.Exec(`
-		INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, title, description, icon_type, icon_value, amount_cents, completed_at)
-		VALUES (?, ?, ?, ?, ?, 'Dishes', '', '', '', ?, ?)`,
+		INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, amount_cents, completed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		newID(), f.taskID, f.childID, f.familyID, date, amountCents, date+"T18:00:00Z",
 	); err != nil {
 		t.Fatalf("seed completion on %s: %v", date, err)
@@ -227,5 +227,63 @@ func TestRetention_LedgerCascadesWithTheChild(t *testing.T) {
 	f.s.db.QueryRow(`SELECT COUNT(*) FROM child_ledger WHERE child_id = ?`, f.childID).Scan(&ledgerRows)
 	if ledgerRows != 0 {
 		t.Errorf("%d ledger rows survived the child's removal, want 0", ledgerRows)
+	}
+}
+
+// A soft-deleted task is kept only so its occurrences can resolve a title.
+// Once those have aged out it has no readers left, and the purge reclaims
+// it — the storage argument for soft deletion having a bounded cost.
+func TestRetention_PurgeReclaimsSoftDeletedTasks(t *testing.T) {
+	f := newHistoryFixture(t, "auth0|purge-tasks")
+
+	if _, err := f.s.DeleteTask(f.ctx, connect.NewRequest(&v1.DeleteTaskRequest{TaskId: f.taskID})); err != nil {
+		t.Fatalf("DeleteTask: %v", err)
+	}
+	taskRows := func() int {
+		t.Helper()
+		var n int
+		if err := f.s.db.QueryRow(`SELECT COUNT(*) FROM tasks WHERE id = ?`, f.taskID).Scan(&n); err != nil {
+			t.Fatalf("count tasks: %v", err)
+		}
+		return n
+	}
+
+	// Deleted just now, so still well inside the window: its occurrences
+	// need it, and it must survive.
+	if _, err := f.s.purgeExpiredOccurrences(f.ctx, nowUTC()); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	if taskRows() != 1 {
+		t.Fatal("a task deleted today was purged; its occurrences still need it to resolve a title")
+	}
+
+	// Once the deletion itself falls outside the window, every occurrence it
+	// could have produced has gone with it.
+	if _, err := f.s.db.Exec(`UPDATE tasks SET deleted_at = ? WHERE id = ?`,
+		formatTime(nowUTC().AddDate(0, 0, -retentionDays-1)), f.taskID); err != nil {
+		t.Fatalf("age the deletion: %v", err)
+	}
+	if _, err := f.s.purgeExpiredOccurrences(f.ctx, nowUTC()); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	if taskRows() != 0 {
+		t.Error("a task deleted beyond the retention window was kept; nothing references it any more")
+	}
+}
+
+// A live task is never reclaimed, however old.
+func TestRetention_PurgeKeepsLiveTasks(t *testing.T) {
+	f := newHistoryFixture(t, "auth0|purge-keeps-live")
+	f.backdateTo(t, "2020-01-01T00:00:00Z")
+
+	if _, err := f.s.purgeExpiredOccurrences(f.ctx, nowUTC()); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	tasks, err := f.s.ListTasks(f.ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: f.familyID}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	if len(tasks.Msg.Tasks) != 1 {
+		t.Errorf("a live task was purged: %+v", tasks.Msg.Tasks)
 	}
 }

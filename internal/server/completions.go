@@ -53,11 +53,6 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("child is not assigned to this task"))
 	}
 
-	iconType, iconValue, err := taskIconToDB(task.GetIcon())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	id := newID()
 	now := nowUTC()
 	priceCents := task.GetPrice().GetCents()
@@ -72,12 +67,11 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	// current price), or it is already a completion and this is a duplicate
 	// submit (so nothing should change at all).
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, title, description, icon_type, icon_value, amount_cents, completed_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO task_occurrences (id, task_id, child_id, family_id, due_date, amount_cents, completed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT (task_id, child_id, due_date) DO UPDATE SET completed_at = excluded.completed_at
 		 WHERE task_occurrences.completed_at IS NULL`,
-		id, taskID, childID, task.FamilyId, dueDate, task.GetTitle(), task.GetDescription(),
-		iconType, iconValue, priceCents, formatTime(now),
+		id, taskID, childID, task.FamilyId, dueDate, priceCents, formatTime(now),
 	)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("complete task: %w", err))
@@ -91,7 +85,7 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	occurrence.ChildName = childName
+	labelOccurrence(occurrence, task, childName)
 
 	go s.notifyTaskCompleted(task.FamilyId, s.actingUserID(ctx, task.FamilyId), childName, task.GetTitle(), priceCents)
 

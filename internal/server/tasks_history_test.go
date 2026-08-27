@@ -147,9 +147,10 @@ func TestDeleteTask_KeepsPastOccurrencesAndStopsFuture(t *testing.T) {
 	if byDate["2024-01-01"].GetCompletedAt() != nil {
 		t.Error("an occurrence nobody completed came back marked complete")
 	}
-	// Each still says what the task said, with no task row left to join to.
+	// Titles still resolve: deletion is soft, so the task row is still
+	// there to read one from.
 	if got := byDate["2024-01-02"].GetTitle(); got != "Dishes" {
-		t.Errorf("title = %q, want the snapshot to outlive the task", got)
+		t.Errorf("title = %q, want it still resolvable from the soft-deleted task", got)
 	}
 
 	// And the task itself is gone from the list a parent manages.
@@ -198,8 +199,11 @@ func TestUpdateTask_DoesNotRepriceCompletedOccurrences(t *testing.T) {
 	}
 }
 
-// Renaming a task must not rewrite what history says it was called.
-func TestUpdateTask_DoesNotRenameCompletedOccurrences(t *testing.T) {
+// Renaming a task reaches every occurrence of it, completed ones
+// included. Titles are labels, read live from the task, and correcting one
+// should correct it everywhere — the same treatment a child's name gets.
+// Only the amount is fixed at the point of recording.
+func TestUpdateTask_RenameReachesCompletedOccurrences(t *testing.T) {
 	f := newHistoryFixture(t, "auth0|rename", "2024-01-01")
 
 	if _, err := f.s.UpdateTask(f.ctx, connect.NewRequest(&v1.UpdateTaskRequest{
@@ -218,8 +222,12 @@ func TestUpdateTask_DoesNotRenameCompletedOccurrences(t *testing.T) {
 	if len(resp.Msg.Occurrences) != 1 {
 		t.Fatalf("expected exactly 1 occurrence, got %+v", resp.Msg.Occurrences)
 	}
-	if got := resp.Msg.Occurrences[0].GetTitle(); got != "Dishes" {
-		t.Errorf("the completed occurrence is now titled %q, want the original \"Dishes\"", got)
+	if got := resp.Msg.Occurrences[0].GetTitle(); got != "Load the dishwasher" {
+		t.Errorf("the completed occurrence is titled %q, want the new name", got)
+	}
+	// The amount it was recorded at is untouched by the rename.
+	if got := resp.Msg.Occurrences[0].GetAmount().GetCents(); got != 100 {
+		t.Errorf("amount = %d, want the recorded 100", got)
 	}
 }
 

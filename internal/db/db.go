@@ -136,6 +136,9 @@ func migrate(db *sql.DB) error {
 	if err := migrateCompletionsToOccurrences(db); err != nil {
 		return fmt.Errorf("migrate task_completions to task_occurrences: %w", err)
 	}
+	if err := dropOccurrenceLabelColumns(db); err != nil {
+		return fmt.Errorf("drop retired occurrence label columns: %w", err)
+	}
 
 	// Tasks created before per-child assignment existed have no rows in
 	// task_assignments; treat them as assigned to every child in their
@@ -149,6 +152,37 @@ func migrate(db *sql.DB) error {
 		WHERE NOT EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id)
 	`); err != nil {
 		return fmt.Errorf("backfill task_assignments: %w", err)
+	}
+	return nil
+}
+
+// dropOccurrenceLabelColumns removes the title/description/icon copies that
+// task_occurrences used to carry.
+//
+// They existed so history could render without its task. Soft deletion made
+// that unnecessary — a task row now outlives every occurrence it produced,
+// and is purged only once they have all aged out — so the labels resolve
+// live from task_id, and renaming a chore corrects it everywhere instead of
+// leaving old entries under the old name. amount_cents stays, because money
+// is the one thing that must not be restated.
+//
+// Dropping rather than leaving them in place: the values are recoverable
+// from the task rows by definition, and dead columns holding stale copies
+// of live data are exactly the thing that invites someone to start reading
+// them again. Each is unconstrained and unindexed, so SQLite can drop them
+// without rebuilding the table.
+func dropOccurrenceLabelColumns(db *sql.DB) error {
+	cols, err := columnSet(db, "task_occurrences")
+	if err != nil {
+		return err
+	}
+	for _, col := range []string{"title", "description", "icon_type", "icon_value"} {
+		if !cols[col] {
+			continue
+		}
+		if _, err := db.Exec(`ALTER TABLE task_occurrences DROP COLUMN ` + col); err != nil {
+			return fmt.Errorf("drop %s: %w", col, err)
+		}
 	}
 	return nil
 }
@@ -218,12 +252,15 @@ func migrateCompletionsToOccurrences(db *sql.DB) error {
 	if err := tx.QueryRow(`SELECT COUNT(*) FROM task_occurrences`).Scan(&existing); err != nil {
 		return err
 	}
+	// No title/icon copied: those resolve from the task at read time (see
+	// dropOccurrenceLabelColumns), and the join to tasks is kept only to
+	// assert that every completion still has one — which the old schema's
+	// ON DELETE CASCADE guaranteed, and which the row-count check below
+	// turns into a hard failure rather than silent loss if it ever wasn't.
 	if _, err := tx.Exec(`
 		INSERT INTO task_occurrences
-			(id, task_id, child_id, family_id, due_date, title, description,
-			 icon_type, icon_value, amount_cents, completed_at)
+			(id, task_id, child_id, family_id, due_date, amount_cents, completed_at)
 		SELECT c.id, c.task_id, c.child_id, c.family_id, c.due_date,
-		       t.title, t.description, t.icon_type, t.icon_value,
 		       c.amount_cents, c.completed_at
 		FROM task_completions c
 		JOIN tasks t ON t.id = c.task_id
