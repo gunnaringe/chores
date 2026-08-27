@@ -59,9 +59,9 @@ that space would otherwise sit unused.
   their completion status, what they've earned today, and their outstanding
   balance — all at a glance. History is a browsable log of every completion,
   grouped into Today / Yesterday / Earlier this week / Later — the "Later"
-  group loads a page at a time as you ask for more, rather than pulling a
-  retained history up front — plus a search box that matches by task
-  title or child name across the retained window. Every entry there can be
+  group loads a page at a time as you ask for more, rather than pulling the
+  whole retained window up front — plus a search box that matches by task
+  title or child name across that window. Every entry there can be
   toggled — marking a completion as not done (e.g. one logged for the wrong
   child), or marking a missed chore as done after the fact — via a two-step
   inline confirm, no browser popup. Tasks manages
