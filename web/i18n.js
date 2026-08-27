@@ -108,6 +108,9 @@ const TRANSLATIONS = {
     "apiTokens.lastUsed": "Last used {date}",
     "apiTokens.neverUsed": "Never used",
     "apiTokens.revoke": "Revoke",
+    "apiTokens.usageLabel": "Example usage",
+    "apiTokens.copyUsage": "Copy command",
+    "apiTokens.usageHint": "Replace $TOKEN with a token's secret.",
 
     "tabs.today": "Today",
     "tabs.tasks": "Tasks",
@@ -382,6 +385,9 @@ const TRANSLATIONS = {
     "apiTokens.lastUsed": "Sist brukt {date}",
     "apiTokens.neverUsed": "Aldri brukt",
     "apiTokens.revoke": "Trekk tilbake",
+    "apiTokens.usageLabel": "Eksempel på bruk",
+    "apiTokens.copyUsage": "Kopier kommando",
+    "apiTokens.usageHint": "Bytt ut $TOKEN med en nøkkels hemmelighet.",
 
     "tabs.today": "I dag",
     "tabs.tasks": "Oppgaver",
