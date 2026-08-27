@@ -83,14 +83,22 @@ func (s *Server) familyIDForDashboardKey(key string) (string, bool) {
 // normal login gate entirely and is tagged with family-scoped dashboard
 // context instead of a login identity. A request for one of those same
 // methods carrying an invalid key is rejected outright with a 401, rather
-// than falling through to authMgr.RequireAuth: that fallback would still
+// than falling through to the login checks below: those would still
 // correctly reject the request (login is always required now), but with
 // a generic "login required" body instead of "invalid dashboard key" —
 // the wrong message for a kiosk that has no login flow to send someone
 // through. Only when the header is absent entirely does a request fall
-// straight through to authMgr.RequireAuth, exactly as if this wrapper
-// weren't here — that's the ordinary logged-in path, since these same
-// RPCs also back the normal Today tab.
+// through to PersonalTokenOrAuth and then authMgr.RequireAuth, exactly as
+// if this wrapper weren't here — that's the ordinary logged-in path, since
+// these same RPCs also back the normal Today tab.
+//
+// PersonalTokenOrAuth is called with next itself (not authMgr.RequireAuth
+// wrapped around it, and not wrapping this function from outside either, as
+// cmd/chores/main.go's handler chain might otherwise suggest) because
+// RequireAuth rejects purely on the session cookie, ignoring whatever
+// identity a request's context already carries — a personal token has to
+// reach next directly, without passing through that cookie check at all.
+// See PersonalTokenOrAuth's own doc comment.
 func (s *Server) DashboardOrAuth(authMgr *auth.Manager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if dashboardAllowedMethods[r.URL.Path] {
@@ -106,7 +114,7 @@ func (s *Server) DashboardOrAuth(authMgr *auth.Manager, next http.Handler) http.
 				return
 			}
 		}
-		authMgr.RequireAuth(next).ServeHTTP(w, r)
+		s.PersonalTokenOrAuth(authMgr, next).ServeHTTP(w, r)
 	})
 }
 

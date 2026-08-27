@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"connectrpc.com/grpcreflect"
 	"github.com/knadh/koanf/parsers/dotenv"
 	"github.com/knadh/koanf/providers/basicflag"
 	"github.com/knadh/koanf/providers/env"
@@ -124,6 +125,23 @@ func main() {
 	path, handler := choresv1connect.NewChoresServiceHandler(svc, server.JSONCodecOption())
 	mux.Handle(path, svc.DashboardOrAuth(authMgr, handler))
 
+	// gRPC server reflection lets an ad-hoc client (grpcurl, grpcui, Postman's
+	// gRPC mode, ...) discover the API's schema instead of needing chores.proto
+	// handed to it separately — same login gate as everything else it would
+	// go on to call: a personal access token or a real session, never a
+	// dashboard key (DashboardOrAuth's method allowlist doesn't include the
+	// reflection paths, so it always falls through past the dashboard-key
+	// check to PersonalTokenOrAuth/the cookie check).
+	//
+	// Reflection's RPCs are bidirectional streams, which need real HTTP/2 —
+	// see the srv.Protocols setup below for why that works here even without
+	// TLS.
+	reflector := grpcreflect.NewStaticReflector(choresv1connect.ChoresServiceName)
+	for _, h := range []func(*grpcreflect.Reflector, ...connect.HandlerOption) (string, http.Handler){grpcreflect.NewHandlerV1, grpcreflect.NewHandlerV1Alpha} {
+		reflectPath, reflectHandler := h(reflector)
+		mux.Handle(reflectPath, svc.DashboardOrAuth(authMgr, reflectHandler))
+	}
+
 	mux.Handle("/invite/accept", authMgr.RequirePage(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		acceptInvitationHandler(w, r, svc)
 	})))
@@ -150,8 +168,22 @@ func main() {
 
 	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(loginPageHandler)))
 
+	// Reflection's streaming RPCs need real HTTP/2, which a plain
+	// http.ListenAndServe never negotiates without TLS. UnencryptedHTTP2
+	// serves it over cleartext too — h2 clients (e.g. grpcurl) upgrade to
+	// it automatically, while every existing HTTP/1.1 caller (the browser,
+	// curl, Cloudflare's own origin connection unless reconfigured) is
+	// unaffected, since HTTP1 stays enabled alongside it.
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	srv.Protocols = new(http.Protocols)
+	srv.Protocols.SetHTTP1(true)
+	srv.Protocols.SetUnencryptedHTTP2(true)
+
 	log.Printf("Chores listening on %s (db: %s)", addr, dbPath)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

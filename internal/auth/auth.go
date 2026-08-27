@@ -158,7 +158,10 @@ func FromContext(ctx context.Context) (Identity, bool) {
 
 // NewContextWithIdentity attaches id to ctx the same way RequireAuth and
 // RequirePage do. Exposed for tests that need to exercise identity-aware
-// server code without going through a real HTTP request.
+// server code without going through a real HTTP request, and for
+// server.PersonalTokenOrAuth, which authenticates a request against a
+// personal access token instead of a session cookie but still needs to
+// hand the RPC layer an ordinary Identity.
 func NewContextWithIdentity(ctx context.Context, id Identity) context.Context {
 	return withIdentity(ctx, id)
 }

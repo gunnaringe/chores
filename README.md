@@ -385,6 +385,44 @@ they'd reject an anonymous one. "Regenerate key" invalidates the old key
 immediately (any device still using it falls back to the key prompt) and
 "Disable dashboard" turns the feature off until set up again.
 
+## External API access
+
+Two ways exist to call the Connect API from outside the browser, and they're
+deliberately different shapes for deliberately different jobs.
+
+**Personal access tokens** (Settings → API access) authenticate as a login
+identity — the same access that identity's own browser session has, in
+every family it belongs to, unrestricted by role. "Create token" returns
+the raw bearer value exactly once; it's never shown or recoverable again
+(only its SHA-256 hash is stored), so losing it means revoking it and
+creating another. Send it as `Authorization: Bearer chorespat_...`; every
+RPC accepts it exactly where it would accept a session cookie. A token
+isn't deleted when the login it belongs to is later removed from every
+family it was bound to — it simply stops being useful, the same as a
+lingering session cookie for that identity would, since every permission
+check still runs normally against whatever (if anything) that identity is
+still bound to.
+
+**gRPC server reflection** (`connectrpc.com/grpcreflect`, wired in
+`cmd/chores/main.go`) lets a schema-aware client — `grpcurl`, `grpcui`,
+Postman's gRPC mode — discover the API's methods and message shapes without
+`chores.proto` handed to it separately:
+
+```bash
+grpcurl -plaintext -H "Authorization: Bearer chorespat_..." localhost:8080 list
+grpcurl -plaintext -H "Authorization: Bearer chorespat_..." \
+  -d '{}' localhost:8080 chores.v1.ChoresService/ListFamilies
+```
+
+It sits behind the same login gate as everything else (a personal access
+token or a session cookie — never a dashboard key, since the kiosk's method
+allowlist doesn't cover reflection's own RPC paths). Reflection's RPCs are
+bidirectional streams, which plain HTTP/1.1 can't carry; the server enables
+cleartext HTTP/2 (`http.Server.Protocols.SetUnencryptedHTTP2`) alongside
+HTTP/1.1 on the same port so this works without TLS in local dev, while
+every ordinary HTTP/1.1 caller — the web UI, curl, a reverse proxy that
+doesn't itself speak h2c to the origin — is unaffected.
+
 ## Installing as an app (PWA)
 
 The web UI is an installable Progressive Web App: `web/manifest.webmanifest`
@@ -478,7 +516,7 @@ screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — cron-expression date matching for recurring tasks
-- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending and `dashboard.go` for the kiosk key
+- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending, `dashboard.go` for the kiosk key, and `tokens.go` for personal access tokens
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint

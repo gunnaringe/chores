@@ -645,6 +645,53 @@ message UnsubscribeFromPushRequest {
 }
 message UnsubscribeFromPushResponse {}
 
+// ---- Personal access tokens ------------------------------------------------
+
+// A bearer credential for calling the API from outside the browser (a
+// script, a cron job, a CLI) as the caller's own login identity — not
+// scoped to one family or one role, the same as a session cookie isn't.
+// Every existing permission check treats a request authenticated this way
+// exactly as it would a real session for that login, across every family
+// it's bound to. See internal/server/tokens.go.
+//
+// Unlike the kiosk dashboard key (SetupDashboard), which stays visible and
+// shareable, the raw token value is only ever returned once, at creation
+// (CreatePersonalAccessTokenResponse.secret) — this message never carries
+// it.
+message PersonalAccessToken {
+  string id = 1;
+  // A label chosen when creating the token, to tell them apart later (e.g.
+  // "laptop cron job") — shown wherever the token itself no longer can be.
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+  // Unset if the token has never been used.
+  google.protobuf.Timestamp last_used_at = 4;
+}
+
+message CreatePersonalAccessTokenRequest {
+  string name = 1;
+}
+message CreatePersonalAccessTokenResponse {
+  PersonalAccessToken token = 1;
+  // The bearer value itself, e.g. "chorespat_...". Not recoverable after
+  // this response — losing it means revoking this token and creating
+  // another.
+  string secret = 2;
+}
+
+message ListPersonalAccessTokensRequest {}
+message ListPersonalAccessTokensResponse {
+  repeated PersonalAccessToken tokens = 1;
+}
+
+// Idempotent-in-spirit but not idempotent in practice: revoking a token_id
+// that doesn't belong to the caller (or doesn't exist) is an error rather
+// than a silent no-op, so a typo'd id doesn't look like it worked.
+message RevokePersonalAccessTokenRequest {
+  string token_id = 1;
+}
+message RevokePersonalAccessTokenResponse {}
+
 service ChoresService {
   rpc CreateFamily(CreateFamilyRequest) returns (CreateFamilyResponse);
   rpc ListFamilies(ListFamiliesRequest) returns (ListFamiliesResponse);
@@ -684,4 +731,8 @@ service ChoresService {
   rpc GetPushConfig(GetPushConfigRequest) returns (GetPushConfigResponse);
   rpc SubscribeToPush(SubscribeToPushRequest) returns (SubscribeToPushResponse);
   rpc UnsubscribeFromPush(UnsubscribeFromPushRequest) returns (UnsubscribeFromPushResponse);
+
+  rpc CreatePersonalAccessToken(CreatePersonalAccessTokenRequest) returns (CreatePersonalAccessTokenResponse);
+  rpc ListPersonalAccessTokens(ListPersonalAccessTokensRequest) returns (ListPersonalAccessTokensResponse);
+  rpc RevokePersonalAccessToken(RevokePersonalAccessTokenRequest) returns (RevokePersonalAccessTokenResponse);
 }
