@@ -223,6 +223,49 @@ func TestOpen_MigratesTaskRepeatColumns(t *testing.T) {
 	}
 }
 
+// TestOpen_MigratesTaskClassificationColumn verifies that a task created
+// before the classification column existed defaults to 'mandatory', keeping
+// its prior behavior (there was no "optional" concept before this column).
+func TestOpen_MigratesTaskClassificationColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old-classification.db")
+
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open seed db: %v", err)
+	}
+	if _, err := seed.Exec(oldTasksSchema); err != nil {
+		t.Fatalf("apply old schema: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO families (id, name, created_at) VALUES ('fam1', 'Old Family', '2024-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	if _, err := seed.Exec(
+		`INSERT INTO tasks (id, family_id, title, price_cents, schedule, created_at)
+		 VALUES ('t1', 'fam1', 'Dishes', 100, '0 0 * * *', '2024-01-01T00:00:00Z')`,
+	); err != nil {
+		t.Fatalf("seed task: %v", err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatalf("close seed db: %v", err)
+	}
+
+	conn, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open on pre-existing database: %v", err)
+	}
+	defer conn.Close()
+
+	var classification string
+	if err := conn.QueryRow(`SELECT classification FROM tasks WHERE id = 't1'`).Scan(&classification); err != nil {
+		t.Fatalf("query migrated task: %v", err)
+	}
+	if classification != "mandatory" {
+		t.Fatalf("expected a pre-existing task to migrate to classification 'mandatory', got %q", classification)
+	}
+}
+
 func TestOpen_MigratesDashboardKeyColumn(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "old-dashboard.db")
 

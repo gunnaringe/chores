@@ -127,6 +127,13 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("add tasks.start_date: %w", err)
 		}
 	}
+	if !taskCols["classification"] {
+		// Existing tasks default to 'mandatory', matching how they've always
+		// been treated (there was no "optional" concept before this column).
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN classification TEXT NOT NULL DEFAULT 'mandatory'`); err != nil {
+			return fmt.Errorf("add tasks.classification: %w", err)
+		}
+	}
 	if !taskCols["deleted_at"] {
 		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN deleted_at TEXT`); err != nil {
 			return fmt.Errorf("add tasks.deleted_at: %w", err)

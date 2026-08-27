@@ -38,23 +38,65 @@ async function call(method, req) {
   return text ? JSON.parse(text) : {};
 }
 
-// The one place the currency is named. There's a single currency per
-// deployment; if that ever changes it becomes a field on the API's Money
-// message, and only this function has to learn about it.
-const CURRENCY_PREFIX = "kr";
-
-// Formats a whole number of minor units for display, with the currency.
-// Amounts come off the wire as protobuf int64, which protojson encodes as
-// a *string*, so the Number() conversion here is load-bearing rather than
-// defensive.
-function formatCents(cents) {
+const money = (cents) => {
   const n = Number(cents || 0);
-  const amount = (n / 100).toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${CURRENCY_PREFIX} ${amount}`;
+  return (n / 100).toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+// ---- currency (device-level display preference) -----------------------
+//
+// Purely cosmetic, like the language choice: which symbol (if any)
+// formatMoney() prefixes onto a number. Never sent to the server and never
+// affects what's stored or compared — amounts stay integer cents
+// everywhere else, exactly as before. Defaults to "" (no symbol) rather
+// than assuming a currency, since this is a hobby project that could be
+// run for any family in any currency — see CURRENCIES below for the
+// curated list a device can pick from instead.
+const CURRENCIES = [
+  { code: "", symbol: "" },
+  { code: "NOK", symbol: "kr" },
+  { code: "SEK", symbol: "kr" },
+  { code: "DKK", symbol: "kr" },
+  { code: "EUR", symbol: "€" },
+  { code: "USD", symbol: "$" },
+  { code: "GBP", symbol: "£" },
+];
+
+function getCurrency() {
+  return localStorage.getItem("chores.currency") || "";
+}
+function setCurrency(code) {
+  if (code) localStorage.setItem("chores.currency", code);
+  else localStorage.removeItem("chores.currency");
+}
+function currencySymbol() {
+  const c = CURRENCIES.find((c) => c.code === getCurrency());
+  return c ? c.symbol : "";
 }
 
-// Formats a Money message from the API, e.g. task.price or occurrence.amount.
-const money = (m) => formatCents(m && m.cents);
+// Every amount shown in the UI goes through this rather than money()
+// directly, so the currency preference only has to be threaded through in
+// one place. With no currency picked (the default) it's just the number.
+function formatMoney(cents) {
+  const symbol = currencySymbol();
+  return symbol ? `${symbol} ${money(cents)}` : money(cents);
+}
+
+// Formats a Money message from the API — task.price, occurrence.amount, and
+// the ChildSummary figures. Amounts come off the wire as protobuf int64,
+// which protojson encodes as a *string*, so formatMoney's Number() coercion
+// is doing real work rather than being defensive.
+function formatAmount(m) {
+  return formatMoney(m && m.cents);
+}
+
+// Appends "(symbol)" to a field label when a currency is set — used on the
+// two inputs where someone types an amount (task price, payout amount) so
+// they read consistently with however amounts are displayed elsewhere.
+function labelWithCurrencyUnit(label) {
+  const symbol = currencySymbol();
+  return symbol ? `${label} (${symbol})` : label;
+}
 
 const todayStr = () => {
   const d = new Date();
@@ -148,6 +190,7 @@ const state = {
   membership: null, // { bound, memberships: [{ user, family }] }
   invitations: [],
   editingTaskId: null,
+  addingTask: false, // whether the task editor sheet is open on a new task
   pushConfig: null, // { vapidPublicKey }
   historyRecent: [], // completions from this Monday through today
   historyLater: [], // accumulated older pages, oldest loaded last
@@ -318,116 +361,202 @@ function renderLangSwitcher() {
   `);
   card.querySelector("#lang-switcher").addEventListener("change", (e) => {
     setLang(e.target.value);
+    // The app's name is translated, so the tab title and the name an install
+    // would take have to be restamped, not just the rendered UI.
+    applyAppName();
     render();
   });
   return card;
 }
 
+// Same shape as renderLangSwitcher — a device-level display preference,
+// not something the server knows about. See formatMoney()'s comment for why
+// "None" is the default rather than an assumed currency.
+function renderCurrencySwitcher() {
+  const current = getCurrency();
+  const options = CURRENCIES.map((c) => {
+    const label = c.code ? `${c.code} — ${c.symbol}` : t("settings.currencyNone");
+    return `<option value="${c.code}" ${c.code === current ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("settings.currencyHeading"))}</h2>
+      <p class="hint" style="margin:0 0 10px;">${escapeHtml(t("settings.currencyHint"))}</p>
+      <select id="currency-switcher" aria-label="${escapeHtml(t("settings.currencyHeading"))}">
+        ${options}
+      </select>
+    </div>
+  `);
+  card.querySelector("#currency-switcher").addEventListener("change", (e) => {
+    setCurrency(e.target.value);
+    render();
+  });
+  return card;
+}
+
+// The app is laid out as a shell — a sticky app bar, a tab bar pinned to
+// the bottom edge on a phone, and the scrolling screen between them — so
+// that on a phone it reads as an app rather than as a web page: navigation
+// stays put under the thumb instead of scrolling away with the content.
+//
+// Parents get "Today" (today's status per child, at a glance) plus separate
+// tabs for managing tasks, payouts/accounting, and browsing history — those
+// are different activities done at different times, not one big page. A
+// child has exactly one thing to do here (their own tasks, with their own
+// earnings shown right there), so their bar is just that screen plus
+// Settings, which has to live somewhere.
+function tabDefsFor(parentMode) {
+  const settings = { key: "settings", label: t("topbar.settings"), icon: "settings" };
+  const today = { key: "home", label: t("tabs.today"), icon: "checklist" };
+  if (!parentMode) return [today, settings];
+  return [
+    today,
+    { key: "history", label: t("tabs.history"), icon: "history" },
+    { key: "tasks", label: t("tabs.tasks"), icon: "list_alt" },
+    { key: "accounting", label: t("tabs.accounting"), icon: "savings" },
+    settings,
+  ];
+}
+
+// Inline confirmations, open editors and expanded rows are all "where you
+// were on the screen you just left" — none of it should survive a jump to
+// a different tab and reappear the next time you come back.
+function resetTransientUiState() {
+  state.editingTaskId = null;
+  state.addingTask = false;
+  confirmingToggleKey = null;
+  confirmingDeleteTaskId = null;
+  confirmingRemoveChildId = null;
+  confirmingRevokeInvitationId = null;
+  confirmingLeaveFamily = false;
+  confirmingDeleteFamily = false;
+  expandedFamilyRow = null;
+}
+
+function renderTabBar(defs, activeKey) {
+  const nav = el(
+    `<nav class="tabbar">
+      <div class="tabbar-inner">
+        ${defs
+          .map(
+            (d) => `<button type="button" data-tab="${d.key}" class="${activeKey === d.key ? "active" : ""}" ${activeKey === d.key ? 'aria-current="page"' : ""}>
+              <span class="material-symbols-outlined">${d.icon}</span>
+              <span class="tab-label">${escapeHtml(d.label)}</span>
+            </button>`
+          )
+          .join("")}
+      </div>
+    </nav>`
+  );
+  nav.querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (state.tab === b.dataset.tab) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      state.tab = b.dataset.tab;
+      resetTransientUiState();
+      render();
+      window.scrollTo({ top: 0 });
+    })
+  );
+  return nav;
+}
+
+// A screen shown without the tab bar — onboarding, the "who's using this?"
+// picker, the kiosk key prompt. They're all pre-navigation: there's nowhere
+// else to go from them yet.
+function renderStandalone(node) {
+  const main = el(`<main class="content no-tabbar"></main>`);
+  main.appendChild(node);
+  return main;
+}
+
+function renderErrorToast() {
+  const toast = el(`
+    <div class="error" role="alert">
+      <span class="material-symbols-outlined">error</span>
+      <span class="error-text"></span>
+      <button type="button" aria-label="${escapeHtml(t("common.dismiss"))}"><span class="material-symbols-outlined">close</span></button>
+    </div>
+  `);
+  toast.querySelector(".error-text").textContent = state.error;
+  toast.querySelector("button").addEventListener("click", () => {
+    state.error = null;
+    render();
+  });
+  return toast;
+}
+
 function render() {
   const app = document.getElementById("app");
   app.innerHTML = "";
+  // The sheet gets its own scroll container, so the page behind it must
+  // stop scrolling while it's open — otherwise a flick aimed at the form
+  // drags the list underneath instead.
+  document.body.classList.toggle("sheet-open", taskSheetIsOpen());
+
+  if (state.error) app.appendChild(renderErrorToast());
 
   // The kiosk dashboard is a completely separate, much smaller UI — no
   // login, no family/user picker, no tabs — so it's handled before any of
   // the normal app's routing below even looks at auth/membership state,
   // none of which applies to it.
   if (state.dashboardMode) {
-    if (state.error) {
-      app.appendChild(el(`<div class="error">${escapeHtml(state.error)}</div>`));
-    }
     if (!state.dashboardKey) {
-      app.appendChild(renderDashboardKeyPrompt());
+      app.appendChild(renderStandalone(renderDashboardKeyPrompt()));
     } else {
-      app.appendChild(el(`<h1>${escapeHtml(window.APP_NAME)}</h1>`));
-      app.appendChild(renderTodayTab());
+      app.appendChild(renderDashboardBar());
+      const kiosk = el(`<main class="content no-tabbar"></main>`);
+      kiosk.appendChild(el(`<h1 class="screen-title">${escapeHtml(t("tabs.today"))}</h1>`));
+      kiosk.appendChild(renderTodayTab());
+      app.appendChild(kiosk);
     }
     return;
   }
 
-  if (state.error) {
-    app.appendChild(el(`<div class="error">${escapeHtml(state.error)}</div>`));
-  }
-
   if (!state.membership || !state.membership.bound) {
-    app.appendChild(renderOnboarding());
+    app.appendChild(renderStandalone(renderOnboarding()));
     return;
   }
 
   if (!state.userId) {
-    app.appendChild(renderUserPicker());
+    app.appendChild(renderStandalone(renderUserPicker()));
     return;
   }
 
-  app.appendChild(renderTopbar());
-
-  if (state.tab === "settings") {
-    app.appendChild(renderSettingsTab());
-    return;
-  }
-
-  // Parents get a dashboard-style "Today" tab (today's status per child, at
-  // a glance) plus separate tabs for managing tasks, payouts/accounting, and
-  // browsing history — those are different activities done at different
-  // times, not one big page. A child has exactly one thing to do here
-  // (their own tasks, with their own earnings shown right there), so they
-  // get no tab bar at all rather than a bar with a single button on it.
   const parentMode = isParent();
-  if (!parentMode) {
-    app.appendChild(renderChildTasksTab());
-    return;
-  }
+  const defs = tabDefsFor(parentMode);
+  const activeTab = defs.some((d) => d.key === state.tab) ? state.tab : "home";
 
-  const tabDefs = [
-    { key: "home", label: t("tabs.today") },
-    { key: "history", label: t("tabs.history") },
-    { key: "tasks", label: t("tabs.tasks") },
-    { key: "accounting", label: t("tabs.accounting") },
-  ];
-  const activeTab = tabDefs.some((d) => d.key === state.tab) ? state.tab : tabDefs[0].key;
+  app.appendChild(renderAppBar());
+  app.appendChild(renderTabBar(defs, activeTab));
 
-  const tabs = el(
-    `<div class="tabs">${tabDefs
-      .map((d) => `<button data-tab="${d.key}" class="${activeTab === d.key ? "active" : ""}">${escapeHtml(d.label)}</button>`)
-      .join("")}</div>`
-  );
-  tabs.querySelectorAll("button").forEach((b) =>
-    b.addEventListener("click", () => {
-      state.tab = b.dataset.tab;
-      state.editingTaskId = null;
-      confirmingToggleKey = null;
-      confirmingDeleteTaskId = null;
-      render();
-    })
-  );
-  app.appendChild(tabs);
+  const main = el(`<main class="content"></main>`);
+  const viewingAs = renderViewingAsNotice();
+  if (viewingAs) main.appendChild(viewingAs);
+  main.appendChild(el(`<h1 class="screen-title">${escapeHtml(defs.find((d) => d.key === activeTab).label)}</h1>`));
 
-  if (activeTab === "home") app.appendChild(renderTodayTab());
-  else if (activeTab === "history") app.appendChild(renderHistoryTab());
-  else if (activeTab === "tasks") app.appendChild(renderTasksManagementTab());
-  else app.appendChild(renderAccountingTab());
+  if (activeTab === "settings") main.appendChild(renderSettingsTab());
+  else if (!parentMode) main.appendChild(renderChildTasksTab());
+  else if (activeTab === "home") main.appendChild(renderTodayTab());
+  else if (activeTab === "history") main.appendChild(renderHistoryTab());
+  else if (activeTab === "tasks") main.appendChild(renderTasksManagementTab());
+  else main.appendChild(renderAccountingTab());
+
+  app.appendChild(main);
+
+  // Both float above the content, so they're appended to the shell rather
+  // than into the scrolling screen.
+  if (parentMode && activeTab === "tasks") app.appendChild(renderAddTaskFab());
+  const sheet = renderTaskSheet();
+  if (sheet) app.appendChild(sheet);
 }
 
 function escapeHtml(s) {
   const d = document.createElement("div");
   d.textContent = s;
   return d.innerHTML;
-}
-
-// Font Awesome icon names only ever legitimately contain lowercase
-// letters, digits and hyphens. Whitelisting down to that (after stripping
-// common paste artifacts like a leading "fa-") is what actually makes it
-// safe to drop this user-supplied value straight into a class="..."
-// attribute — HTML-escaping alone isn't enough there, since escapeHtml
-// only guards text-node content, not attribute-breaking characters.
-function faIconClass(value) {
-  let cleaned = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^fa-solid\s+/, "")
-    .replace(/^fas\s+/, "")
-    .replace(/^fa-/, "")
-    .replace(/[^a-z0-9-]/g, "");
-  return cleaned || "star";
 }
 
 // Material Symbols are rendered as ligature text content (not a class
@@ -442,35 +571,83 @@ function materialIconName(value) {
   return cleaned || "star";
 }
 
-function taskLabel(task) {
-  if (!task.icon || !task.icon.value) return escapeHtml(task.title);
-  if (task.icon.type === "ICON_TYPE_FONT_AWESOME") {
-    return `<i class="fa-solid fa-${faIconClass(task.icon.value)}"></i> ${escapeHtml(task.title)}`;
-  }
-  if (task.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS") {
-    return `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1em;">${escapeHtml(
-      materialIconName(task.icon.value)
-    )}</span> ${escapeHtml(task.title)}`;
-  }
-  return escapeHtml(task.icon.value) + " " + escapeHtml(task.title);
+function isOptionalTask(task) {
+  return task.classification === "TASK_CLASSIFICATION_OPTIONAL";
 }
 
-const EMOJI_CHOICES = ["🧹", "🧺", "🍽️", "🛏️", "🐶", "🗑️", "📚", "🧽", "🚗", "🌱", "🪥", "🧸"];
-const FA_CHOICES = ["broom", "shirt", "utensils", "bed", "dog", "trash", "book", "soap", "car", "seedling", "tooth", "paw"];
-const MATERIAL_CHOICES = [
-  "cleaning_services",
-  "checkroom",
-  "restaurant",
-  "bed",
-  "pets",
-  "delete",
-  "menu_book",
-  "soap",
-  "directions_car",
-  "eco",
-  "brush",
-  "toys",
-];
+// The mandatory/optional badge. Shared so the Tasks list and History label a
+// task identically — two hand-rolled copies drifted apart the moment one of
+// them was touched.
+function classificationPillHtml(task) {
+  const optional = isOptionalTask(task);
+  return `<span class="pill ${optional ? "optional" : "mandatory"}">${escapeHtml(
+    optional ? t("taskList.optional") : t("taskList.mandatory")
+  )}</span>`;
+}
+
+// Today's occurrences split into what has to happen and what is up for grabs.
+// Groups with nothing in them are dropped, so a child with only required
+// chores doesn't get an empty "Can do" heading.
+function groupOccurrencesByClassification(occurrences) {
+  return [
+    { label: t("today.mustDo"), items: occurrences.filter((o) => !isOptionalTask(o)) },
+    { label: t("today.canDo"), items: occurrences.filter((o) => isOptionalTask(o)) },
+  ].filter((group) => group.items.length);
+}
+
+// The leading tile in a task row: the task's own icon on a tinted square,
+// falling back to a generic one so every row lines up at the same left
+// edge whether or not an icon was ever picked for it.
+function taskIconHtml(task) {
+  const icon = task.icon || {};
+  if (icon.value && icon.type !== "ICON_TYPE_MATERIAL_SYMBOLS") {
+    // An icon predating Material Symbols becoming the only supported type
+    // (an emoji, or a Font Awesome name) — rendered as plain text.
+    return `<span class="task-icon">${escapeHtml(icon.value)}</span>`;
+  }
+  const name = icon.value ? materialIconName(icon.value) : "task_alt";
+  return `<span class="task-icon"><span class="material-symbols-outlined">${escapeHtml(name)}</span></span>`;
+}
+
+// The full official Material Symbols icon name list, fetched lazily and
+// cached here — see loadMaterialSymbolNames. Search matches against these
+// names directly (see searchMaterialSymbols) rather than a hand-authored
+// keyword/synonym mapping — the vendored source (see
+// scripts/update-material-symbols.sh) is just a name-to-version map with no
+// synonyms in it, and fonts.google.com/icons' own richer search (e.g.
+// "trash" finding "delete") isn't published data anywhere we could vendor.
+// The task form links out to that page instead, for anyone who knows what
+// they want but not what Google calls it.
+let materialSymbolNamesPromise = null;
+function loadMaterialSymbolNames() {
+  if (!materialSymbolNamesPromise) {
+    materialSymbolNamesPromise = fetch("/material-symbols.json")
+      .then((res) => res.json())
+      .catch(() => []);
+  }
+  return materialSymbolNamesPromise;
+}
+
+// Substring search over the official icon names, matching each whitespace-
+// separated search word against the name with underscores treated as
+// spaces (so "clean service" matches "cleaning_services"). Prefix matches
+// on the full query sort first, then shorter (more specific) names.
+function searchMaterialSymbols(names, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const words = q.split(/\s+/).filter(Boolean);
+  const matches = names.filter((name) => {
+    const haystack = name.replace(/_/g, " ");
+    return words.every((w) => haystack.includes(w));
+  });
+  matches.sort((a, b) => {
+    const aStarts = a.replace(/_/g, " ").startsWith(q) ? 0 : 1;
+    const bStarts = b.replace(/_/g, " ").startsWith(q) ? 0 : 1;
+    if (aStarts !== bStarts) return aStarts - bStarts;
+    return a.length - b.length || a.localeCompare(b);
+  });
+  return matches.slice(0, 60);
+}
 
 // Creates a family and binds the caller as its founding parent via
 // identity auto-bind. Leaves the new family selected — callers still need
@@ -510,13 +687,13 @@ function renderCreateAndJoinFamilyForms() {
       <h2>${escapeHtml(t("onboarding.heading"))}</h2>
       <div class="field">
         <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
-        <input type="text" id="onboard-parent-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" value="${escapeHtml(defaultName)}" />
+        <input type="text" class="input-full" id="onboard-parent-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" value="${escapeHtml(defaultName)}" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("family.nameLabel"))}</label>
-        <input type="text" id="onboard-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
+        <input type="text" class="input-full" id="onboard-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
       </div>
-      <button id="onboard-create-btn">${escapeHtml(t("family.createBtn"))}</button>
+      <button class="block" id="onboard-create-btn" style="margin-top:4px;">${escapeHtml(t("family.createBtn"))}</button>
     </div>
   `);
   form.querySelector("#onboard-create-btn").addEventListener("click", () =>
@@ -535,9 +712,9 @@ function renderCreateAndJoinFamilyForms() {
       <h2>${escapeHtml(t("onboarding.joinHeading"))}</h2>
       <div class="field">
         <label>${escapeHtml(t("onboarding.joinCodeLabel"))}</label>
-        <input type="text" id="onboard-join-code" />
+        <input type="text" class="input-full" id="onboard-join-code" autocapitalize="off" autocorrect="off" spellcheck="false" />
       </div>
-      <button type="button" id="onboard-join-btn" class="secondary">${escapeHtml(t("onboarding.joinBtn"))}</button>
+      <button type="button" id="onboard-join-btn" class="secondary block" style="margin-top:4px;">${escapeHtml(t("onboarding.joinBtn"))}</button>
     </div>
   `);
   joinForm.querySelector("#onboard-join-btn").addEventListener("click", () =>
@@ -558,9 +735,15 @@ function renderCreateAndJoinFamilyForms() {
 
 function renderOnboarding() {
   const wrap = el(`<div></div>`);
+  // el() only ever returns one element, so the heading and its subtitle
+  // have to share a wrapper — as two siblings the subtitle was silently
+  // dropped on the floor.
   wrap.appendChild(el(`
-    <h1>${window.APP_NAME}</h1>
-    <p>${escapeHtml(t("onboarding.subtitle"))}</p>
+    <div class="hero" style="margin-top:6vh;">
+      <img src="/icons/logo.png" alt="" width="88" height="88" class="logo" />
+      <h1>${escapeHtml(appName())}</h1>
+      <p>${escapeHtml(t("onboarding.subtitle"))}</p>
+    </div>
   `));
   wrap.appendChild(renderCreateAndJoinFamilyForms());
   return wrap;
@@ -571,10 +754,10 @@ function renderUserPicker() {
   const family = state.families.find((f) => f.id === state.familyId);
   wrap.appendChild(
     el(`
-      <div class="topbar">
-        <h1>${escapeHtml(family ? family.name : window.APP_NAME)}</h1>
+      <div style="margin-bottom:18px;">
+        <h1 class="screen-title" style="margin-bottom:2px;">${escapeHtml(family ? family.name : appName())}</h1>
+        <p style="margin:0;">${escapeHtml(t("userPicker.whoIsUsing"))}</p>
       </div>
-      <p>${escapeHtml(t("userPicker.whoIsUsing"))}</p>
     `)
   );
 
@@ -592,7 +775,13 @@ function renderUserPicker() {
       const action = canContinueAs(u) ? `<button data-id="${u.id}">${escapeHtml(t("userPicker.continue"))}</button>` : "";
       const row = el(`
         <div class="row">
-          <span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span></span>
+          <div class="task-row-main">
+            ${avatarHtml(u, "lg")}
+            <div class="task-row-text">
+              <div class="task-title">${escapeHtml(u.name)}</div>
+              <div class="task-meta">${escapeHtml(roleLabel(u.role))}</div>
+            </div>
+          </div>
           ${action}
         </div>
       `);
@@ -621,7 +810,7 @@ function renderAddUserForm() {
       <h2>${escapeHtml(t("addUser.heading"))}</h2>
       <div class="field">
         <label>${escapeHtml(t("addUser.nameLabel"))}</label>
-        <input type="text" id="new-user-name" placeholder="${escapeHtml(t("addUser.namePlaceholder"))}" />
+        <input type="text" class="input-full" id="new-user-name" placeholder="${escapeHtml(t("addUser.namePlaceholder"))}" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("addUser.roleLabel"))}</label>
@@ -630,7 +819,7 @@ function renderAddUserForm() {
           <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
         </select>
       </div>
-      <button id="add-user-btn">${escapeHtml(t("addUser.add"))}</button>
+      <button class="block" id="add-user-btn">${escapeHtml(t("addUser.add"))}</button>
     </div>
   `);
   form.querySelector("#add-user-btn").addEventListener("click", () =>
@@ -680,75 +869,194 @@ function familySwitchOptions() {
   return (state.membership && state.membership.memberships) || [];
 }
 
-function renderTopbar() {
+// Up to two letters, for the round avatar that stands in for a family
+// member wherever one is named — cheaper to recognise at a glance than
+// reading the name, which is the whole point on a small screen.
+function initials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+function avatarHtml(user, extraClass) {
+  const cls = user && user.role === "USER_ROLE_CHILD" ? "child" : "parent";
+  return `<span class="avatar ${cls} ${extraClass || ""}">${escapeHtml(initials(user ? user.name : ""))}</span>`;
+}
+
+// Both switchers in the app bar are a styled chip with a real, invisible
+// <select> stretched over it: the chip is what gets to look like part of a
+// header, while the platform's own picker (a wheel on a phone) is still
+// what opens on tap — no hand-built dropdown to get wrong.
+function renderSwitcherChip({ id, label, options, selectedValue, plain, onChange }) {
+  const switchable = options.length > 1;
+  const chip = el(`
+    <div class="chip ${plain ? "chip-plain" : ""}">
+      ${plain ? `<span class="appbar-family"></span>` : `${avatarHtml(currentUser())}<span class="chip-name"></span>`}
+      ${switchable ? `<span class="material-symbols-outlined chip-caret">unfold_more</span>` : ""}
+    </div>
+  `);
+  const text = chip.querySelector(plain ? ".appbar-family" : ".chip-name");
+  const selected = options.find((o) => o.value === selectedValue);
+  text.textContent = selected ? selected.label : "";
+  if (!switchable) return chip;
+
+  const select = el(`
+    <select class="chip-select" id="${id}" aria-label="${escapeHtml(label)}">
+      ${options.map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === selectedValue ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+    </select>
+  `);
+  select.addEventListener("change", (e) => onChange(e.target.value));
+  chip.appendChild(select);
+  return chip;
+}
+
+function renderAppBar() {
   const family = state.families.find((f) => f.id === state.familyId);
   const user = currentUser();
   const familyOptions = familySwitchOptions();
   const userOptions = switchableUsers();
 
-  const familyNameEl =
-    familyOptions.length > 1
-      ? el(`
-          <select class="plain-select" id="family-switch">
-            ${familyOptions
-              .map((o) => `<option value="${o.family.id}" ${o.family.id === state.familyId ? "selected" : ""}>${escapeHtml(o.family.name)}</option>`)
-              .join("")}
-          </select>
-        `)
-      : el(`<h1>${escapeHtml(family ? family.name : window.APP_NAME)}</h1>`);
-
-  const userNameEl =
-    userOptions.length > 1
-      ? el(`
-          <select class="plain-select" id="user-switch">
-            ${userOptions.map((u) => `<option value="${u.id}" ${u.id === state.userId ? "selected" : ""}>${escapeHtml(u.name)}</option>`).join("")}
-          </select>
-        `)
-      : el(`<span>${escapeHtml(user ? user.name : "")}</span>`);
-
   const bar = el(`
-    <div class="topbar">
-      <div>
-        <div class="family-row" style="display:flex;align-items:center;gap:4px;"></div>
-        <p style="margin:0;display:flex;align-items:center;gap:6px;"><span class="pill ${isParent() ? "parent" : "child"}">${escapeHtml(isParent() ? t("role.parent") : t("role.child"))}</span></p>
+    <header class="appbar">
+      <div class="appbar-inner">
+        <div class="appbar-left"></div>
+        <div class="appbar-right"></div>
       </div>
-      <div class="actions">
-        <button class="secondary" id="open-settings">${escapeHtml(t("topbar.settings"))}</button>
-      </div>
-    </div>
+    </header>
   `);
-  const familyRow = bar.querySelector(".family-row");
-  familyRow.appendChild(familyNameEl);
-  bar.querySelector("p").prepend(userNameEl);
 
-  if (familyOptions.length > 1) {
-    bar.querySelector("#family-switch").addEventListener("change", (e) =>
-      withError(async () => {
-        const selected = familyOptions.find((o) => o.family.id === e.target.value);
-        if (!selected) return;
-        selectMembership(selected);
-        await loadFamilyData();
-      })
-    );
-  }
-  if (userOptions.length > 1) {
-    bar.querySelector("#user-switch").addEventListener("change", (e) =>
-      withError(async () => {
-        const selected = userOptions.find((u) => u.id === e.target.value);
-        if (!selected) return;
-        setUserId(selected.id);
-        await loadFamilyData();
-      })
-    );
-  }
-  bar.querySelector("#open-settings").addEventListener("click", () => {
-    state.tab = "settings";
-    render();
-  });
+  bar.querySelector(".appbar-left").appendChild(
+    renderSwitcherChip({
+      id: "family-switch",
+      label: t("familyTab.switchFamilyLabel"),
+      plain: true,
+      selectedValue: state.familyId || "",
+      options: familyOptions.length
+        ? familyOptions.map((o) => ({ value: o.family.id, label: o.family.name }))
+        : [{ value: state.familyId || "", label: family ? family.name : appName() }],
+      onChange: (value) =>
+        withError(async () => {
+          const selected = familyOptions.find((o) => o.family.id === value);
+          if (!selected) return;
+          selectMembership(selected);
+          resetTransientUiState();
+          await loadFamilyData();
+        }),
+    })
+  );
+
+  bar.querySelector(".appbar-right").appendChild(
+    renderSwitcherChip({
+      id: "user-switch",
+      label: t("familyTab.switchUserLabel"),
+      selectedValue: state.userId || "",
+      options: userOptions.length
+        ? userOptions.map((u) => ({ value: u.id, label: u.name }))
+        : [{ value: state.userId || "", label: user ? user.name : "" }],
+      onChange: (value) =>
+        withError(async () => {
+          const selected = userOptions.find((u) => u.id === value);
+          if (!selected) return;
+          setUserId(selected.id);
+          resetTransientUiState();
+          state.tab = "home";
+          await loadFamilyData();
+        }),
+    })
+  );
+
   return bar;
 }
 
+// Switching to one of your children in the app bar quietly changes what
+// every screen means — a standing bar says so, and gets you back in one
+// tap, rather than leaving the swapped name in the corner as the only clue.
+function renderViewingAsNotice() {
+  const homeUserId = getHomeUserId();
+  if (!homeUserId || !state.userId || state.userId === homeUserId) return null;
+  const me = state.users.find((u) => u.id === homeUserId);
+  const viewed = currentUser();
+  const bar = el(`
+    <div class="notice-bar">
+      <span class="material-symbols-outlined">visibility</span>
+      <span class="notice-text">${escapeHtml(t("topbar.viewingAs", { name: viewed ? viewed.name : "" }))}</span>
+      <button type="button" class="secondary">${escapeHtml(t("topbar.switchBack"))}</button>
+    </div>
+  `);
+  bar.querySelector("button").addEventListener("click", () =>
+    withError(async () => {
+      setUserId(homeUserId);
+      resetTransientUiState();
+      state.tab = "home";
+      await loadFamilyData();
+    })
+  );
+  if (me) bar.querySelector("button").title = me.name;
+  return bar;
+}
+
+// The kiosk has no family switcher, no user, and nothing to navigate to —
+// its app bar is just the app's own name, so a wall-mounted tablet still
+// looks like it's running something rather than showing a bare list.
+function renderDashboardBar() {
+  return el(`
+    <header class="appbar">
+      <div class="appbar-inner">
+        <div class="appbar-family">${escapeHtml(appName())}</div>
+      </div>
+    </header>
+  `);
+}
+
 // ---- Today tab (parents): today's status per child, at a glance -----------------------------------------------------
+
+// One of today's occurrences, with its tap-to-complete tick. Shared by the
+// parent's Today tab (and the kiosk, which renders the same view) and by a
+// child's own screen — the two had drifted into duplicate copies of the same
+// markup and the same complete/uncomplete handler.
+function renderOccurrenceRow(occ, childId, opts) {
+  const done = !!occ.completedAt;
+  const showDescription = !!(opts && opts.showDescription);
+  const description = showDescription && occ.description ? " — " + escapeHtml(occ.description) : "";
+  const row = el(`
+    <div class="row">
+      <div class="task-row-main">
+        ${taskIconHtml(occ)}
+        <div class="task-row-text">
+          <div class="task-title">${escapeHtml(occ.title)}</div>
+          <div class="task-meta">${formatAmount(occ.amount)}${description}</div>
+        </div>
+      </div>
+      <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
+    </div>
+  `);
+  row.querySelector("button").addEventListener("click", () =>
+    withError(async () => {
+      const req = { taskId: occ.taskId, childId, dueDate: occ.dueDate };
+      await call(done ? "UncompleteTask" : "CompleteTask", req);
+      await loadFamilyData();
+    })
+  );
+  return row;
+}
+
+// Appends today's tasks under a "Must do" / "Can do" heading each, so what a
+// child actually has to get done reads apart from what's optional extra —
+// previously the two were one undifferentiated list and the distinction only
+// existed as a pill in the parent's task editor.
+function appendOccurrenceSections(container, occurrences, childId, opts) {
+  groupOccurrencesByClassification(occurrences).forEach((group) => {
+    container.appendChild(
+      el(`<div class="section-label occurrence-group">${escapeHtml(group.label)}</div>`)
+    );
+    group.items.forEach((occ) => container.appendChild(renderOccurrenceRow(occ, childId, opts)));
+  });
+}
 
 function renderTodayTab() {
   const wrap = el(`<div></div>`);
@@ -758,41 +1066,32 @@ function renderTodayTab() {
   }
 
   state.summaries.forEach((s) => {
-    const card = el(`<div class="card"><h2>${escapeHtml(s.child.name)}</h2></div>`);
-
     const todays = state.occurrences.filter((o) => o.childId === s.child.id);
+    const doneCount = todays.filter((o) => o.completedAt).length;
+    const card = el(`
+      <div class="card">
+        <div class="row" style="padding-top:0;">
+          <div class="task-row-main">
+            ${avatarHtml(s.child, "lg")}
+            <div class="task-row-text">
+              <div class="task-title">${escapeHtml(s.child.name)}</div>
+              <div class="task-meta">${escapeHtml(todays.length ? t("today.progress", { done: doneCount, total: todays.length }) : t("childTasks.empty"))}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
     if (!todays.length) {
       card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     } else {
-      todays.forEach((occ) => {
-        const done = !!occ.completedAt;
-        const row = el(`
-          <div class="row">
-            <div>
-              <div class="task-title">${taskLabel(occ)}</div>
-              <div class="task-meta">${money(occ.amount)}</div>
-            </div>
-            <button class="checkbtn ${done ? "done" : "todo"}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}">${done ? "✓" : ""}</button>
-          </div>
-        `);
-        row.querySelector("button").addEventListener("click", () =>
-          withError(async () => {
-            if (done) {
-              await call("UncompleteTask", { taskId: occ.taskId, childId: s.child.id, dueDate: occ.dueDate });
-            } else {
-              await call("CompleteTask", { taskId: occ.taskId, childId: s.child.id, dueDate: occ.dueDate });
-            }
-            await loadFamilyData();
-          })
-        );
-        card.appendChild(row);
-      });
+      appendOccurrenceSections(card, todays, s.child.id);
     }
 
     card.appendChild(el(`
-      <div class="grid-2" style="margin-top:10px;">
-        <div class="stat"><div class="value">${money(s.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-        <div class="stat"><div class="value">${money(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+      <div class="grid-2 stat-strip">
+        <div class="stat"><div class="value">${formatAmount(s.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+        <div class="stat"><div class="value">${formatAmount(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
       </div>
     `));
     wrap.appendChild(card);
@@ -814,10 +1113,10 @@ function renderChildTasksTab() {
   if (summary) {
     wrap.appendChild(el(`
       <div class="card">
-        <div class="grid-3">
-          <div class="stat"><div class="value">${money(summary.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-          <div class="stat"><div class="value">${money(summary.earnedThisWeek)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
-          <div class="stat"><div class="value">${money(summary.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+        <div class="grid-3 stat-strip" style="margin-top:0;">
+          <div class="stat"><div class="value">${formatAmount(summary.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(summary.earnedThisWeek)}</div><div class="label">${escapeHtml(t("accounting.earnedThisWeek"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(summary.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `));
@@ -833,48 +1132,73 @@ function renderChildOccurrences() {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     return card;
   }
-  mine.forEach((occ) => {
-    const done = !!occ.completedAt;
-    const row = el(`
-      <div class="row">
-        <div>
-          <div class="task-title">${taskLabel(occ)}</div>
-          <div class="task-meta">${money(occ.amount)}${occ.description ? " — " + escapeHtml(occ.description) : ""}</div>
-        </div>
-        <button class="checkbtn ${done ? "done" : "todo"}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}">${done ? "✓" : ""}</button>
-      </div>
-    `);
-    row.querySelector("button").addEventListener("click", () =>
-      withError(async () => {
-        if (done) {
-          await call("UncompleteTask", {
-            taskId: occ.taskId,
-            childId: state.userId,
-            dueDate: occ.dueDate,
-          });
-        } else {
-          await call("CompleteTask", {
-            taskId: occ.taskId,
-            childId: state.userId,
-            dueDate: occ.dueDate,
-          });
-        }
-        await loadFamilyData();
-      })
-    );
-    card.appendChild(row);
-  });
+  appendOccurrenceSections(card, mine, state.userId, { showDescription: true });
   return card;
 }
 
 // ---- Tasks tab (parents): manage task definitions -----------------------------------------------------
 
+// The task list is the screen; adding or editing one opens over it (see
+// renderTaskSheet) instead of appearing as a permanent form underneath,
+// which on a phone meant scrolling past every task to reach it and losing
+// your place in the list every time you edited something.
 function renderTasksManagementTab() {
   const wrap = el(`<div></div>`);
   wrap.appendChild(renderTaskList());
-  const editingTask = state.editingTaskId ? state.tasks.find((t_) => t_.id === state.editingTaskId) : null;
-  wrap.appendChild(renderTaskForm(editingTask));
   return wrap;
+}
+
+function taskSheetIsOpen() {
+  return state.addingTask || !!state.editingTaskId;
+}
+
+function closeTaskSheet() {
+  state.addingTask = false;
+  state.editingTaskId = null;
+}
+
+function renderAddTaskFab() {
+  const fab = el(`<button type="button" class="fab"><span class="material-symbols-outlined">add</span><span>${escapeHtml(t("addTask.addBtn"))}</span></button>`);
+  fab.addEventListener("click", () => {
+    confirmingDeleteTaskId = null;
+    state.addingTask = true;
+    render();
+  });
+  return fab;
+}
+
+function renderTaskSheet() {
+  if (!taskSheetIsOpen()) return null;
+  const editingTask = state.editingTaskId ? state.tasks.find((t_) => t_.id === state.editingTaskId) : null;
+  // The task being edited can vanish under us (deleted elsewhere, or a
+  // refresh that dropped it) — close rather than render an empty editor.
+  if (state.editingTaskId && !editingTask) {
+    closeTaskSheet();
+    return null;
+  }
+  const backdrop = el(`
+    <div class="sheet-backdrop">
+      <div class="sheet" role="dialog" aria-modal="true" aria-label="${escapeHtml(editingTask ? t("taskList.editHeading") : t("addTask.heading"))}">
+        <div class="sheet-header">
+          <h2 class="sheet-title">${escapeHtml(editingTask ? t("taskList.editHeading") : t("addTask.heading"))}</h2>
+          <button type="button" class="sheet-close secondary" aria-label="${escapeHtml(t("common.close"))}"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="sheet-body"></div>
+      </div>
+    </div>
+  `);
+  backdrop.querySelector(".sheet-body").appendChild(renderTaskForm(editingTask));
+  const close = () => {
+    closeTaskSheet();
+    render();
+  };
+  backdrop.querySelector(".sheet-close").addEventListener("click", close);
+  // Only a tap on the dimmed area itself dismisses — not one that started
+  // inside the form and happened to end up here.
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) close();
+  });
+  return backdrop;
 }
 
 // Which task (by id) is showing its inline "are you sure" state, if any —
@@ -883,7 +1207,7 @@ function renderTasksManagementTab() {
 let confirmingDeleteTaskId = null;
 
 function renderTaskList() {
-  const card = el(`<div class="card"><h2>${escapeHtml(t("taskList.heading"))}</h2></div>`);
+  const card = el(`<div class="card"></div>`);
   if (!state.tasks.length) {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("taskList.empty"))}</p>`));
     return card;
@@ -894,18 +1218,23 @@ function renderTaskList() {
     const confirmingDelete = confirmingDeleteTaskId === t_.id;
     const row = el(`
       <div class="row">
-        <div>
-          <div class="task-title">${taskLabel(t_)} ${t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""}</div>
-          <div class="task-meta">${money(t_.price)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
+        <div class="task-row-main">
+          ${taskIconHtml(t_)}
+          <div class="task-row-text">
+            <div class="task-title">${escapeHtml(t_.title)} ${classificationPillHtml(t_)} ${
+              t_.active === false ? `<span class="pill">${escapeHtml(t("taskList.paused"))}</span>` : ""
+            }</div>
+            <div class="task-meta">${formatAmount(t_.price)} · ${escapeHtml(repeatLabel(t_))}${t_.description ? " · " + escapeHtml(t_.description) : ""}${assignedNames ? " · " + escapeHtml(assignedNames) : ""}</div>
+          </div>
         </div>
         <div class="actions">
           ${
             confirmingDelete
               ? `<button class="danger" data-action="confirm-delete">${escapeHtml(t("history.confirmDelete"))}</button>
                  <button type="button" class="secondary" data-action="cancel-delete">${escapeHtml(t("taskList.cancel"))}</button>`
-              : `<button class="secondary" data-action="edit">${escapeHtml(t("taskList.edit"))}</button>
-                 <button class="secondary btn-icon" data-action="toggle" title="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}"><span class="material-symbols-outlined">${t_.active === false ? "play_arrow" : "pause"}</span></button>
-                 <button class="danger" data-action="delete">${escapeHtml(t("taskList.delete"))}</button>`
+              : `<button class="secondary btn-icon" data-action="edit" title="${escapeHtml(t("taskList.edit"))}" aria-label="${escapeHtml(t("taskList.edit"))}"><span class="material-symbols-outlined">edit</span></button>
+                 <button class="secondary btn-icon" data-action="toggle" title="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}" aria-label="${escapeHtml(t_.active === false ? t("taskList.resume") : t("taskList.pause"))}"><span class="material-symbols-outlined">${t_.active === false ? "play_arrow" : "pause"}</span></button>
+                 <button class="secondary btn-icon" data-action="delete" title="${escapeHtml(t("taskList.delete"))}" aria-label="${escapeHtml(t("taskList.delete"))}" style="color:var(--red);"><span class="material-symbols-outlined">delete</span></button>`
           }
         </div>
       </div>
@@ -914,6 +1243,7 @@ function renderTaskList() {
     const editBtn = row.querySelector('[data-action="edit"]');
     if (editBtn) {
       editBtn.addEventListener("click", () => {
+        state.addingTask = false;
         state.editingTaskId = t_.id;
         render();
       });
@@ -922,8 +1252,8 @@ function renderTaskList() {
     if (toggleBtn) {
       toggleBtn.addEventListener("click", () =>
         withError(async () => {
-          // Pause/resume resends the task unchanged apart from `active`,
-          // so the schedule and price go back exactly as they arrived.
+          // Pause/resume resends the task unchanged apart from `active`, so
+          // the schedule and price go back exactly as they arrived.
           await call("UpdateTask", {
             taskId: t_.id,
             title: t_.title,
@@ -933,6 +1263,7 @@ function renderTaskList() {
             active: t_.active === false,
             childIds: t_.childIds,
             icon: t_.icon,
+            classification: t_.classification,
           });
           await loadFamilyData();
         })
@@ -951,7 +1282,7 @@ function renderTaskList() {
         withError(async () => {
           confirmingDeleteTaskId = null;
           await call("DeleteTask", { taskId: t_.id });
-          if (state.editingTaskId === t_.id) state.editingTaskId = null;
+          if (state.editingTaskId === t_.id) closeTaskSheet();
           await loadFamilyData();
         })
       );
@@ -968,70 +1299,66 @@ function renderTaskList() {
   return card;
 }
 
-function iconTypeKey(icon) {
-  if (!icon) return "EMOJI";
-  if (icon.type === "ICON_TYPE_FONT_AWESOME") return "FONT_AWESOME";
-  if (icon.type === "ICON_TYPE_MATERIAL_SYMBOLS") return "MATERIAL_SYMBOLS";
-  return "EMOJI";
-}
-
 function renderTaskForm(existingTask) {
   const isEdit = !!existingTask;
   const children = state.users.filter((u) => u.role === "USER_ROLE_CHILD");
   const form = el(`
-    <div class="card">
-      <h2>${escapeHtml(isEdit ? t("taskList.editHeading") : t("addTask.heading"))}</h2>
+    <div>
       <div class="field">
         <label>${escapeHtml(t("addTask.titleLabel"))}</label>
-        <input type="text" id="task-title" placeholder="${escapeHtml(t("addTask.titlePlaceholder"))}" />
+        <input type="text" id="task-title" class="input-full" placeholder="${escapeHtml(t("addTask.titlePlaceholder"))}" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.descLabel"))}</label>
-        <input type="text" id="task-desc" />
+        <input type="text" id="task-desc" class="input-full" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.iconLabel"))}</label>
-        <div class="icon-type-toggle">
-          <button type="button" class="secondary" data-icon-type="EMOJI">${escapeHtml(t("addTask.iconTypeEmoji"))}</button>
-          <button type="button" class="secondary" data-icon-type="FONT_AWESOME">${escapeHtml(t("addTask.iconTypeFontAwesome"))}</button>
-          <button type="button" class="secondary" data-icon-type="MATERIAL_SYMBOLS">${escapeHtml(t("addTask.iconTypeMaterialSymbols"))}</button>
-        </div>
-        <input type="text" id="task-icon" maxlength="32" class="input-icon" />
-        <div id="task-icon-choices" class="icon-choices" style="margin-top:6px;"></div>
+        <div id="task-icon-selected" class="icon-selected" style="display:none;"></div>
+        <input type="text" id="task-icon-search" maxlength="64" class="input-full" autocomplete="off" placeholder="${escapeHtml(t("addTask.iconSearchPlaceholder"))}" />
+        <div id="task-icon-results" class="icon-choices" style="margin-top:6px;display:none;"></div>
+        <p class="hint" style="margin:6px 0 0;">${escapeHtml(t("addTask.iconSearchHint"))} <a href="https://fonts.google.com/icons" target="_blank" rel="noopener">${escapeHtml(t("addTask.iconSearchLink"))}</a></p>
       </div>
       <div class="field">
-        <label>${escapeHtml(t("addTask.priceLabel"))}</label>
-        <input type="number" id="task-price" min="0" step="0.5" value="10" class="input-price" />
+        <label>${escapeHtml(labelWithCurrencyUnit(t("addTask.priceLabel")))}</label>
+        <input type="number" id="task-price" min="0" step="0.5" value="10" inputmode="decimal" class="input-price" />
+      </div>
+      <div class="field">
+        <label>${escapeHtml(t("addTask.classificationLabel"))}</label>
+        <div class="segmented classification-toggle">
+          <button type="button" data-classification="MANDATORY">${escapeHtml(t("taskList.mandatory"))}</button>
+          <button type="button" data-classification="OPTIONAL">${escapeHtml(t("taskList.optional"))}</button>
+        </div>
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.repeatLabel"))}</label>
-        <div class="repeat-mode-toggle">
-          <button type="button" class="secondary" data-repeat-mode="ONCE">${escapeHtml(t("addTask.repeatOnce"))}</button>
-          <button type="button" class="secondary" data-repeat-mode="WEEKLY">${escapeHtml(t("addTask.repeatWeekly"))}</button>
-          <button type="button" class="secondary" data-repeat-mode="CRON">${escapeHtml(t("addTask.repeatCron"))}</button>
+        <div class="segmented repeat-mode-toggle">
+          <button type="button" data-repeat-mode="ONCE">${escapeHtml(t("addTask.repeatOnce"))}</button>
+          <button type="button" data-repeat-mode="WEEKLY">${escapeHtml(t("addTask.repeatWeekly"))}</button>
+          <button type="button" data-repeat-mode="CRON">${escapeHtml(t("addTask.repeatCron"))}</button>
         </div>
-        <div id="repeat-once-fields" style="margin-top:8px;">
+        <div id="repeat-once-fields" style="margin-top:12px;">
           <label>${escapeHtml(t("addTask.onceDateLabel"))}</label>
           <input type="date" id="task-once-date" class="input-date" />
         </div>
-        <div id="repeat-weekly-fields" style="margin-top:8px;">
-          <div id="task-days"></div>
-          <label style="margin-top:8px;">${escapeHtml(t("addTask.everyNWeeksLabel"))}</label>
-          <input type="number" id="task-interval-weeks" min="1" max="52" value="1" class="input-interval" />
+        <div id="repeat-weekly-fields" style="margin-top:12px;">
+          <div id="task-days" class="chip-group"></div>
+          <label style="margin-top:14px;">${escapeHtml(t("addTask.everyNWeeksLabel"))}</label>
+          <input type="number" id="task-interval-weeks" min="1" max="52" value="1" inputmode="numeric" class="input-interval" />
         </div>
-        <div id="repeat-cron-fields" style="margin-top:8px;">
+        <div id="repeat-cron-fields" style="margin-top:12px;">
           <label>${escapeHtml(t("addTask.cronLabel"))}</label>
-          <input type="text" id="task-cron" placeholder="0 0 * * 1,3,5" class="input-cron" />
-          <p class="hint" style="margin:4px 0 0;font-size:0.8rem;">${escapeHtml(t("addTask.cronHint"))}</p>
+          <input type="text" id="task-cron" placeholder="0 0 * * 1,3,5" autocapitalize="off" autocorrect="off" spellcheck="false" class="input-cron" />
+          <p class="hint" style="margin:6px 0 0;">${escapeHtml(t("addTask.cronHint"))}</p>
         </div>
       </div>
       <div class="field">
         <label>${escapeHtml(t("addTask.assignLabel"))}</label>
         <div id="task-children"></div>
       </div>
-      <div class="actions">
+      <div class="actions stack" style="margin-top:20px;">
         <button id="save-task-btn">${escapeHtml(isEdit ? t("taskList.saveChanges") : t("addTask.addBtn"))}</button>
-        ${isEdit ? `<button type="button" class="secondary" id="cancel-edit-btn">${escapeHtml(t("taskList.cancel"))}</button>` : ""}
+        <button type="button" class="secondary" id="cancel-edit-btn">${escapeHtml(t("taskList.cancel"))}</button>
       </div>
     </div>
   `);
@@ -1042,65 +1369,97 @@ function renderTaskForm(existingTask) {
     form.querySelector("#task-price").value = (Number((existingTask.price && existingTask.price.cents) || 0) / 100).toFixed(2);
   }
 
-  const iconInput = form.querySelector("#task-icon");
-  const iconChoicesWrap = form.querySelector("#task-icon-choices");
-  const iconTypeButtons = [...form.querySelectorAll(".icon-type-toggle button")];
-  let selectedIconType = iconTypeKey(isEdit ? existingTask.icon : null);
+  const iconSearchInput = form.querySelector("#task-icon-search");
+  const iconResultsWrap = form.querySelector("#task-icon-results");
+  const iconSelectedWrap = form.querySelector("#task-icon-selected");
+  // A pre-existing icon only pre-fills the picker when it's actually a
+  // Material Symbols icon — a task whose icon predates that being the only
+  // supported type (emoji, Font Awesome) starts this form with no icon
+  // selected, since there's no way to keep editing that value here.
+  let selectedIconValue = isEdit && existingTask.icon && existingTask.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS" ? materialIconName(existingTask.icon.value) : "";
+  let materialSymbolNames = [];
+  loadMaterialSymbolNames().then((names) => {
+    materialSymbolNames = names;
+    if (iconSearchInput.value.trim()) renderIconResults();
+  });
 
-  const iconPlaceholders = { EMOJI: "🧹", FONT_AWESOME: "broom", MATERIAL_SYMBOLS: "cleaning_services" };
-  const iconChoiceLists = { EMOJI: EMOJI_CHOICES, FONT_AWESOME: FA_CHOICES, MATERIAL_SYMBOLS: MATERIAL_CHOICES };
-
-  function renderIconChoices() {
-    iconChoicesWrap.innerHTML = "";
-    iconChoiceLists[selectedIconType].forEach((value) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "secondary";
-      if (selectedIconType === "EMOJI") {
-        btn.textContent = value;
-      } else if (selectedIconType === "FONT_AWESOME") {
-        const i = document.createElement("i");
-        i.className = `fa-solid fa-${faIconClass(value)}`;
-        btn.appendChild(i);
-      } else {
-        const span = document.createElement("span");
-        span.className = "material-symbols-outlined";
-        span.textContent = materialIconName(value);
-        btn.appendChild(span);
-      }
-      btn.addEventListener("click", () => {
-        iconInput.value = value;
-      });
-      iconChoicesWrap.appendChild(btn);
+  function renderSelectedIcon() {
+    if (!selectedIconValue) {
+      iconSelectedWrap.style.display = "none";
+      iconSelectedWrap.innerHTML = "";
+      return;
+    }
+    iconSelectedWrap.style.display = "";
+    iconSelectedWrap.innerHTML = `
+      <span class="material-symbols-outlined">${escapeHtml(selectedIconValue)}</span>
+      <span>${escapeHtml(selectedIconValue.replace(/_/g, " "))}</span>
+      <button type="button" class="secondary" id="task-icon-clear">${escapeHtml(t("addTask.iconClear"))}</button>
+    `;
+    iconSelectedWrap.querySelector("#task-icon-clear").addEventListener("click", () => {
+      selectedIconValue = "";
+      renderSelectedIcon();
     });
   }
 
-  function selectIconType(newType) {
-    selectedIconType = newType;
-    iconTypeButtons.forEach((b) => b.classList.toggle("active", b.dataset.iconType === newType));
-    iconInput.placeholder = iconPlaceholders[newType];
-    renderIconChoices();
+  function renderIconResults() {
+    iconResultsWrap.innerHTML = "";
+    const query = iconSearchInput.value;
+    // The results panel has a background of its own, so it only exists
+    // while there's actually something to show in it.
+    iconResultsWrap.style.display = query.trim() ? "" : "none";
+    if (!query.trim()) return;
+    const matches = searchMaterialSymbols(materialSymbolNames, query);
+    if (!matches.length) {
+      iconResultsWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.iconNoResults"))}</p>`));
+      return;
+    }
+    matches.forEach((name) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "secondary";
+      btn.title = name.replace(/_/g, " ");
+      const span = document.createElement("span");
+      span.className = "material-symbols-outlined";
+      span.textContent = name;
+      btn.appendChild(span);
+      btn.addEventListener("click", () => {
+        selectedIconValue = name;
+        renderSelectedIcon();
+        iconSearchInput.value = "";
+        iconResultsWrap.innerHTML = "";
+        iconResultsWrap.style.display = "none";
+      });
+      iconResultsWrap.appendChild(btn);
+    });
   }
 
-  iconTypeButtons.forEach((btn) => btn.addEventListener("click", () => selectIconType(btn.dataset.iconType)));
-  selectIconType(selectedIconType);
-  if (isEdit && existingTask.icon) iconInput.value = existingTask.icon.value;
-
-  // The schedule is a oneof: exactly one of once/weekly/cron is present,
-  // and which one it is selects the mode the form opens on.
-  const existingSchedule = (isEdit && existingTask.schedule) || {};
+  iconSearchInput.addEventListener("input", renderIconResults);
+  renderSelectedIcon();
 
   const daysWrap = form.querySelector("#task-days");
   const dow = DOW();
+  const existingSchedule = (isEdit && existingTask.schedule) || {};
   const preCheckedDays = (existingSchedule.weekly && existingSchedule.weekly.daysOfWeek) || [];
+  // Tap-to-toggle chips rather than a row of tiny checkboxes: the checkbox
+  // is still the source of truth (the save handler reads it by id), it's
+  // just hidden inside a target big enough to hit with a thumb.
   dow.forEach((d) => {
     const id = `day-${d.code}`;
     const checked = isEdit ? preCheckedDays.includes(d.code) : d.code >= 1 && d.code <= 5;
-    const label = el(`<label style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:0.85rem;">
-      <input type="checkbox" id="${id}" ${checked ? "checked" : ""}/> ${escapeHtml(d.label)}
+    const label = el(`<label class="toggle-chip">
+      <input type="checkbox" id="${id}" ${checked ? "checked" : ""}/>${escapeHtml(d.label)}
     </label>`);
     daysWrap.appendChild(label);
   });
+
+  const classificationButtons = [...form.querySelectorAll(".classification-toggle button")];
+  let selectedClassification = isEdit && existingTask.classification === "TASK_CLASSIFICATION_OPTIONAL" ? "OPTIONAL" : "MANDATORY";
+  function selectClassification(value) {
+    selectedClassification = value;
+    classificationButtons.forEach((b) => b.classList.toggle("active", b.dataset.classification === value));
+  }
+  classificationButtons.forEach((btn) => btn.addEventListener("click", () => selectClassification(btn.dataset.classification)));
+  selectClassification(selectedClassification);
 
   const repeatModeButtons = [...form.querySelectorAll(".repeat-mode-toggle button")];
   const onceFieldsWrap = form.querySelector("#repeat-once-fields");
@@ -1110,6 +1469,8 @@ function renderTaskForm(existingTask) {
   const intervalWeeksInput = form.querySelector("#task-interval-weeks");
   const cronInput = form.querySelector("#task-cron");
 
+  // The schedule is a oneof: exactly one of once/weekly/cron is present,
+  // and which one it is selects the mode the form opens on.
   let selectedRepeatMode = "WEEKLY";
   if (existingSchedule.once) selectedRepeatMode = "ONCE";
   else if (existingSchedule.cron) selectedRepeatMode = "CRON";
@@ -1133,32 +1494,30 @@ function renderTaskForm(existingTask) {
     childrenWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.noChildren"))}</p>`));
   } else {
     const assignedIds = new Set(isEdit ? existingTask.childIds || [] : []);
-    const checksWrap = el(`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;"></div>`);
+    const checksWrap = el(`<div class="chip-group" style="margin-bottom:10px;"></div>`);
     children.forEach((c) => {
-      const label = el(`<label style="display:inline-flex;align-items:center;gap:4px;font-size:0.85rem;">
-        <input type="checkbox" data-child-id="${c.id}" ${assignedIds.has(c.id) ? "checked" : ""} /> ${escapeHtml(c.name)}
+      const label = el(`<label class="toggle-chip">
+        <input type="checkbox" data-child-id="${c.id}" ${assignedIds.has(c.id) ? "checked" : ""} />${escapeHtml(c.name)}
       </label>`);
       checksWrap.appendChild(label);
     });
     childrenWrap.appendChild(checksWrap);
-    const selectAllBtn = el(`<button type="button" class="secondary">${escapeHtml(t("addTask.selectAll"))}</button>`);
-    selectAllBtn.addEventListener("click", () => {
-      checksWrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = true));
-    });
-    childrenWrap.appendChild(selectAllBtn);
+    // With one child there's nothing for "select all" to do that tapping
+    // the single chip doesn't already do.
+    if (children.length > 1) {
+      const selectAllBtn = el(`<button type="button" class="secondary">${escapeHtml(t("addTask.selectAll"))}</button>`);
+      selectAllBtn.addEventListener("click", () => {
+        checksWrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => (cb.checked = true));
+      });
+      childrenWrap.appendChild(selectAllBtn);
+    }
   }
 
   form.querySelector("#save-task-btn").addEventListener("click", () =>
     withError(async () => {
       const title = form.querySelector("#task-title").value.trim();
       const description = form.querySelector("#task-desc").value.trim();
-      const iconValueRaw = iconInput.value.trim();
-      const iconTypeProto = { EMOJI: "ICON_TYPE_EMOJI", FONT_AWESOME: "ICON_TYPE_FONT_AWESOME", MATERIAL_SYMBOLS: "ICON_TYPE_MATERIAL_SYMBOLS" }[
-        selectedIconType
-      ];
-      const iconValue =
-        selectedIconType === "FONT_AWESOME" ? faIconClass(iconValueRaw) : selectedIconType === "MATERIAL_SYMBOLS" ? materialIconName(iconValueRaw) : iconValueRaw;
-      const icon = iconValueRaw ? { type: iconTypeProto, value: iconValue } : undefined;
+      const icon = selectedIconValue ? { type: "ICON_TYPE_MATERIAL_SYMBOLS", value: selectedIconValue } : undefined;
       const priceKr = parseFloat(form.querySelector("#task-price").value || "0");
       const childIds = [...form.querySelectorAll('#task-children input[type="checkbox"]:checked')].map((cb) => cb.dataset.childId);
       if (!title) throw new Error(t("addTask.titleRequired"));
@@ -1188,6 +1547,7 @@ function renderTaskForm(existingTask) {
         schedule = { cron: { expression } };
       }
 
+      const classification = `TASK_CLASSIFICATION_${selectedClassification}`;
       const price = { cents: Math.round(priceKr * 100) };
       if (isEdit) {
         await call("UpdateTask", {
@@ -1199,8 +1559,8 @@ function renderTaskForm(existingTask) {
           schedule,
           childIds,
           active: existingTask.active !== false,
+          classification,
         });
-        state.editingTaskId = null;
       } else {
         await call("CreateTask", {
           familyId: state.familyId,
@@ -1210,18 +1570,17 @@ function renderTaskForm(existingTask) {
           price,
           schedule,
           childIds,
+          classification,
         });
       }
+      closeTaskSheet();
       await loadFamilyData();
     })
   );
-  const cancelBtn = form.querySelector("#cancel-edit-btn");
-  if (cancelBtn) {
-    cancelBtn.addEventListener("click", () => {
-      state.editingTaskId = null;
-      render();
-    });
-  }
+  form.querySelector("#cancel-edit-btn").addEventListener("click", () => {
+    closeTaskSheet();
+    render();
+  });
   return form;
 }
 
@@ -1236,30 +1595,46 @@ function renderAccountingTab() {
     return wrap;
   }
 
+  // One child's figures, payout form and payout log are three separate
+  // cards under a heading naming them, rather than cards nested inside a
+  // card — nesting read as depth that isn't there, and on a phone the
+  // doubled padding cost most of the usable width.
   summaries.forEach((s) => {
+    const wrapForChild = el(`<div style="margin-bottom:8px;"></div>`);
+    wrapForChild.appendChild(
+      el(`
+        <div class="row" style="border-bottom:none;padding-bottom:6px;">
+          <div class="task-row-main">
+            ${avatarHtml(s.child, "lg")}
+            <div class="task-row-text"><div class="task-title">${escapeHtml(s.child.name)}</div></div>
+          </div>
+        </div>
+      `)
+    );
     const card = el(`
       <div class="card">
-        <h2>${escapeHtml(s.child.name)}</h2>
         <div class="grid-2">
-          <div class="stat"><div class="value">${money(s.earnedLast7Days)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
-          <div class="stat"><div class="value">${money(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(s.earnedLast7Days)}</div><div class="label">${escapeHtml(t("accounting.last7Days"))}</div></div>
+          <div class="stat"><div class="value">${formatAmount(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
         </div>
       </div>
     `);
+    wrapForChild.appendChild(card);
     const balanceCents = Number((s.balance && s.balance.cents) || 0);
     const balanceKr = balanceCents / 100;
     const payoutForm = el(`
       <div class="card">
         <h3>${escapeHtml(t("accounting.payoutHeading"))}</h3>
         <div class="field">
-          <label>${escapeHtml(t("accounting.amountLabel"))}</label>
-          <input type="number" min="0.01" max="${balanceKr}" step="0.5" id="payout-amount-${s.child.id}" value="${balanceKr.toFixed(2)}" />
+          <label>${escapeHtml(labelWithCurrencyUnit(t("accounting.amountLabel")))}</label>
+          <p class="hint" style="margin:-2px 0 6px;">${escapeHtml(t("accounting.amountHint"))}</p>
+          <input type="number" min="0.01" max="${balanceKr}" step="0.5" inputmode="decimal" class="input-full" id="payout-amount-${s.child.id}" value="${balanceKr.toFixed(2)}" />
         </div>
         <div class="field">
           <label>${escapeHtml(t("accounting.noteLabel"))}</label>
-          <input type="text" id="payout-note-${s.child.id}" />
+          <input type="text" class="input-full" id="payout-note-${s.child.id}" />
         </div>
-        <div class="actions">
+        <div class="actions stack" style="margin-top:16px;">
           <button data-action="pay">${escapeHtml(t("accounting.payFull"))}</button>
         </div>
       </div>
@@ -1286,7 +1661,7 @@ function renderAccountingTab() {
         await loadFamilyData();
       })
     );
-    card.appendChild(payoutForm);
+    wrapForChild.appendChild(payoutForm);
 
     const history = state.payouts.filter((p) => p.childId === s.child.id);
     const histCard = el(`<div class="card"><h3>${escapeHtml(t("accounting.historyHeading"))}</h3></div>`);
@@ -1301,14 +1676,14 @@ function renderAccountingTab() {
             el(`
               <div class="row">
                 <span>${new Date(p.createdAt).toLocaleDateString(localeTag())} <span class="pill">${escapeHtml(p.fullPayout ? t("accounting.full") : t("accounting.partial"))}</span> ${p.note ? "— " + escapeHtml(p.note) : ""}</span>
-                <strong>${money(p.amount)}</strong>
+                <strong>${formatAmount(p.amount)}</strong>
               </div>
             `)
           );
         });
     }
-    card.appendChild(histCard);
-    wrap.appendChild(card);
+    wrapForChild.appendChild(histCard);
+    wrap.appendChild(wrapForChild);
   });
 
   return wrap;
@@ -1326,8 +1701,8 @@ function renderTypeToConfirm(expectedWord, hint, buttonLabel, onConfirm) {
   const wrap = el(`
     <div>
       <p class="hint" style="margin-bottom:6px;">${hint}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <input type="text" class="input-full" style="width:auto;flex:1 1 160px;" placeholder="${escapeHtml(t("familyTab.typeToConfirmPlaceholder", { word: expectedWord }))}" />
+      <div class="input-row">
+        <input type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${escapeHtml(t("familyTab.typeToConfirmPlaceholder", { word: expectedWord }))}" />
         <button class="danger" disabled>${escapeHtml(buttonLabel)}</button>
         <button type="button" class="secondary" data-action="cancel">${escapeHtml(t("taskList.cancel"))}</button>
       </div>
@@ -1402,9 +1777,8 @@ function renderFamilyTab() {
     <div class="card">
       <h2>${escapeHtml(t("family.renameHeading"))}</h2>
       <div class="field">
-        <label>${escapeHtml(t("family.renameNameLabel"))}</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <input type="text" class="input-full" style="width:auto;flex:1 1 160px;" id="rename-family-input" value="${escapeHtml(familyName)}" />
+        <div class="input-row">
+          <input type="text" id="rename-family-input" value="${escapeHtml(familyName)}" />
           <button type="button" id="rename-family-btn">${escapeHtml(t("family.renameSave"))}</button>
         </div>
       </div>
@@ -1439,7 +1813,13 @@ function renderFamilyTab() {
     // remove, no leave — so their row doesn't expand at all, unless their
     // invite is still pending and needs a place to show its link/revoke.
     const canExpand = isYou || u.role === "USER_ROLE_CHILD" || !!pendingInvite;
-    const label = `<span>${escapeHtml(u.name)} <span class="pill ${u.role === "USER_ROLE_PARENT" ? "parent" : "child"}">${escapeHtml(roleLabel(u.role))}</span>${youTag}${pendingTag}</span>`;
+    const label = `<div class="task-row-main">
+        ${avatarHtml(u)}
+        <div class="task-row-text">
+          <div class="task-title">${escapeHtml(u.name)}${pendingTag}</div>
+          <div class="task-meta">${escapeHtml(roleLabel(u.role))}${youTag}</div>
+        </div>
+      </div>`;
 
     if (!canExpand) {
       card.appendChild(el(`<div class="row">${label}</div>`));
@@ -1471,8 +1851,8 @@ function renderFamilyTab() {
         const renameField = el(`
           <div class="field">
             <label>${escapeHtml(t("familyTab.renameLabel"))}</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <input type="text" class="input-full" style="width:auto;flex:1 1 160px;" value="${escapeHtml(u.name)}" />
+            <div class="input-row">
+              <input type="text" value="${escapeHtml(u.name)}" />
               <button type="button" data-action="save-name">${escapeHtml(t("familyTab.save"))}</button>
             </div>
           </div>
@@ -1528,14 +1908,46 @@ function renderFamilyTab() {
           // /invite/accept (see cmd/chores/main.go) forces login first if
           // needed, then binds the token and lands them in the app.
           const acceptUrl = `${window.location.origin}/invite/accept?token=${encodeURIComponent(pendingInvite.token)}`;
-          detail.appendChild(el(`
+          const inviteField = el(`
             <div class="field">
               <label>${escapeHtml(t("invitations.linkLabel"))}</label>
-              <input type="text" class="input-full" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+              <div class="input-row">
+                <input type="text" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+                <button type="button" class="secondary btn-icon" data-copy="url" title="${escapeHtml(t("invitations.copyLink"))}" aria-label="${escapeHtml(t("invitations.copyLink"))}"><span class="material-symbols-outlined">content_copy</span></button>
+              </div>
               <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
-              <input type="text" class="input-full" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
+              <div class="input-row">
+                <input type="text" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
+                <button type="button" class="secondary btn-icon" data-copy="code" title="${escapeHtml(t("invitations.copyCode"))}" aria-label="${escapeHtml(t("invitations.copyCode"))}"><span class="material-symbols-outlined">content_copy</span></button>
+              </div>
             </div>
-          `));
+          `);
+          // Two separate buttons rather than one, since the link and the raw
+          // code serve different handoffs (send a link vs. read a code aloud)
+          // and a recipient copying one usually doesn't want the other.
+          const wireCopyButton = (selector, value, label) => {
+            const btn = inviteField.querySelector(selector);
+            const icon = btn.querySelector(".material-symbols-outlined");
+            btn.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(value);
+                icon.textContent = "check";
+                btn.title = t("invitations.copied");
+                btn.setAttribute("aria-label", t("invitations.copied"));
+                setTimeout(() => {
+                  icon.textContent = "content_copy";
+                  btn.title = label;
+                  btn.setAttribute("aria-label", label);
+                }, 1500);
+              } catch (e) {
+                state.error = e.message || String(e);
+                render();
+              }
+            });
+          };
+          wireCopyButton('[data-copy="url"]', acceptUrl, t("invitations.copyLink"));
+          wireCopyButton('[data-copy="code"]', pendingInvite.token, t("invitations.copyCode"));
+          detail.appendChild(inviteField);
         }
         const revokeBtn = el(`<button type="button" class="danger" style="margin-top:10px;">${escapeHtml(t("invitations.revoke"))}</button>`);
         revokeBtn.addEventListener("click", () => {
@@ -1576,47 +1988,51 @@ function renderFamilyTab() {
     }).forEach((n) => card.appendChild(n));
   });
 
-  renderExpandableRow(`+ ${escapeHtml(t("addUser.heading"))}`, "__add__", (detail) => {
-    detail.appendChild(el(`
-      <div class="field">
-        <label>${escapeHtml(t("addUser.nameLabel"))}</label>
-        <input type="text" class="input-full" id="new-member-name" placeholder="${escapeHtml(t("addUser.namePlaceholder"))}" />
-      </div>
-    `));
-    detail.appendChild(el(`
-      <div class="field">
-        <label>${escapeHtml(t("addUser.roleLabel"))}</label>
-        <select id="new-member-role">
-          <option value="USER_ROLE_PARENT">${escapeHtml(t("role.parent"))}</option>
-          <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
-        </select>
-      </div>
-    `));
-    const actions = el(`<div class="actions"></div>`);
+  renderExpandableRow(
+    `<span style="display:inline-flex;align-items:center;gap:10px;color:var(--accent);font-weight:600;"><span class="material-symbols-outlined">person_add</span>${escapeHtml(t("addUser.heading"))}</span>`,
+    "__add__",
+    (detail) => {
+      detail.appendChild(el(`
+        <div class="field">
+          <label>${escapeHtml(t("addUser.nameLabel"))}</label>
+          <input type="text" class="input-full" id="new-member-name" placeholder="${escapeHtml(t("addUser.namePlaceholder"))}" />
+        </div>
+      `));
+      detail.appendChild(el(`
+        <div class="field">
+          <label>${escapeHtml(t("addUser.roleLabel"))}</label>
+          <select id="new-member-role">
+            <option value="USER_ROLE_PARENT">${escapeHtml(t("role.parent"))}</option>
+            <option value="USER_ROLE_CHILD">${escapeHtml(t("role.child"))}</option>
+          </select>
+        </div>
+      `));
+      const actions = el(`<div class="actions stack"></div>`);
     // Adding a member always goes through CreateInvitation: every family
     // member gets a shareable code for binding their own login, and that
     // code stays visible (see the pending invite's own row in the members
     // list above) for as long as it's unclaimed — there's no separate
     // no-login "just add them" path.
-    const addBtn = el(`<button type="button">${escapeHtml(t("addUser.add"))}</button>`);
-    addBtn.addEventListener("click", () =>
-      withError(async () => {
-        const name = detail.querySelector("#new-member-name").value.trim();
-        const role = detail.querySelector("#new-member-role").value;
-        if (!name) throw new Error(t("addUser.nameRequired"));
-        const resp = await call("CreateInvitation", { familyId: state.familyId, name, role });
-        // Expand the new member's own row so their invite link/code — the
-        // whole point of adding them — is immediately visible, instead of
-        // leaving it one tap away in a row that just looks collapsed.
-        expandedFamilyRow = resp.invitation ? resp.invitation.userId : null;
-        await loadFamilyData();
-      })
-    );
-    actions.appendChild(addBtn);
-    detail.appendChild(actions);
+      const addBtn = el(`<button type="button">${escapeHtml(t("addUser.add"))}</button>`);
+      addBtn.addEventListener("click", () =>
+        withError(async () => {
+          const name = detail.querySelector("#new-member-name").value.trim();
+          const role = detail.querySelector("#new-member-role").value;
+          if (!name) throw new Error(t("addUser.nameRequired"));
+          const resp = await call("CreateInvitation", { familyId: state.familyId, name, role });
+          // Expand the new member's own row so their invite link/code — the
+          // whole point of adding them — is immediately visible, instead of
+          // leaving it one tap away in a row that just looks collapsed.
+          expandedFamilyRow = resp.invitation ? resp.invitation.userId : null;
+          await loadFamilyData();
+        })
+      );
+      actions.appendChild(addBtn);
+      detail.appendChild(actions);
 
-    detail.appendChild(el(`<p class="hint" style="margin-top:10px;">${escapeHtml(t("invitations.inviteDesc"))}</p>`));
-  }).forEach((n) => card.appendChild(n));
+      detail.appendChild(el(`<p class="hint" style="margin-top:10px;">${escapeHtml(t("invitations.inviteDesc"))}</p>`));
+    }
+  ).forEach((n) => card.appendChild(n));
 
   wrap.appendChild(card);
   wrap.appendChild(renderDashboardSettingsSection());
@@ -1762,7 +2178,7 @@ function onHistorySearchInput(query) {
 // optional nested `completion`), so task+child+date (mirroring the server's
 // completionKey) is what ties a rendered row back to the right occurrence.
 function occurrenceKey(occ) {
-  return `||`;
+  return `${occ.taskId}|${occ.childId}|${occ.dueDate}`;
 }
 
 // Which occurrence (by occurrenceKey) is showing its inline "are you sure"
@@ -1780,9 +2196,9 @@ async function toggleOccurrenceCompletion(occ) {
     await call("UncompleteTask", { taskId: occ.taskId, childId: occ.childId, dueDate: occ.dueDate });
     occ.completedAt = null;
   } else {
-    // The server's response carries the amount it actually recorded, which
-    // for an already-completed occurrence is the one it was completed at
-    // originally rather than the task's current price.
+    // The response carries the amount actually recorded, which for an
+    // already-recorded occurrence is what it was frozen at rather than the
+    // task's current price.
     const resp = await call("CompleteTask", { taskId: occ.taskId, childId: occ.childId, dueDate: occ.dueDate });
     occ.completedAt = resp.occurrence ? resp.occurrence.completedAt : null;
     if (resp.occurrence) occ.amount = resp.occurrence.amount;
@@ -1801,16 +2217,24 @@ function renderHistoryRow(occ) {
   const actionLabel = occ.completedAt ? t("history.markIncomplete") : t("history.markComplete");
   const confirmLabel = occ.completedAt ? t("history.confirmMarkIncomplete") : t("history.confirmMarkComplete");
   const badge = occ.completedAt ? "" : ` · <span class="pill notcompleted">${escapeHtml(t("history.notCompletedBadge"))}</span>`;
+  // The amount rides in the meta line rather than as a separate right-hand
+  // column: on a phone, name + date + money + button competing for one row
+  // just wrapped the button onto a line of its own.
   const row = el(`
     <div class="row${occ.completedAt ? "" : " history-row-incomplete"}">
-      <span>${escapeHtml(occ.childName)} — ${escapeHtml(occ.title)}<div class="task-meta">${escapeHtml(formatDateStr(occ.dueDate))}${badge}</div></span>
+      <div class="task-row-main">
+        ${taskIconHtml(occ)}
+        <div class="task-row-text">
+          <div class="task-title">${escapeHtml(occ.title)} ${classificationPillHtml(occ)}</div>
+          <div class="task-meta">${escapeHtml(occ.childName)} · ${escapeHtml(formatDateStr(occ.dueDate))} · ${formatAmount(occ.amount)}${badge}</div>
+        </div>
+      </div>
       <div class="actions" style="align-items:center;">
-        <strong>${money(occ.amount)}</strong>
         ${
           confirming
             ? `<button class="danger" data-action="confirm-toggle">${escapeHtml(confirmLabel)}</button>
                <button type="button" class="secondary" data-action="cancel-toggle">${escapeHtml(t("taskList.cancel"))}</button>`
-            : `<button type="button" class="secondary btn-icon" data-action="toggle" title="${escapeHtml(actionLabel)}"><span class="material-symbols-outlined">${actionIcon}</span></button>`
+            : `<button type="button" class="secondary btn-icon" data-action="toggle" title="${escapeHtml(actionLabel)}" aria-label="${escapeHtml(actionLabel)}"><span class="material-symbols-outlined">${actionIcon}</span></button>`
         }
       </div>
     </div>
@@ -1841,13 +2265,13 @@ function renderHistoryRow(occ) {
   return row;
 }
 
+// Returns null for a group with nothing in it. Four "Nothing here." cards
+// stacked down a phone screen said nothing and cost the whole viewport;
+// the caller falls back to a single empty message when every group is bare.
 function renderHistoryGroup(heading, occurrences) {
-  const card = el(`<div class="card"><h2>${escapeHtml(heading)}</h2></div>`);
-  if (!occurrences.length) {
-    card.appendChild(el(`<p class="empty">${escapeHtml(t("history.empty"))}</p>`));
-  } else {
-    occurrences.forEach((occ) => card.appendChild(renderHistoryRow(occ)));
-  }
+  if (!occurrences.length) return null;
+  const card = el(`<div class="card"><div class="section-label" style="margin:0 0 4px;">${escapeHtml(heading)}</div></div>`);
+  occurrences.forEach((occ) => card.appendChild(renderHistoryRow(occ)));
   return card;
 }
 
@@ -1855,10 +2279,8 @@ function renderHistoryTab() {
   const wrap = el(`<div></div>`);
 
   const searchCard = el(`
-    <div class="card">
-      <div class="field" style="margin-bottom:0;">
-        <input type="text" id="history-search" class="input-full" placeholder="${escapeHtml(t("history.searchPlaceholder"))}" />
-      </div>
+    <div class="card" style="padding:12px 16px;">
+      <input type="search" id="history-search" class="input-full" autocomplete="off" placeholder="${escapeHtml(t("history.searchPlaceholder"))}" />
     </div>
   `);
   const searchInput = searchCard.querySelector("#history-search");
@@ -1867,10 +2289,10 @@ function renderHistoryTab() {
   wrap.appendChild(searchCard);
 
   const toggleCard = el(`
-    <div class="card">
-      <label style="display:flex;align-items:center;gap:8px;margin:0;">
+    <div class="card" style="padding:12px 16px;">
+      <label class="switch-row">
+        <span>${escapeHtml(t("history.showIncomplete"))}</span>
         <input type="checkbox" id="history-show-incomplete" ${state.historyShowIncomplete ? "checked" : ""} />
-        ${escapeHtml(t("history.showIncomplete"))}
       </label>
     </div>
   `);
@@ -1888,9 +2310,10 @@ function renderHistoryTab() {
   const visible = (occs) => (state.historyShowIncomplete ? occs : occs.filter((o) => o.completedAt));
 
   if (state.historySearchResults !== null) {
-    wrap.appendChild(renderHistoryGroup(t("history.searchResultsHeading"), visible(state.historySearchResults)));
+    const results = renderHistoryGroup(t("history.searchResultsHeading"), visible(state.historySearchResults));
+    wrap.appendChild(results || el(`<div class="card"><p class="empty">${escapeHtml(t("history.empty"))}</p></div>`));
     if (state.historySearchResults.length && state.historySearchHasMore) {
-      const btn = el(`<button class="secondary">${escapeHtml(t("history.loadMore"))}</button>`);
+      const btn = el(`<button class="secondary block">${escapeHtml(t("history.loadMore"))}</button>`);
       btn.addEventListener("click", () => withError(() => loadHistorySearch(false)));
       wrap.appendChild(btn);
     }
@@ -1904,23 +2327,30 @@ function renderHistoryTab() {
   const yesterdays = state.historyRecent.filter((c) => c.dueDate === yesterday);
   const restOfWeek = state.historyRecent.filter((c) => c.dueDate !== today && c.dueDate !== yesterday && c.dueDate >= monday);
 
-  wrap.appendChild(renderHistoryGroup(t("history.todayHeading"), visible(todays)));
-  wrap.appendChild(renderHistoryGroup(t("history.yesterdayHeading"), visible(yesterdays)));
-  wrap.appendChild(renderHistoryGroup(t("history.thisWeekHeading"), visible(restOfWeek)));
+  const groups = [
+    renderHistoryGroup(t("history.todayHeading"), visible(todays)),
+    renderHistoryGroup(t("history.yesterdayHeading"), visible(yesterdays)),
+    renderHistoryGroup(t("history.thisWeekHeading"), visible(restOfWeek)),
+  ];
 
   triggerHistoryLaterLoad();
-  const laterCard = el(`<div class="card"><h2>${escapeHtml(t("history.laterHeading"))}</h2></div>`);
   const visibleLater = visible(state.historyLater);
+  // The "later" bucket is paginated in on demand, so unlike the groups
+  // above it still needs a card of its own while it's loading.
   if (!state.historyLaterLoaded) {
-    laterCard.appendChild(el(`<p class="empty">${escapeHtml(t("history.loading"))}</p>`));
-  } else if (!visibleLater.length) {
-    laterCard.appendChild(el(`<p class="empty">${escapeHtml(t("history.empty"))}</p>`));
+    groups.push(el(`<div class="card"><div class="section-label" style="margin:0 0 4px;">${escapeHtml(t("history.laterHeading"))}</div><p class="empty">${escapeHtml(t("history.loading"))}</p></div>`));
   } else {
-    visibleLater.forEach((occ) => laterCard.appendChild(renderHistoryRow(occ)));
+    groups.push(renderHistoryGroup(t("history.laterHeading"), visibleLater));
   }
-  wrap.appendChild(laterCard);
+
+  const shown = groups.filter(Boolean);
+  if (!shown.length) {
+    wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("history.empty"))}</p></div>`));
+  } else {
+    shown.forEach((g) => wrap.appendChild(g));
+  }
   if (state.historyLaterLoaded && state.historyLaterHasMore) {
-    const btn = el(`<button class="secondary">${escapeHtml(t("history.loadMore"))}</button>`);
+    const btn = el(`<button class="secondary block">${escapeHtml(t("history.loadMore"))}</button>`);
     btn.addEventListener("click", () => withError(() => loadHistoryLater(false)));
     wrap.appendChild(btn);
   }
@@ -2054,13 +2484,13 @@ function renderCreateFamilySection() {
       <p class="hint">${escapeHtml(t("familyTab.createDesc"))}</p>
       <div class="field">
         <label>${escapeHtml(t("onboarding.yourNameLabel"))}</label>
-        <input type="text" id="create-family-your-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" value="${escapeHtml(defaultName)}" />
+        <input type="text" class="input-full" id="create-family-your-name" placeholder="${escapeHtml(t("onboarding.yourNamePlaceholder"))}" value="${escapeHtml(defaultName)}" />
       </div>
       <div class="field">
         <label>${escapeHtml(t("family.nameLabel"))}</label>
         <input type="text" class="input-full" id="create-family-name" placeholder="${escapeHtml(t("family.namePlaceholder"))}" />
       </div>
-      <button type="button" id="create-family-btn">${escapeHtml(t("family.createBtn"))}</button>
+      <button type="button" class="block" id="create-family-btn">${escapeHtml(t("family.createBtn"))}</button>
     </div>
   `);
   card.querySelector("#create-family-btn").addEventListener("click", () =>
@@ -2070,7 +2500,7 @@ function renderCreateFamilySection() {
       if (!familyName) throw new Error(t("familyPicker.nameRequired"));
       await createFamilyAndSwitchTo(familyName, yourName);
       await loadFamilyData();
-      state.tab = isParent() ? "home" : "tasks";
+      state.tab = "home";
     })
   );
   return card;
@@ -2085,7 +2515,7 @@ function renderJoinFamilySection() {
         <label>${escapeHtml(t("familyTab.joinCodeLabel"))}</label>
         <input type="text" class="input-full" id="join-family-code" />
       </div>
-      <button type="button" id="join-family-btn">${escapeHtml(t("familyTab.joinBtn"))}</button>
+      <button type="button" class="block" id="join-family-btn">${escapeHtml(t("familyTab.joinBtn"))}</button>
     </div>
   `);
   card.querySelector("#join-family-btn").addEventListener("click", () =>
@@ -2099,36 +2529,58 @@ function renderJoinFamilySection() {
   return card;
 }
 
+// Settings is a tab of its own now, so it needs no back button — the tab
+// bar is always right there. Grouped account first (who you're signed in
+// as, and the two device-level preferences), then everything scoped to the
+// family currently open, then the account-level "other households" actions
+// that aren't about this family at all.
 function renderSettingsTab() {
   const wrap = el(`<div></div>`);
-  const backBtn = el(`<button class="secondary" style="margin-bottom:16px;">${escapeHtml(t("settings.back"))}</button>`);
-  backBtn.addEventListener("click", () => {
-    state.tab = isParent() ? "home" : "tasks";
-    confirmingRemoveChildId = null;
-    confirmingLeaveFamily = false;
-    confirmingDeleteFamily = false;
-    expandedFamilyRow = null;
-    render();
-  });
-  wrap.appendChild(backBtn);
+  const user = currentUser();
+  // The signed-in email belongs to the login, not to whoever's view is
+  // currently selected — showing it under a child's name while a parent is
+  // viewing as them would claim the wrong thing about that child.
+  const homeUserId = getHomeUserId();
+  const showIdentity = !homeUserId || state.userId === homeUserId;
+  const identity = (showIdentity && state.auth && (state.auth.email || state.auth.name)) || "";
 
-  // Logout used to live in a "Signed in as ..." bar shown above every
-  // page; now that a signed-in identity always shows the same name as
-  // the current family member (see the topbar), that bar was pure
-  // redundancy — logout just needs a home, and Settings is it.
-  const logoutCard = el(`<div class="card"></div>`);
-  const logoutBtn = el(`<button class="secondary">${escapeHtml(t("auth.logout"))}</button>`);
-  logoutBtn.addEventListener("click", () => {
+  const accountCard = el(`
+    <div class="card">
+      <div class="row" style="padding-top:0;">
+        <div class="task-row-main">
+          ${avatarHtml(user, "lg")}
+          <div class="task-row-text">
+            <div class="task-title">${escapeHtml(user ? user.name : "")} <span class="pill ${isParent() ? "parent" : "child"}">${escapeHtml(isParent() ? t("role.parent") : t("role.child"))}</span></div>
+            ${identity ? `<div class="task-meta">${escapeHtml(identity)}</div>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="actions stack" style="margin-top:12px;">
+        <button type="button" class="secondary" id="logout-btn">${escapeHtml(t("auth.logout"))}</button>
+      </div>
+    </div>
+  `);
+  accountCard.querySelector("#logout-btn").addEventListener("click", () => {
     location.href = "/auth/logout";
   });
-  logoutCard.appendChild(logoutBtn);
-  wrap.appendChild(logoutCard);
+  // When the icon font can't load, every glyph degrades to a neutral
+  // placeholder (see the probe in index.html). That's deliberate, but it's
+  // silent, and the cause is always outside the app — so name it once, here,
+  // rather than leaving someone to wonder why the UI is full of grey squares.
+  // No icon in this notice on purpose: it would be a placeholder too.
+  if (document.documentElement.classList.contains("icons-unavailable")) {
+    wrap.appendChild(el(`
+      <div class="notice-bar">
+        <span class="notice-text">${escapeHtml(t("settings.iconsUnavailable"))}</span>
+      </div>
+    `));
+  }
+
+  wrap.appendChild(el(`<div class="section-label" style="margin-top:0;">${escapeHtml(t("settings.accountSection"))}</div>`));
+  wrap.appendChild(accountCard);
 
   wrap.appendChild(renderLangSwitcher());
-
-  wrap.appendChild(renderCreateFamilySection());
-  wrap.appendChild(renderJoinFamilySection());
-  wrap.appendChild(el(`<hr class="section-divider" />`));
+  wrap.appendChild(renderCurrencySwitcher());
 
   const notifCard = el(`<div class="card"><h2>${escapeHtml(t("settings.notificationsHeading"))}</h2></div>`);
   if (!pushSupported()) {
@@ -2153,12 +2605,32 @@ function renderSettingsTab() {
   }
   wrap.appendChild(notifCard);
 
+  // A plain link out to the repo's issue tracker — this is a hobby project
+  // (see the welcome page's disclaimer), so "something's wrong, now what"
+  // has one answer: file it upstream, there's no in-app support flow.
+  const feedbackCard = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("settings.feedbackHeading"))}</h2>
+      <p class="hint" style="margin:0;">${escapeHtml(t("settings.feedbackHint"))} <a href="https://github.com/gunnaringe/chores/issues/new" target="_blank" rel="noopener">${escapeHtml(t("settings.feedbackLink"))}</a>.</p>
+    </div>
+  `);
+  wrap.appendChild(feedbackCard);
+
   // Managing who's in the family, and inviting new members, isn't something
   // you do often — and isn't relevant to a child at all — so it lives here
   // rather than as its own always-visible tab.
   if (isParent()) {
+    const family = state.families.find((f) => f.id === state.familyId);
+    wrap.appendChild(el(`<div class="section-label">${escapeHtml(family ? family.name : t("settings.familySection"))}</div>`));
     wrap.appendChild(renderFamilyTab());
   }
+
+  // Joining or starting another family isn't about the family currently
+  // open — it's account-level, the same for a parent or a child — so it
+  // sits apart from everything above, at the end.
+  wrap.appendChild(el(`<div class="section-label">${escapeHtml(t("settings.householdsSection"))}</div>`));
+  wrap.appendChild(renderCreateFamilySection());
+  wrap.appendChild(renderJoinFamilySection());
 
   return wrap;
 }
@@ -2216,15 +2688,21 @@ async function tryDashboardKey(key) {
 }
 
 function renderDashboardKeyPrompt() {
-  const wrap = el(`<div></div>`);
-  wrap.appendChild(el(`<h1>${window.APP_NAME}</h1><p>${escapeHtml(t("dashboard.enterKeyPrompt"))}</p>`));
+  const wrap = el(`<div class="hero" style="text-align:left;"></div>`);
+  wrap.appendChild(el(`
+    <div style="text-align:center;">
+      <img src="/icons/logo.png" alt="" width="80" height="80" class="logo" />
+      <h1>${escapeHtml(appName())}</h1>
+      <p>${escapeHtml(t("dashboard.enterKeyPrompt"))}</p>
+    </div>
+  `));
   const form = el(`
     <div class="card">
       <div class="field">
         <label>${escapeHtml(t("dashboard.keyLabel"))}</label>
         <input type="text" id="dashboard-key-input" class="input-full" autocomplete="off" spellcheck="false" />
       </div>
-      <button id="dashboard-key-submit">${escapeHtml(t("dashboard.unlock"))}</button>
+      <button class="block" id="dashboard-key-submit">${escapeHtml(t("dashboard.unlock"))}</button>
     </div>
   `);
   const submit = () =>

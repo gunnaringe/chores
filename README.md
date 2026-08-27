@@ -3,33 +3,57 @@
 A family allowance and chore tracker. Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
+**The easiest way to use this is the author's own instance at
+[chores.apphub.casa](https://chores.apphub.casa)** — anyone's welcome to log
+in and set up their own family there; nothing about it is limited to the
+author. It's still a personal hobby project run for free in spare time
+(see the disclaimer on its welcome page), so treat it accordingly: no
+uptime promise, and [GitHub issues](https://github.com/gunnaringe/chores/issues)
+is the only support channel. See "Hosting" further down for how it's
+deployed.
+
+Prefer your own copy — your own data, your own uptime — instead of the
+shared instance? See "Running" below.
+
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
-Font Awesome and Google's Material Symbols are the two external
-dependencies the app pulls in at runtime — Font Awesome from cdnjs (with a
-Subresource Integrity hash pinned in `web/index.html`), Material Symbols
-from Google Fonts — everything else is embedded in the binary. That's an
-acceptable tradeoff here since the app already needs a live connection to
-its own backend for essentially everything; there's no offline mode to
-preserve.
+Google's Material Symbols font is the one external dependency the app
+pulls in at runtime, from Google Fonts — everything else, including the
+icon *name* list used to search it (`web/material-symbols.json`, vendored
+from [`@material-symbols/metadata`](https://www.npmjs.com/package/@material-symbols/metadata),
+a mirror of Google's own Material Symbols codepoints), is embedded in the
+binary. That's an acceptable tradeoff here since the app already needs a
+live connection to its own backend for essentially everything; there's no
+offline mode to preserve.
 
-The layout is fluid rather than tied to fixed device breakpoints: a list
-row's title and its action buttons share one flex line and drop to their
-own line only once they no longer both fit, so the same CSS rule adapts
-correctly from a phone up through a desktop window instead of snapping at
-a couple of hardcoded widths. Fields that are deliberately narrow on
-desktop (price, cron expression, etc.) go full-width below 480px, where
-that space would otherwise sit unused.
+The UI is built mobile-first, as an app shell rather than a page that
+merely reflows: a sticky app bar, a tab bar pinned to the bottom edge under
+the thumb, and the screen scrolling between them, with safe-area padding so
+nothing hides behind a notch or home indicator. Above 760px that same tab
+bar becomes a row of pills under the header and the whole thing reads as an
+ordinary centred desktop page.
+
+Within a screen the layout stays fluid rather than snapping at hardcoded
+widths: a list row's title and its action buttons share one flex line and
+drop to their own line only once they no longer both fit, so the same rule
+adapts from a phone up through a desktop window. Fields that are
+deliberately narrow on desktop (price, cron expression, etc.) go full-width
+below 520px, where that space would otherwise sit unused.
 
 - Parents create tasks with a price, an assignment to one or more children
   (with a "select all" shortcut), and an optional icon shown next to the
-  title everywhere the task appears — any emoji, a
-  [Font Awesome](https://fontawesome.com) Free Solid icon, or a
-  [Material Symbols](https://fonts.google.com/icons) icon, each with a row
-  of quick-pick suggestions plus a free-text field. A task only shows up
-  for the children it's assigned to, can be edited in place at any time,
-  and can be paused (and later resumed) instead of deleted.
+  title everywhere the task appears — a
+  [Material Symbols](https://fonts.google.com/icons) icon, picked by typing
+  a search term (matched against the official icon names, underscores
+  treated as spaces — no separate keyword/synonym list) and clicking one of
+  the matches. A task predating Material Symbols becoming the only
+  supported icon type (an emoji or a Font Awesome icon) keeps showing its
+  old icon as plain text rather than losing it, but can't be re-picked
+  through this UI — editing such a task starts with no icon selected. A
+  task only shows up for the children it's assigned to, can be edited in
+  place at any time, and can be paused (and later resumed) instead of
+  deleted.
 - Editing or deleting a task never rewrites what a child earned. An
   occurrence records the amount it was worth at the moment it was recorded,
   and nothing else — so repricing a chore changes what it pays from now on
@@ -58,29 +82,33 @@ that space would otherwise sit unused.
   every other week and beyond, counted from the date the task was created),
   or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
   every month) for anything the other two can't express.
-- A parent gets four tabs, in this order: **Today**, **History**, **Tasks**,
-  **Balance**. Today is a daily dashboard: for each child, today's tasks and
+- A parent gets five tabs, in this order: **Today**, **History**, **Tasks**,
+  **Balance**, **Settings**. Today is a daily dashboard: for each child, today's tasks and
   their completion status, what they've earned today, and their outstanding
   balance — all at a glance. History is a browsable log of every completion,
   grouped into Today / Yesterday / Earlier this week / Later — the "Later"
-  group loads a page at a time as you ask for more, rather than pulling the
+  group loads a page at a time as you ask for more, rather than pulling a
   whole retained window up front — plus a search box that matches by task
   title or child name across that window. Every entry there can be
-  toggled — marking a completion as not done (e.g. one logged for the wrong
-  child), or marking a missed chore as done after the fact — via a two-step
-  inline confirm, no browser popup. Tasks manages
-  task definitions (add/edit/pause/delete). Balance handles payouts and
-  balance history. The top bar's user name is itself a dropdown for
+  toggled between completed and not completed via a two-step inline confirm
+  — no browser popup, just a confirm button that appears in place of the
+  toggle itself. That's how a completion logged for the wrong child gets
+  undone (it stays visible as a missed task rather than vanishing), and
+  equally how one missed at the time gets backfilled after the fact. Tasks
+  manages task definitions, with the editor opening as a sheet over the list
+  rather than a form beneath it. Balance handles payouts and balance
+  history. The app bar's user name is itself a dropdown for
   switching to a specific child's own restricted view, mainly useful for
   previewing what a kid sees, or for a parent marking a chore done on
   behalf of a child who doesn't have their own login — that dropdown only
   ever offers children and yourself, never another parent, so one parent's
   login can't casually end up "being" a co-parent.
-- A child gets a single page, no tabs: their own checklist for today, with
-  what they've earned today, this week, and their current balance shown
-  right above it. There's no separate balance/payout page or family-member
-  list for a child to get lost in — those are parent-only concerns, tucked
-  into the Balance tab and the Settings page respectively.
+- A child gets two tabs, **Today** and **Settings**, and Today is the whole
+  app for them: their own checklist, with what they've earned today, this
+  week, and their current balance shown right above it. There's no separate
+  balance/payout page or family-member list for a child to get lost in —
+  those are parent-only concerns, tucked into the Balance tab and the
+  parent's own Settings page respectively.
 - Balance tracks earnings in the last 7 days and the outstanding balance
   (total earned minus total paid out).
 - Parents can pay out the full balance or a partial amount.
@@ -100,6 +128,15 @@ that space would otherwise sit unused.
   renaming the family, and — for a parent — managing family members and
   invitations, all live on the Settings page, since none of them are things
   you look at often enough to deserve their own always-visible tab.
+
+### The welcome page
+
+Logged out, `/` serves a welcome page rather than a bare login box: what the
+app is, a three-step walkthrough, screenshots of the real screens (in
+`web/screenshots/`, one set per language), and a footer pointing at the
+source and where it runs. The Log in button stays at the top, above the
+fold, exactly where it was before — someone who already uses the app should
+never have to read or scroll past any of it.
 
 ### Push notifications
 
@@ -132,6 +169,9 @@ chore done, for example).
 
 ## Running
 
+To self-host instead of using the hosted instance mentioned above, clone
+this repo and run:
+
 ```bash
 go run ./cmd/chores -addr=:8080 -db=chores.db
 ```
@@ -158,16 +198,34 @@ AUTH0_CLIENT_ID=...
 AUTH0_CLIENT_SECRET=...
 ```
 
+## Hosting
+
+None of this is required to run the app — `fly.toml` and the deploy setup
+are specific to the author's own instance, kept here for reference rather
+than as something this repo expects you to reuse. That instance is a single
+Fly.io machine (`primary_region = "arn"`, i.e. Stockholm) with its SQLite
+database on a persistent volume, reachable through Cloudflare, with login
+handled by Auth0's EU region (see Authentication below). The welcome page
+states the same three facts for anyone visiting the running app, not just
+anyone reading this file.
+
 ## Language
 
 The UI is available in English and Norwegian (Bokmål), picked with a
-dropdown on the login page and, once logged in, on the Settings page. It
+dropdown on the welcome page and, once logged in, on the Settings page. It
 defaults to the browser's language when there's no saved preference, and
 the choice is then remembered in `localStorage`. Translation strings live in
 `web/i18n.js`; add a new language by adding another entry to
 `TRANSLATIONS` there and to `window.LANGUAGES`. Error messages coming from
 the server (validation errors, permission errors) aren't localized yet —
 only the UI text is.
+
+The app's own name is part of that: it's **Chores** in English and
+**Ukelønn** in Norwegian, including the name an installed PWA takes (see
+Installing as an app below). Because the manifest is JSON served by Go while
+the UI is JS, those two names are declared twice — `app.name` in
+`web/i18n.js` and `appNames` in `web/manifest.go` — and have to be kept in
+step.
 
 ## Authentication
 
@@ -327,12 +385,16 @@ immediately (any device still using it falls back to the key prompt) and
 ## Installing as an app (PWA)
 
 The web UI is an installable Progressive Web App: `web/manifest.webmanifest`
-declares its name, icons, and standalone display mode, and `web/sw.js`
+declares its icons and standalone display mode, and `web/sw.js`
 precaches the static app shell (HTML/CSS/JS/icons only — never API
 responses or login state, so nothing about family data or sessions is ever
 cached) so the shell keeps loading offline. Both the app and the login page
 register the service worker, so an install prompt can appear before or
-after logging in. On a phone, use the browser's "Add to Home Screen" /
+after logging in. The manifest is served by a handler rather than as a
+static file (`web/manifest.go`), so the installed app's name follows the
+chosen language — the page rewrites the `<link rel="manifest">` href to
+carry it, and the service worker deliberately never caches the manifest, so
+a Norwegian install doesn't get handed the English name. On a phone, use the browser's "Add to Home Screen" /
 "Install app" option; on desktop Chrome/Edge, an install icon appears in
 the address bar. `web/sw.js` also handles incoming Web Push events (see
 Push notifications above) and focuses or opens the app when a notification
@@ -385,13 +447,35 @@ After editing `proto/chores/v1/chores.proto`:
 buf generate
 ```
 
+## Updating the Material Symbols icon list
+
+`web/material-symbols.json` (the icon names the task icon picker's search
+runs against — see "Parents create tasks..." above) is a point-in-time
+snapshot; Google adds new icons occasionally. Refresh it with:
+
+```bash
+make update-material-symbols
+```
+
+which regenerates the file via `scripts/update-material-symbols.sh` — see
+the script's header comment for where the data comes from. Review the
+diff and commit it like any other change.
+
+## Working on this with a coding agent
+
+`CLAUDE.md` holds the notes an agent needs that this README doesn't cover —
+the `go:embed` restart rule, the frontend's footguns, and how to verify a
+change. Two skills live in `.claude/skills/`: `run-local` (start the app
+against the devauth test provider) and `verify-ui` (drive it in a browser and
+screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
+
 ## Project layout
 
 - `proto/` — protobuf service/message definitions
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
-- `internal/scheduling` — turns a task's repeat rule (one-off, weekly, or raw cron) into the dates it is due on
-- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending and `dashboard.go` for the kiosk key
+- `internal/scheduling` — cron-expression date matching for recurring tasks
+- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending and `dashboard.go` for the kiosk key
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
 - `cmd/chores` — main entrypoint

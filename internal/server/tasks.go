@@ -140,6 +140,11 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	classificationDB, err := classificationToDB(req.Msg.GetClassification())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	id := newID()
 	now := nowUTC()
 	// One step: a task whose assignments didn't land is assigned to nobody,
@@ -147,10 +152,10 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 	// except the parent's task list.
 	if err := s.inTx(ctx, func(q querier) error {
 		if _, err := q.ExecContext(ctx,
-			`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
-			 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date, classification)
+			 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, familyID, title, req.Msg.GetDescription(), priceCents, spec.Cron, formatTime(now), iconType, iconValue,
-			string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate,
+			string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, classificationDB,
 		); err != nil {
 			return fmt.Errorf("create task: %w", err)
 		}
@@ -163,6 +168,7 @@ func (s *Server) CreateTask(ctx context.Context, req *connect.Request[v1.CreateT
 			Id: id, FamilyId: familyID, Title: title, Description: req.Msg.GetDescription(),
 			Price: money(priceCents), Schedule: scheduleFromSpec(spec), Active: true, CreatedAt: timestampPB(now),
 			ChildIds: childIDs, Icon: taskIconFromDB(iconType, iconValue),
+			Classification: classificationFromDB(classificationDB),
 		},
 	}), nil
 }
@@ -199,6 +205,10 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	classificationDB, err := classificationToDB(req.Msg.GetClassification())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	// Freezing what the task has already produced and applying the edit are
 	// one atomic step. Half of it — history pinned against a task that then
 	// failed to change, or worse, a change applied over history that was
@@ -214,9 +224,9 @@ func (s *Server) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateT
 		}
 		res, err := q.ExecContext(ctx,
 			`UPDATE tasks SET title = ?, description = ?, price_cents = ?, schedule = ?, active = ?, icon_type = ?, icon_value = ?,
-			 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ? WHERE id = ? AND deleted_at IS NULL`,
+			 repeat_mode = ?, days_of_week = ?, repeat_interval_weeks = ?, start_date = ?, classification = ? WHERE id = ? AND deleted_at IS NULL`,
 			req.Msg.GetTitle(), req.Msg.GetDescription(), priceCents, spec.Cron, req.Msg.GetActive(), iconType, iconValue,
-			string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, taskID,
+			string(spec.Mode), daysOfWeekToDB(spec.DaysOfWeek), spec.IntervalWeeks, spec.StartDate, classificationDB, taskID,
 		)
 		if err != nil {
 			return fmt.Errorf("update task: %w", err)
@@ -275,17 +285,17 @@ func (s *Server) DeleteTask(ctx context.Context, req *connect.Request[v1.DeleteT
 }
 
 const taskColumns = `id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value,
-	repeat_mode, days_of_week, repeat_interval_weeks, start_date, deleted_at`
+	repeat_mode, days_of_week, repeat_interval_weeks, start_date, classification, deleted_at`
 
 func scanTask(row rowScanner) (*v1.Task, error) {
 	var t v1.Task
-	var createdAt, iconType, iconValue, repeatMode, daysOfWeek, startDate, cronExpr string
+	var createdAt, iconType, iconValue, repeatMode, daysOfWeek, startDate, cronExpr, classification string
 	var active bool
 	var priceCents int64
 	var intervalWeeks int32
 	var deletedAt sql.NullString
 	if err := row.Scan(&t.Id, &t.FamilyId, &t.Title, &t.Description, &priceCents, &cronExpr, &active, &createdAt, &iconType, &iconValue,
-		&repeatMode, &daysOfWeek, &intervalWeeks, &startDate, &deletedAt); err != nil {
+		&repeatMode, &daysOfWeek, &intervalWeeks, &startDate, &classification, &deletedAt); err != nil {
 		return nil, err
 	}
 	ts, err := parseTime(createdAt)
@@ -297,6 +307,7 @@ func scanTask(row rowScanner) (*v1.Task, error) {
 	t.CreatedAt = timestampPB(ts)
 	t.Icon = taskIconFromDB(iconType, iconValue)
 	t.Schedule = scheduleFromSpec(specFromDB(repeatMode, cronExpr, daysOfWeek, intervalWeeks, startDate))
+	t.Classification = classificationFromDB(classification)
 	if deletedAt.Valid && deletedAt.String != "" {
 		deleted, err := parseTime(deletedAt.String)
 		if err != nil {

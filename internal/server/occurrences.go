@@ -369,6 +369,7 @@ func labelOccurrence(occ *v1.TaskOccurrence, task *v1.Task, childName string) {
 	occ.Title = task.GetTitle()
 	occ.Description = task.GetDescription()
 	occ.Icon = task.GetIcon()
+	occ.Classification = task.GetClassification()
 }
 
 // occurrenceFromTask builds the occurrence for a date nothing has been
@@ -384,8 +385,9 @@ func occurrenceFromTask(t *v1.Task, childID, childName, dueDate string) *v1.Task
 		DueDate:     dueDate,
 		Title:       t.GetTitle(),
 		Description: t.GetDescription(),
-		Icon:        t.GetIcon(),
-		Amount:      money(t.GetPrice().GetCents()),
+		Icon:           t.GetIcon(),
+		Classification: t.GetClassification(),
+		Amount:         money(t.GetPrice().GetCents()),
 	}
 }
 

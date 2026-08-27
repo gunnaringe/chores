@@ -23,18 +23,14 @@ enum UserRole {
 
 enum IconType {
   ICON_TYPE_UNSPECIFIED = 0;
-  ICON_TYPE_EMOJI = 1;
-  ICON_TYPE_FONT_AWESOME = 2;
   // A Google Material Symbols icon name (fonts.google.com/icons), e.g.
-  // "cleaning_services", rendered via the Material Symbols web font.
-  ICON_TYPE_MATERIAL_SYMBOLS = 3;
+  // "cleaning_services", rendered via the Material Symbols web font. The
+  // only supported icon type — kept as an enum (rather than folding into
+  // Icon directly) in case another type is ever added back.
+  ICON_TYPE_MATERIAL_SYMBOLS = 1;
 }
 
-// An icon shown next to a task. For ICON_TYPE_EMOJI, value is the emoji
-// character(s) itself (e.g. "🧹"). For ICON_TYPE_FONT_AWESOME, value is a
-// Font Awesome Free Solid icon name without the "fa-" prefix (e.g. "broom",
-// rendered as the CSS classes "fa-solid fa-broom"). For
-// ICON_TYPE_MATERIAL_SYMBOLS, value is a Material Symbols icon name (e.g.
+// An icon shown next to a task. value is a Material Symbols icon name (e.g.
 // "cleaning_services").
 message Icon {
   IconType type = 1;
@@ -132,6 +128,14 @@ message Schedule {
 // everywhere, which is what you want for a label and emphatically not what
 // you want for money.
 
+// Whether a chore is expected or merely available — Today splits its list
+// into "Must do" and "Can do" on this.
+enum TaskClassification {
+  TASK_CLASSIFICATION_UNSPECIFIED = 0;
+  TASK_CLASSIFICATION_MANDATORY = 1;
+  TASK_CLASSIFICATION_OPTIONAL = 2;
+}
+
 message Task {
   // 5 was price_cents (int64), superseded by `price`.
   // 6 was schedule (a raw cron string), 11-14 were repeat_mode,
@@ -150,9 +154,10 @@ message Task {
   repeated string child_ids = 9;
   // Optional icon shown next to the task. Absent means no icon.
   Icon icon = 10;
+  TaskClassification classification = 15;
   // What completing this task earns.
-  Money price = 15;
-  Schedule schedule = 16;
+  Money price = 16;
+  Schedule schedule = 17;
   // Set once the task has been deleted. Deletion is soft: the row survives
   // so that the occurrences it already produced keep rendering, and so the
   // schedule remains available to reconstruct past occurrences that were
@@ -160,7 +165,7 @@ message Task {
   // this date, is excluded from ListTasks, and can't be edited or
   // completed. Nothing currently returns a deleted task, so this is unset
   // on every Task the API hands out today.
-  google.protobuf.Timestamp deleted_at = 17;
+  google.protobuf.Timestamp deleted_at = 18;
 }
 
 // One instance of a task, for one child, on one calendar date — the single
@@ -216,6 +221,11 @@ message TaskOccurrence {
   // dashboardAllowedMethods grants a dashboard key exactly four RPCs, and
   // ListUsers is not among them, so a kiosk cannot resolve names itself.
   string child_name = 10;
+
+  // Read live from the task, like title and icon: Today splits its list
+  // into "Must do" and "Can do" on this, and the kiosk has no way to fetch
+  // tasks of its own.
+  TaskClassification classification = 12;
 
   // Unset while the occurrence is due but not completed — the single
   // source of truth for whether it's done.
@@ -382,10 +392,12 @@ message CreateTaskRequest {
   repeated string child_ids = 6;
   // Optional icon shown next to the task. Omit for no icon.
   Icon icon = 7;
-  Money price = 12;
+  // Must be MANDATORY or OPTIONAL; unset defaults to MANDATORY.
+  TaskClassification classification = 12;
+  Money price = 13;
   // Required. Exactly one kind must be set, and populated consistently —
   // see the per-kind field comments.
-  Schedule schedule = 13;
+  Schedule schedule = 14;
 }
 message CreateTaskResponse {
   Task task = 1;
@@ -404,8 +416,10 @@ message UpdateTaskRequest {
   repeated string child_ids = 7;
   // Optional icon shown next to the task. Omit for no icon.
   Icon icon = 8;
-  Money price = 13;
-  Schedule schedule = 14;
+  // Must be MANDATORY or OPTIONAL; unset defaults to MANDATORY.
+  TaskClassification classification = 13;
+  Money price = 14;
+  Schedule schedule = 15;
 }
 message UpdateTaskResponse {
   Task task = 1;

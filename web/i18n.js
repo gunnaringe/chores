@@ -1,7 +1,11 @@
-// Chores — minimal i18n helper shared by the app and the login page.
-// The app's own name ("Chores") is a brand and stays untranslated.
-
-window.APP_NAME = "Chores";
+// Chores — minimal i18n helper shared by the app and the welcome page.
+//
+// The app's name is itself translated: it's "Chores" in English and
+// "Ukelønn" in Norwegian, including the name an installed PWA gets. Use
+// appName() rather than a literal anywhere the name is shown.
+//
+// The same two names exist in Go, in web/manifest.go, which serves the
+// localized web app manifest — keep them in step.
 
 window.LANGUAGES = [
   { code: "en", label: "English" },
@@ -10,6 +14,8 @@ window.LANGUAGES = [
 
 const TRANSLATIONS = {
   en: {
+    "app.name": "Chores",
+
     "familyPicker.nameRequired": "Family name is required",
 
     "onboarding.subtitle": "Create your family to get started, or join one with an invite code.",
@@ -25,7 +31,6 @@ const TRANSLATIONS = {
     "family.namePlaceholder": "e.g. The Smiths",
     "family.createBtn": "Create family",
     "family.renameHeading": "Family name",
-    "family.renameNameLabel": "Family name",
     "family.renameSave": "Save",
     "family.renameRequired": "Family name is required",
 
@@ -44,8 +49,18 @@ const TRANSLATIONS = {
     "role.child": "Child",
 
     "topbar.settings": "Settings",
+    "topbar.viewingAs": "You're viewing the app as {name}",
+    "topbar.switchBack": "Switch back",
 
-    "settings.back": "← Back",
+    "common.close": "Close",
+    "common.dismiss": "Dismiss",
+
+    "settings.accountSection": "Account",
+    "settings.familySection": "This family",
+    "settings.householdsSection": "Other families",
+    "settings.currencyHeading": "Currency",
+    "settings.currencyHint": "Only changes how amounts are displayed on this device — never sent anywhere, never affects what's stored.",
+    "settings.currencyNone": "None (no symbol)",
     "settings.notificationsHeading": "Notifications",
     "settings.notificationsDesc": "Get a notification on this device whenever someone in the family completes a task.",
     "settings.notificationsEnable": "Enable notifications",
@@ -55,6 +70,12 @@ const TRANSLATIONS = {
     "settings.notificationsUnsupported": "Notifications aren't supported on this browser or device.",
     "settings.notificationsUnavailable": "The server doesn't have push notifications configured.",
     "settings.notificationsDenied": "Notifications are blocked for this site — enable them in your browser's site settings to use this.",
+
+    "settings.iconsUnavailable": "Icons couldn't load, so they're showing as placeholders. An ad blocker, VPN or private DNS may be blocking fonts.googleapis.com.",
+
+    "settings.feedbackHeading": "Feedback",
+    "settings.feedbackHint": "Do you have any ideas for new features or have found any issues?",
+    "settings.feedbackLink": "Make a ticket here",
 
     "dashboard.enterKeyPrompt": "Enter the dashboard key for your family to continue.",
     "dashboard.keyLabel": "Dashboard key",
@@ -91,6 +112,10 @@ const TRANSLATIONS = {
     "history.confirmMarkComplete": "Confirm mark completed",
     "history.confirmMarkIncomplete": "Confirm mark not completed",
 
+    "today.progress": "{done} of {total} done",
+    "today.mustDo": "Must do",
+    "today.canDo": "Can do",
+
     "childTasks.heading": "Today's tasks",
     "childTasks.empty": "No tasks scheduled for today.",
     "childTasks.markDone": "Mark done",
@@ -110,14 +135,17 @@ const TRANSLATIONS = {
     "taskList.notDueToday": "not due today",
     "taskList.onceOn": "Once, on {date}",
     "taskList.everyNWeeks": "{days}, every {n} weeks",
+    "taskList.mandatory": "Mandatory",
+    "taskList.optional": "Optional",
 
     "addTask.heading": "Add a task",
     "addTask.titleLabel": "Title",
     "addTask.titlePlaceholder": "e.g. Do the dishes",
     "addTask.descLabel": "Description (optional)",
-    "addTask.priceLabel": "Price (kr)",
+    "addTask.priceLabel": "Price",
+    "addTask.classificationLabel": "Classification",
     "addTask.repeatLabel": "Repeat",
-    "addTask.repeatOnce": "Does not repeat",
+    "addTask.repeatOnce": "Once",
     "addTask.repeatWeekly": "Weekly",
     "addTask.repeatCron": "Cron",
     "addTask.onceDateLabel": "Date",
@@ -129,9 +157,11 @@ const TRANSLATIONS = {
     "addTask.cronHint": "Standard 5-field cron: minute hour day-of-month month day-of-week.",
     "addTask.cronRequired": "Enter a cron expression",
     "addTask.iconLabel": "Icon (optional)",
-    "addTask.iconTypeEmoji": "Emoji",
-    "addTask.iconTypeFontAwesome": "Font Awesome",
-    "addTask.iconTypeMaterialSymbols": "Material Symbols",
+    "addTask.iconSearchPlaceholder": "Search icons…",
+    "addTask.iconNoResults": "No matching icons",
+    "addTask.iconSearchHint": "Search here only matches icon names, not synonyms.",
+    "addTask.iconSearchLink": "Browse the full picker on fonts.google.com ↗",
+    "addTask.iconClear": "Clear",
     "addTask.assignLabel": "Assign to",
     "addTask.selectAll": "Select all",
     "addTask.noChildren": "Add a child in the Family tab before creating tasks.",
@@ -154,7 +184,8 @@ const TRANSLATIONS = {
     "accounting.earnedThisWeek": "Earned this week",
     "accounting.balanceOwed": "Balance owed",
     "accounting.payoutHeading": "Pay out",
-    "accounting.amountLabel": "Amount (kr) — leave as full balance or enter a partial amount",
+    "accounting.amountLabel": "Amount",
+    "accounting.amountHint": "Leave as the full balance, or enter a partial amount.",
     "accounting.noteLabel": "Note (optional)",
     "accounting.payFull": "Pay full balance",
     "accounting.payPartial": "Pay entered amount",
@@ -165,6 +196,8 @@ const TRANSLATIONS = {
     "accounting.full": "full",
     "accounting.partial": "partial",
 
+    "familyTab.switchFamilyLabel": "Switch family",
+    "familyTab.switchUserLabel": "Switch family member",
     "familyTab.heading": "Family members",
     "familyTab.you": "you",
     "familyTab.invitePending": "invite pending",
@@ -196,15 +229,45 @@ const TRANSLATIONS = {
     "invitations.inviteDesc": "Creates a one-time code so they can log in with their own account — open their row above to see the invite link until they use it.",
     "invitations.linkLabel": "Invite link — opening it logs them in and accepts automatically",
     "invitations.codeLabel": "Invite code — share it with them",
+    "invitations.copyLink": "Copy invite link",
+    "invitations.copyCode": "Copy invite code",
+    "invitations.copied": "Copied!",
 
     "auth.logout": "Log out",
 
-    "login.subtitle": "Please log in to continue.",
+    "login.tagline": "Family chores and allowance, in one place.",
     "login.button": "Log in",
+    "login.howHeading": "How it works",
+    "login.step1Title": "Parents set the chores",
+    "login.step1Body": "Add a chore, set what it pays, and pick who it's for. Repeat it daily, weekly, or just once — and mark it a must-do or an optional extra.",
+    "login.step2Title": "Kids tick them off",
+    "login.step2Body": "Everyone gets today's list on their own phone, split into Must do and Can do. One tap marks a chore done.",
+    "login.step3Title": "The balance adds up",
+    "login.step3Body": "Earnings collect into a running balance. Pay out all of it or part of it whenever suits — every completed chore stays in the history.",
+    "login.extrasHeading": "Also in the box",
+    "login.extrasBody": "A key-protected screen for the kitchen wall that needs no login, push notifications when someone finishes a chore, and an install to the home screen that behaves like a real app. English and Norwegian throughout.",
+    "login.shotToday": "Today, split into Must do and Can do",
+    "login.shotTasks": "Chores, with what each one pays",
+    "login.shotBalance": "The balance, and paying it out",
+    "login.ctaHeading": "Ready?",
+    "login.aboutHeading": "About",
+    "login.sourceLink": "Source on GitHub",
+    "login.hosting": "Runs on Fly.io in Stockholm, behind Cloudflare, with a SQLite database. Authentication is handled by Auth0, running in the EU.",
+    "login.techStackHeading": "Tech stack",
+    "login.techStack1": "Go",
+    "login.techStack2": "gRPC and REST-ish API with Buf Connect",
+    "login.techStack3": "SQLite — a single file, no separate database server",
+    "login.techStack4": "Vanilla JavaScript frontend — no framework, no build step",
+    "login.techStack5": "Installable as a PWA — works offline once cached",
+    "login.techStack6": "Auth0 for login",
+    "login.builtWith": "Built with Claude, on a personal Claude Pro account.",
+    "login.disclaimer": "This is a hobby project, made for my own use. No guarantees are given about its reliability — use it at your own risk.",
 
     "lang.label": "Language",
   },
   nb: {
+    "app.name": "Ukelønn",
+
     "familyPicker.nameRequired": "Familienavn er påkrevd",
 
     "onboarding.subtitle": "Opprett familien din for å komme i gang, eller bli med i en med en invitasjonskode.",
@@ -220,7 +283,6 @@ const TRANSLATIONS = {
     "family.namePlaceholder": "f.eks. Familien Hansen",
     "family.createBtn": "Opprett familie",
     "family.renameHeading": "Familienavn",
-    "family.renameNameLabel": "Familienavn",
     "family.renameSave": "Lagre",
     "family.renameRequired": "Familienavn er påkrevd",
 
@@ -239,8 +301,18 @@ const TRANSLATIONS = {
     "role.child": "Barn",
 
     "topbar.settings": "Innstillinger",
+    "topbar.viewingAs": "Du ser appen som {name}",
+    "topbar.switchBack": "Bytt tilbake",
 
-    "settings.back": "← Tilbake",
+    "common.close": "Lukk",
+    "common.dismiss": "Lukk",
+
+    "settings.accountSection": "Konto",
+    "settings.familySection": "Denne familien",
+    "settings.householdsSection": "Andre familier",
+    "settings.currencyHeading": "Valuta",
+    "settings.currencyHint": "Endrer bare hvordan beløp vises på denne enheten — sendes aldri noe sted, og påvirker ikke det som er lagret.",
+    "settings.currencyNone": "Ingen (uten symbol)",
     "settings.notificationsHeading": "Varsler",
     "settings.notificationsDesc": "Få et varsel på denne enheten når noen i familien fullfører en oppgave.",
     "settings.notificationsEnable": "Slå på varsler",
@@ -250,6 +322,12 @@ const TRANSLATIONS = {
     "settings.notificationsUnsupported": "Varsler støttes ikke i denne nettleseren eller på denne enheten.",
     "settings.notificationsUnavailable": "Serveren har ikke satt opp push-varsler.",
     "settings.notificationsDenied": "Varsler er blokkert for dette nettstedet — slå dem på i nettleserens nettstedsinnstillinger for å bruke dette.",
+
+    "settings.iconsUnavailable": "Ikonene kunne ikke lastes, så de vises som plassholdere. En annonseblokkerer, VPN eller privat DNS kan blokkere fonts.googleapis.com.",
+
+    "settings.feedbackHeading": "Tilbakemelding",
+    "settings.feedbackHint": "Har du ideer til nye funksjoner, eller har du funnet en feil?",
+    "settings.feedbackLink": "Opprett en sak her",
 
     "dashboard.enterKeyPrompt": "Skriv inn dashbord-nøkkelen for familien din for å fortsette.",
     "dashboard.keyLabel": "Dashbord-nøkkel",
@@ -286,6 +364,10 @@ const TRANSLATIONS = {
     "history.confirmMarkComplete": "Bekreft merking som fullført",
     "history.confirmMarkIncomplete": "Bekreft merking som ikke fullført",
 
+    "today.progress": "{done} av {total} gjort",
+    "today.mustDo": "Må gjøre",
+    "today.canDo": "Kan gjøre",
+
     "childTasks.heading": "Dagens oppgaver",
     "childTasks.empty": "Ingen oppgaver planlagt i dag.",
     "childTasks.markDone": "Merk som utført",
@@ -305,14 +387,17 @@ const TRANSLATIONS = {
     "taskList.notDueToday": "ikke i dag",
     "taskList.onceOn": "Én gang, {date}",
     "taskList.everyNWeeks": "{days}, hver {n}. uke",
+    "taskList.mandatory": "Obligatorisk",
+    "taskList.optional": "Valgfri",
 
     "addTask.heading": "Legg til oppgave",
     "addTask.titleLabel": "Tittel",
     "addTask.titlePlaceholder": "f.eks. Vaske opp",
     "addTask.descLabel": "Beskrivelse (valgfritt)",
-    "addTask.priceLabel": "Pris (kr)",
+    "addTask.priceLabel": "Pris",
+    "addTask.classificationLabel": "Klassifisering",
     "addTask.repeatLabel": "Gjentakelse",
-    "addTask.repeatOnce": "Gjentas ikke",
+    "addTask.repeatOnce": "Én gang",
     "addTask.repeatWeekly": "Ukentlig",
     "addTask.repeatCron": "Cron",
     "addTask.onceDateLabel": "Dato",
@@ -324,9 +409,11 @@ const TRANSLATIONS = {
     "addTask.cronHint": "Standard 5-felts cron: minutt time dag-i-måned måned ukedag.",
     "addTask.cronRequired": "Skriv inn et cron-uttrykk",
     "addTask.iconLabel": "Ikon (valgfritt)",
-    "addTask.iconTypeEmoji": "Emoji",
-    "addTask.iconTypeFontAwesome": "Font Awesome",
-    "addTask.iconTypeMaterialSymbols": "Material Symbols",
+    "addTask.iconSearchPlaceholder": "Søk etter ikoner…",
+    "addTask.iconNoResults": "Ingen ikoner funnet",
+    "addTask.iconSearchHint": "Søket her forstår bare ikonnavn, ikke synonymer.",
+    "addTask.iconSearchLink": "Bla i hele utvalget på fonts.google.com ↗",
+    "addTask.iconClear": "Fjern",
     "addTask.assignLabel": "Tildel til",
     "addTask.selectAll": "Velg alle",
     "addTask.noChildren": "Legg til et barn under Familie før du kan lage oppgaver.",
@@ -349,7 +436,8 @@ const TRANSLATIONS = {
     "accounting.earnedThisWeek": "Opptjent denne uken",
     "accounting.balanceOwed": "Utestående saldo",
     "accounting.payoutHeading": "Utbetal",
-    "accounting.amountLabel": "Beløp (kr) — behold hele saldoen eller angi et delbeløp",
+    "accounting.amountLabel": "Beløp",
+    "accounting.amountHint": "Behold hele saldoen, eller angi et delbeløp.",
     "accounting.noteLabel": "Notat (valgfritt)",
     "accounting.payFull": "Utbetal hele saldoen",
     "accounting.payPartial": "Utbetal angitt beløp",
@@ -360,6 +448,8 @@ const TRANSLATIONS = {
     "accounting.full": "hel",
     "accounting.partial": "del",
 
+    "familyTab.switchFamilyLabel": "Bytt familie",
+    "familyTab.switchUserLabel": "Bytt familiemedlem",
     "familyTab.heading": "Familiemedlemmer",
     "familyTab.you": "deg",
     "familyTab.invitePending": "invitasjon venter",
@@ -391,11 +481,39 @@ const TRANSLATIONS = {
     "invitations.inviteDesc": "Oppretter en engangskode så de kan logge inn med sin egen konto — åpne raden deres over for å se invitasjonslenken til de bruker den.",
     "invitations.linkLabel": "Invitasjonslenke — å åpne den logger dem inn og godtar automatisk",
     "invitations.codeLabel": "Invitasjonskode — del den med dem",
+    "invitations.copyLink": "Kopier invitasjonslenke",
+    "invitations.copyCode": "Kopier invitasjonskode",
+    "invitations.copied": "Kopiert!",
 
     "auth.logout": "Logg ut",
 
-    "login.subtitle": "Logg inn for å fortsette.",
+    "login.tagline": "Husarbeid og ukelønn på ett sted.",
     "login.button": "Logg inn",
+    "login.howHeading": "Slik fungerer det",
+    "login.step1Title": "Foreldre setter opp oppgavene",
+    "login.step1Body": "Legg til en oppgave, sett hva den er verdt, og velg hvem den gjelder. Gjenta den daglig, ukentlig eller bare én gang — og merk den som må-gjøre eller valgfri ekstrajobb.",
+    "login.step2Title": "Barna huker dem av",
+    "login.step2Body": "Alle får dagens liste på sin egen telefon, delt i Må gjøre og Kan gjøre. Ett trykk markerer en oppgave som gjort.",
+    "login.step3Title": "Saldoen vokser",
+    "login.step3Body": "Det opptjente samles i en løpende saldo. Betal ut alt eller deler av det når det passer — alle fullførte oppgaver blir liggende i historikken.",
+    "login.extrasHeading": "Dette er også med",
+    "login.extrasBody": "En nøkkelbeskyttet skjerm til kjøkkenveggen som ikke krever innlogging, varsler når noen fullfører en oppgave, og installasjon på hjemskjermen som oppfører seg som en ekte app. Norsk og engelsk gjennomgående.",
+    "login.shotToday": "I dag, delt i Må gjøre og Kan gjøre",
+    "login.shotTasks": "Oppgaver, med hva hver enkelt er verdt",
+    "login.shotBalance": "Saldoen, og utbetaling av den",
+    "login.ctaHeading": "Klar?",
+    "login.aboutHeading": "Om",
+    "login.sourceLink": "Kildekode på GitHub",
+    "login.hosting": "Kjører på Fly.io i Stockholm, bak Cloudflare, med en SQLite-database. Autentisering håndteres av Auth0, som kjører i EU.",
+    "login.techStackHeading": "Teknologi",
+    "login.techStack1": "Go",
+    "login.techStack2": "gRPC og REST-ish API med Buf Connect",
+    "login.techStack3": "SQLite — én fil, ingen egen databaseserver",
+    "login.techStack4": "Frontend i ren JavaScript — uten rammeverk, uten byggesteg",
+    "login.techStack5": "Installerbar som PWA — fungerer offline når den er bufret",
+    "login.techStack6": "Auth0 for innlogging",
+    "login.builtWith": "Laget med Claude, på en personlig Claude Pro-konto.",
+    "login.disclaimer": "Dette er et hobbyprosjekt laget til eget bruk. Det gis ingen garantier for appens pålitelighet — bruk den på eget ansvar.",
 
     "lang.label": "Språk",
   },
@@ -428,7 +546,29 @@ function t(key, vars) {
   return str;
 }
 
+function appName() {
+  return t("app.name");
+}
+
+// Stamps the current language's app name onto everything outside the page
+// body that carries it: the tab title, the iOS add-to-home-screen name, and
+// the manifest a PWA install reads its name from. The manifest href is
+// rewritten rather than the file being static, because the installed app's
+// name has to follow the language the user actually picked — browsers
+// re-read the manifest when that href changes.
+function applyAppName() {
+  document.title = appName();
+
+  const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (appleTitle) appleTitle.setAttribute("content", appName());
+
+  const manifest = document.querySelector('link[rel="manifest"]');
+  if (manifest) manifest.setAttribute("href", `/manifest.webmanifest?lang=${encodeURIComponent(getLang())}`);
+}
+
 window.t = t;
+window.appName = appName;
+window.applyAppName = applyAppName;
 window.getLang = getLang;
 window.setLang = setLang;
 window.localeTag = localeTag;

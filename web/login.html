@@ -2,47 +2,227 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Chores</title>
 <link rel="stylesheet" href="/app.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" />
+<script>
+  // Keeps icon glyphs hidden until we know whether the font is actually
+  // usable, then either reveals them or falls back to icons-unavailable —
+  // never to the raw ligature name ("edit_note"). This has to be inline and
+  // in <head> to beat the first paint, so it's a copy of the same script in
+  // index.html rather than a shared file; see the fuller comment there, and
+  // the icons-loading / icons-unavailable rules in app.css.
+  document.documentElement.classList.add("icons-loading");
+  (function () {
+    var root = document.documentElement;
+    var FONT = '24px "Material Symbols Outlined"';
+
+    // With the font, "settings" is a single ~24px glyph; without it the word
+    // runs 60px+. Under 2em means the ligature actually substituted.
+    function ligaturesRender() {
+      var probe = document.createElement("span");
+      probe.textContent = "settings";
+      // Inline styles rather than the .material-symbols-outlined class, so
+      // this measures the font itself and not whether app.css has landed.
+      probe.style.cssText =
+        "position:absolute;top:0;left:-9999px;visibility:hidden;white-space:nowrap;" +
+        "font-family:'Material Symbols Outlined';font-size:24px;line-height:1;";
+      document.body.appendChild(probe);
+      var width = probe.getBoundingClientRect().width;
+      document.body.removeChild(probe);
+      return width > 0 && width < 48;
+    }
+
+    // Called from several places and deliberately idempotent, so a font that
+    // turns up late still upgrades the page out of the fallback.
+    function settle() {
+      if (!document.body) {
+        document.addEventListener("DOMContentLoaded", settle);
+        return;
+      }
+      // Put the fallback class on before taking icons-loading off, or the
+      // raw names paint for a frame in between.
+      root.classList.toggle("icons-unavailable", !ligaturesRender());
+      root.classList.remove("icons-loading");
+    }
+
+    if (window.FontFace && document.fonts) {
+      document.fonts.load(FONT).then(settle, settle);
+      document.fonts.ready.then(settle, settle);
+      // Backstop: neither promise is guaranteed to settle on every browser.
+      setTimeout(settle, 3000);
+    } else {
+      settle();
+    }
+  })();
+</script>
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-<meta name="theme-color" content="#2563eb" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#101216" media="(prefers-color-scheme: dark)" />
+<meta name="color-scheme" content="light dark" />
+<meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Chores" />
 </head>
 <body>
-<div style="display:flex;justify-content:flex-end;padding:12px 12px 0;">
-  <select id="lang-switcher" style="font-size:0.8rem;padding:4px 8px;"></select>
-</div>
 <div id="app">
-  <div class="card" style="max-width:360px;margin:12vh auto 0;text-align:center;">
-    <img src="/icons/logo.png" alt="" width="96" height="96" class="logo" />
-    <h1 id="app-title"></h1>
-    <p id="login-subtitle"></p>
-    <button id="login-btn" onclick="location.href='/auth/login'"></button>
-  </div>
+  <main class="content no-tabbar welcome">
+    <!-- The hero is deliberately the whole first screen and nothing else:
+         someone who already uses the app should never have to read past it,
+         or scroll, to find the same Log in button that has always been here.
+         Everything explaining the app lives below the fold. -->
+    <header class="welcome-hero">
+      <img src="/icons/logo.png" alt="" width="96" height="96" class="logo" />
+      <h1 id="app-title"></h1>
+      <p id="login-tagline"></p>
+      <button class="block" id="login-btn" onclick="location.href='/auth/login'"></button>
+      <div class="welcome-lang">
+        <select id="lang-switcher" style="width:auto;"></select>
+      </div>
+    </header>
+
+    <section class="welcome-section">
+      <h2 id="how-heading"></h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+
+    <section class="welcome-section">
+      <div class="shots" id="shots"></div>
+    </section>
+
+    <section class="welcome-section">
+      <div class="card">
+        <h2 id="extras-heading"></h2>
+        <p id="extras-body" style="margin:0;"></p>
+      </div>
+    </section>
+
+    <section class="welcome-section welcome-cta">
+      <h2 id="cta-heading"></h2>
+      <button class="block" id="login-btn-2" onclick="location.href='/auth/login'"></button>
+    </section>
+
+    <footer class="welcome-footer">
+      <h2 id="about-heading"></h2>
+      <p>
+        <a id="source-link" href="https://github.com/gunnaringe/chores" rel="noopener">Source on GitHub</a>
+      </p>
+      <p id="hosting"></p>
+      <h2 id="tech-stack-heading"></h2>
+      <ul id="tech-stack"></ul>
+      <p id="built-with"></p>
+      <p id="disclaimer" class="disclaimer"></p>
+    </footer>
+  </main>
 </div>
 <script src="/i18n.js"></script>
 <script>
-  document.getElementById("app-title").textContent = window.APP_NAME;
-  document.getElementById("login-subtitle").textContent = t("login.subtitle");
-  document.getElementById("login-btn").textContent = t("login.button");
+  (function () {
+    const text = (id, key) => {
+      document.getElementById(id).textContent = t(key);
+    };
 
-  const switcher = document.getElementById("lang-switcher");
-  switcher.innerHTML = window.LANGUAGES.map(
-    (l) => `<option value="${l.code}"${l.code === getLang() ? " selected" : ""}>${l.label}</option>`
-  ).join("");
-  switcher.addEventListener("change", (e) => {
-    setLang(e.target.value);
-    location.reload();
-  });
+    applyAppName();
+    text("app-title", "app.name");
+    text("login-tagline", "login.tagline");
+    text("login-btn", "login.button");
+    text("login-btn-2", "login.button");
+    text("how-heading", "login.howHeading");
+    text("extras-heading", "login.extrasHeading");
+    text("extras-body", "login.extrasBody");
+    text("cta-heading", "login.ctaHeading");
+    text("about-heading", "login.aboutHeading");
+    text("source-link", "login.sourceLink");
+    text("hosting", "login.hosting");
+    text("tech-stack-heading", "login.techStackHeading");
+    text("built-with", "login.builtWith");
+    text("disclaimer", "login.disclaimer");
 
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
-  }
+    const techStack = document.getElementById("tech-stack");
+    for (const key of ["login.techStack1", "login.techStack2", "login.techStack3", "login.techStack4", "login.techStack5", "login.techStack6"]) {
+      const li = document.createElement("li");
+      li.textContent = t(key);
+      techStack.appendChild(li);
+    }
+
+    const STEPS = [
+      { icon: "edit_note", title: "login.step1Title", body: "login.step1Body" },
+      { icon: "check_circle", title: "login.step2Title", body: "login.step2Body" },
+      { icon: "savings", title: "login.step3Title", body: "login.step3Body" },
+    ];
+    const steps = document.getElementById("steps");
+    for (const step of STEPS) {
+      const li = document.createElement("li");
+      li.className = "step";
+
+      const icon = document.createElement("span");
+      icon.className = "step-icon material-symbols-outlined";
+      icon.textContent = step.icon;
+
+      const body = document.createElement("div");
+      const h3 = document.createElement("h3");
+      h3.textContent = t(step.title);
+      const p = document.createElement("p");
+      p.textContent = t(step.body);
+      p.style.margin = "0";
+      body.append(h3, p);
+
+      li.append(icon, body);
+      steps.appendChild(li);
+    }
+
+    // Screenshots exist per language, since every word in them is UI text.
+    // Norwegian falls back to the English set if a shot is ever missing.
+    const SHOTS = [
+      { file: "today", caption: "login.shotToday" },
+      { file: "tasks", caption: "login.shotTasks" },
+      { file: "balance", caption: "login.shotBalance" },
+    ];
+    const lang = getLang() === "nb" ? "nb" : "en";
+    const shots = document.getElementById("shots");
+    for (const shot of SHOTS) {
+      const figure = document.createElement("figure");
+      figure.className = "shot";
+
+      const img = document.createElement("img");
+      img.src = `/screenshots/${shot.file}-${lang}.webp`;
+      img.alt = t(shot.caption);
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.width = 390;
+      img.height = 720;
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = `/screenshots/${shot.file}-en.webp`;
+      };
+
+      const caption = document.createElement("figcaption");
+      caption.textContent = t(shot.caption);
+
+      figure.append(img, caption);
+      shots.appendChild(figure);
+    }
+
+    const switcher = document.getElementById("lang-switcher");
+    switcher.setAttribute("aria-label", t("lang.label"));
+    switcher.innerHTML = window.LANGUAGES.map(
+      (l) => `<option value="${l.code}"${l.code === getLang() ? " selected" : ""}>${l.label}</option>`
+    ).join("");
+    switcher.addEventListener("change", (e) => {
+      setLang(e.target.value);
+      location.reload();
+    });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+    }
+  })();
 </script>
 </body>
 </html>

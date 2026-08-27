@@ -736,12 +736,12 @@ func TestTaskIcon(t *testing.T) {
 
 	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
 		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
-		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_EMOJI, Value: "🧹"},
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS, Value: "cleaning_services"},
 	}))
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
-	if got := task.Msg.Task.Icon; got.GetType() != v1.IconType_ICON_TYPE_EMOJI || got.GetValue() != "🧹" {
+	if got := task.Msg.Task.Icon; got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "cleaning_services" {
 		t.Fatalf("expected emoji icon 🧹 on create, got %+v", got)
 	}
 
@@ -749,7 +749,7 @@ func TestTaskIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTasks: %v", err)
 	}
-	if got := fetched.Msg.Tasks[0].Icon; len(fetched.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_EMOJI || got.GetValue() != "🧹" {
+	if got := fetched.Msg.Tasks[0].Icon; len(fetched.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "cleaning_services" {
 		t.Fatalf("expected icon 🧹 to persist, got %+v", fetched.Msg.Tasks[0])
 	}
 
@@ -757,7 +757,7 @@ func TestTaskIcon(t *testing.T) {
 	// just the value.
 	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
 		TaskId: task.Msg.Task.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100), Active: true,
-		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_FONT_AWESOME, Value: "broom"},
+		ChildIds: []string{child.Msg.User.Id}, Icon: &v1.Icon{Type: v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS, Value: "checkroom"},
 	})); err != nil {
 		t.Fatalf("UpdateTask: %v", err)
 	}
@@ -765,7 +765,7 @@ func TestTaskIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTasks after update: %v", err)
 	}
-	if got := updated.Msg.Tasks[0].Icon; len(updated.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_FONT_AWESOME || got.GetValue() != "broom" {
+	if got := updated.Msg.Tasks[0].Icon; len(updated.Msg.Tasks) != 1 || got.GetType() != v1.IconType_ICON_TYPE_MATERIAL_SYMBOLS || got.GetValue() != "checkroom" {
 		t.Fatalf("expected icon updated to font-awesome:broom, got %+v", updated.Msg.Tasks[0])
 	}
 
@@ -1725,5 +1725,110 @@ func TestDisableDashboard_RevokesTheKey(t *testing.T) {
 	}
 	if setup2.Msg.DashboardKey == setup.Msg.DashboardKey {
 		t.Fatal("expected regenerating to produce a different key")
+	}
+}
+
+func TestTaskIcon_LegacyTypesReadAsUnspecified(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|task-icon-legacy-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	task, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	// Simulate a row written back when icon_type could be "emoji" —
+	// CreateTask itself can no longer produce one.
+	if _, err := s.db.ExecContext(ctx, `UPDATE tasks SET icon_type = 'emoji', icon_value = '🧹' WHERE id = ?`, task.Msg.Task.Id); err != nil {
+		t.Fatalf("seed legacy emoji icon: %v", err)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	got := fetched.Msg.Tasks[0].Icon
+	if got.GetType() != v1.IconType_ICON_TYPE_UNSPECIFIED || got.GetValue() != "🧹" {
+		t.Fatalf("expected a legacy emoji icon to read back as (UNSPECIFIED, 🧹), got %+v", got)
+	}
+}
+
+func TestTaskClassification(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|task-classification-tester")
+
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Testsons"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	// An unset classification defaults to MANDATORY, same as a task created
+	// before this field existed.
+	unset, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Dishes", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id},
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := unset.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+		t.Fatalf("expected default classification MANDATORY, got %v", got)
+	}
+
+	optional, err := s.CreateTask(ctx, connect.NewRequest(&v1.CreateTaskRequest{
+		FamilyId: fam.Msg.Family.Id, Title: "Tidy room", Schedule: cronSchedule("0 0 * * *"), Price: money(100),
+		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL,
+	}))
+	if err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+	if got := optional.Msg.Task.Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
+		t.Fatalf("expected classification OPTIONAL, got %v", got)
+	}
+
+	fetched, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks: %v", err)
+	}
+	byID := map[string]*v1.Task{}
+	for _, tk := range fetched.Msg.Tasks {
+		byID[tk.Id] = tk
+	}
+	if got := byID[unset.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+		t.Fatalf("expected persisted classification MANDATORY, got %v", got)
+	}
+	if got := byID[optional.Msg.Task.Id].Classification; got != v1.TaskClassification_TASK_CLASSIFICATION_OPTIONAL {
+		t.Fatalf("expected persisted classification OPTIONAL, got %v", got)
+	}
+
+	// Updating flips it back to MANDATORY.
+	if _, err := s.UpdateTask(ctx, connect.NewRequest(&v1.UpdateTaskRequest{
+		TaskId: optional.Msg.Task.Id, Title: "Tidy room", Schedule: cronSchedule("0 0 * * *"), Price: money(100), Active: true,
+		ChildIds: []string{child.Msg.User.Id}, Classification: v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY,
+	})); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	updated, err := s.ListTasks(ctx, connect.NewRequest(&v1.ListTasksRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListTasks after update: %v", err)
+	}
+	for _, tk := range updated.Msg.Tasks {
+		if tk.Id == optional.Msg.Task.Id && tk.Classification != v1.TaskClassification_TASK_CLASSIFICATION_MANDATORY {
+			t.Fatalf("expected classification updated to MANDATORY, got %v", tk.Classification)
+		}
 	}
 }

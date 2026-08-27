@@ -3,23 +3,21 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-// Bump this whenever a release changes app.js in a way that can't talk to
+// Bump this whenever a release changes app.js in a way that cannot talk to
 // the older server, or vice versa. The fetch handler below is cache-first,
 // so without a bump an already-installed client loads fresh index.html
 // against a *cached* app.js — fine for a cosmetic change, broken for an
 // API change, since the stale script sends fields the server no longer
-// accepts. Bumping makes install() re-fetch the whole precache list and
-// activate() drop everything under the old name.
+// accepts.
 //
-// v4: task prices and amounts became a Money message, the repeat fields
-// became a Schedule oneof, and completions folded into occurrences.
-const CACHE_NAME = "chores-shell-v4";
+// v16: prices and amounts became a Money message, the repeat fields became
+// a Schedule oneof, and completions folded into occurrences.
+const CACHE_NAME = "chores-shell-v16";
 const PRECACHE_URLS = [
   "/app.js",
   "/app.css",
   "/i18n.js",
   "/login.html",
-  "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
@@ -48,8 +46,18 @@ self.addEventListener("activate", (event) => {
 // risks serving a stale login page right after a successful login, forcing
 // a second one to see it clear. Every other document is a fixed static
 // file that's fine to cache.
+// The manifest is excluded for the same reason as "/": it is generated per
+// request now, with the app's name localized to ?lang= (see web/manifest.go).
+// Caching it would hand a Norwegian install the English name, which is
+// exactly the thing that name is supposed to follow.
 function isDynamic(pathname) {
-  return pathname === "/" || pathname.startsWith("/chores.v1.ChoresService/") || pathname.startsWith("/auth/") || pathname.startsWith("/invite/");
+  return (
+    pathname === "/" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname.startsWith("/chores.v1.ChoresService/") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/invite/")
+  );
 }
 
 // Push payloads are plain JSON ({title, body}) built server-side in

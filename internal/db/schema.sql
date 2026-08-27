@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     -- YYYY-MM-DD. See the WeeklySchedule.anchor_date and OnceSchedule.date
     -- proto comments for what this means per repeat_mode.
     start_date TEXT NOT NULL DEFAULT '',
+    -- 'mandatory' or 'optional'. Defaults to 'mandatory' so tasks created
+    -- before this column existed keep behaving as they always have.
+    classification TEXT NOT NULL DEFAULT 'mandatory',
     -- RFC3339 UTC, or NULL for a task that hasn't been deleted. Deletion is
     -- soft so that the occurrences a task produced outlive it, and so its
     -- schedule stays available to reconstruct past occurrences that were

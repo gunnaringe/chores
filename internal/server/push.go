@@ -162,9 +162,13 @@ func (s *Server) notifyTaskCompleted(familyID, excludeUserID, childName, taskTit
 		return
 	}
 
+	// No currency symbol here: which one (if any) to show is a per-device
+	// display preference set in the web UI's Settings (see formatMoney() in
+	// web/app.js), and this one push payload goes to every subscribed
+	// device in the family regardless of what each has chosen.
 	payload, err := json.Marshal(map[string]string{
 		"title": "Chores",
-		"body":  fmt.Sprintf("%s completed \"%s\" (kr %.2f)", childName, taskTitle, float64(amountCents)/100),
+		"body":  fmt.Sprintf("%s completed \"%s\" (%.2f)", childName, taskTitle, float64(amountCents)/100),
 	})
 	if err != nil {
 		log.Printf("push: build payload: %v", err)
