@@ -2988,6 +2988,29 @@ function renderPersonalAccessTokensSection() {
       }
       card.appendChild(row);
     });
+
+    // Only shown once a token actually exists — before that there's
+    // nothing valid to put in place of $TOKEN, and the example would just
+    // be confusing rather than useful.
+    // The command contains a literal " (around the header value), so its
+    // value is set as a property below rather than baked into the
+    // template's value="..." attribute — escapeHtml() only escapes
+    // &/</>, safe for text content but not for breaking out of a
+    // double-quoted attribute.
+    const usageCmd = `grpcurl -H "Authorization: Bearer $TOKEN" ${window.location.host} list`;
+    const usageField = el(`
+      <div class="field" style="margin-top:16px;">
+        <label>${escapeHtml(t("apiTokens.usageLabel"))}</label>
+        <div class="input-row">
+          <input type="text" readonly onclick="this.select()" />
+          <button type="button" class="secondary btn-icon" data-copy="usage" title="${escapeHtml(t("apiTokens.copyUsage"))}" aria-label="${escapeHtml(t("apiTokens.copyUsage"))}"><span class="material-symbols-outlined">content_copy</span></button>
+        </div>
+        <p class="hint" style="margin:6px 0 0;">${escapeHtml(t("apiTokens.usageHint"))}</p>
+      </div>
+    `);
+    usageField.querySelector("input").value = usageCmd;
+    wireCopyButton(usageField.querySelector('[data-copy="usage"]'), usageCmd, t("apiTokens.copyUsage"));
+    card.appendChild(usageField);
   }
 
   const createField = el(`
