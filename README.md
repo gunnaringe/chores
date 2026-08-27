@@ -129,7 +129,7 @@ chore done, for example).
 ## Running
 
 ```bash
-go run ./cmd/chores -addr=:8080 -db=../chores-data/chores.db
+go run ./cmd/chores -addr=:8080 -db=chores.db
 ```
 
 Then open http://localhost:8080. A login is always required (see
@@ -350,16 +350,14 @@ fly volumes snapshots create <volume-id> --app <app>
 
 Pull a copy, **including the `-wal` sidecar**. SQLite keeps recent writes
 there, and a database copied without it can be missing nearly everything
-while still opening cleanly. Databases live in `../chores-data`, a sibling
-of the repo, so no working copy of real family data ever sits inside the
-working tree:
+while still opening cleanly:
 
 ```bash
-fly ssh sftp get /data/chores.db ../chores-data/prod-chores.db --app <app>
+fly ssh sftp get /data/chores.db ./prod-chores.db --app <app>
 ```
 
 ```bash
-fly ssh sftp get /data/chores.db-wal ../chores-data/prod-chores.db-wal --app <app>
+fly ssh sftp get /data/chores.db-wal ./prod-chores.db-wal --app <app>
 ```
 
 Audit the copy, migrate it, and audit it again. `cmd/dbaudit` opens the
@@ -367,7 +365,7 @@ file read-only and understands both the pre- and post-migration layouts,
 so the two runs are directly comparable:
 
 ```bash
-go run ./cmd/dbaudit ../chores-data/prod-chores.db
+go run ./cmd/dbaudit ./prod-chores.db
 ```
 
 Every per-child balance it prints has to be identical after the migration.
