@@ -98,6 +98,39 @@ function labelWithCurrencyUnit(label) {
   return symbol ? `${label} (${symbol})` : label;
 }
 
+// ---- theme (device-level display preference) ---------------------------
+//
+// Same shape as currency and language: a client-only preference, never sent
+// to the server. "" (the default) means "follow the OS", which is exactly
+// what the app did before this setting existed — see app.css, where the
+// dark tokens under prefers-color-scheme only apply to :root:not([data-theme]).
+// index.html and login.html carry a standalone copy of applyTheme() in their
+// <head>, since it has to run before first paint (like the icons-loading
+// script) and app.js isn't loaded that early; keep the three in step.
+const THEMES = ["light", "dark", "retro", "playful"];
+
+function getTheme() {
+  const stored = localStorage.getItem("chores.theme");
+  return THEMES.includes(stored) ? stored : "";
+}
+function setTheme(theme) {
+  if (THEMES.includes(theme)) localStorage.setItem("chores.theme", theme);
+  else localStorage.removeItem("chores.theme");
+  applyTheme();
+}
+
+// Sets data-theme (or clears it, for "follow the OS") and syncs the browser
+// chrome color to match. Reads --bg back off the CSSOM rather than
+// hardcoding per-theme hex values here, so app.css stays the only place a
+// theme's palette is actually defined.
+function applyTheme() {
+  const theme = getTheme();
+  if (theme) document.documentElement.setAttribute("data-theme", theme);
+  else document.documentElement.removeAttribute("data-theme");
+  const meta = document.getElementById("theme-color-meta");
+  if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+}
+
 const todayStr = () => {
   const d = new Date();
   const tz = d.getTimezoneOffset();
@@ -393,6 +426,37 @@ function renderCurrencySwitcher() {
   `);
   card.querySelector("#currency-switcher").addEventListener("change", (e) => {
     setCurrency(e.target.value);
+    render();
+  });
+  return card;
+}
+
+// Same shape again — a device-level display preference. "" is "Match
+// device" (today's default: follow the OS), listed first as the default
+// rather than defaulting to "Light" the way CURRENCIES defaults to "None",
+// since an explicit light/dark choice here means "ignore the OS", not
+// "no preference".
+const THEME_OPTIONS = [
+  { value: "", labelKey: "settings.themeSystem" },
+  { value: "light", labelKey: "settings.themeLight" },
+  { value: "dark", labelKey: "settings.themeDark" },
+  { value: "retro", labelKey: "settings.themeRetro" },
+  { value: "playful", labelKey: "settings.themePlayful" },
+];
+function renderThemeSwitcher() {
+  const current = getTheme();
+  const options = THEME_OPTIONS.map((o) => `<option value="${o.value}" ${o.value === current ? "selected" : ""}>${escapeHtml(t(o.labelKey))}</option>`).join("");
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("settings.themeHeading"))}</h2>
+      <p class="hint" style="margin:0 0 10px;">${escapeHtml(t("settings.themeHint"))}</p>
+      <select id="theme-switcher" aria-label="${escapeHtml(t("settings.themeHeading"))}">
+        ${options}
+      </select>
+    </div>
+  `);
+  card.querySelector("#theme-switcher").addEventListener("change", (e) => {
+    setTheme(e.target.value);
     render();
   });
   return card;
@@ -2631,6 +2695,7 @@ function renderSettingsTab() {
 
   wrap.appendChild(renderLangSwitcher());
   wrap.appendChild(renderCurrencySwitcher());
+  wrap.appendChild(renderThemeSwitcher());
 
   const notifCard = el(`<div class="card"><h2>${escapeHtml(t("settings.notificationsHeading"))}</h2></div>`);
   if (!pushSupported()) {
@@ -3067,6 +3132,19 @@ function renderPersonalAccessTokensSection() {
 }
 
 // ---- boot -----------------------------------------------------
+
+// index.html/login.html already applied the stored theme before first
+// paint (see the comment on applyTheme() above); this call is just to
+// pick up a change made in another tab since then. When no theme is
+// stored ("follow the OS"), the OS can still flip while this tab stays
+// open, and only JS — not the meta tag's own media attribute, gone now
+// that applyTheme() owns it — can react to that.
+applyTheme();
+if (window.matchMedia) {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (!getTheme()) applyTheme();
+  });
+}
 
 if (isDashboardRoute()) {
   bootDashboard();

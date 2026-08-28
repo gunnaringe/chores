@@ -9,6 +9,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="/app.css" />
+<meta name="theme-color" content="#f2f3f7" id="theme-color-meta" />
+<script>
+  // Applies a stored theme choice (Settings > Theme) before first paint, so
+  // the app never flashes its default theme first on a device that picked
+  // something else — same reasoning as icons-loading below, just for
+  // color-scheme instead of icon glyphs. This is a standalone copy of
+  // applyTheme() in app.js: that file loads too late in <body> to beat
+  // paint, and login.html needs the exact same logic, so it's duplicated
+  // rather than shared. Keep all three in step.
+  (function () {
+    var theme = localStorage.getItem("chores.theme");
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+    var meta = document.getElementById("theme-color-meta");
+    if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+  })();
+</script>
 <!-- display=block: Material Symbols are rendered as ligature text, so the
      default swap behaviour flashes raw names ("expand_more") until the font
      lands. Blocking briefly shows nothing instead of showing nonsense —
@@ -83,8 +99,6 @@
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#101216" media="(prefers-color-scheme: dark)" />
 <meta name="color-scheme" content="light dark" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
