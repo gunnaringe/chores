@@ -242,6 +242,7 @@ const state = {
   dashboardMode: false, // true when the page was loaded at /dashboard
   dashboardKey: null,
   dashboardConfig: null, // { enabled, dashboardKey } — this family's own kiosk config, shown in Settings
+  dashboardScreen: "today", // "today" | "settings" — which screen the kiosk itself is showing; resets to "today" on every reload
   // This login's personal access tokens (see settings.apiTokensHeading) —
   // identity-scoped rather than family-scoped, so unlike dashboardConfig
   // this is NOT reset in setFamilyId when switching families.
@@ -582,8 +583,13 @@ function render() {
     } else {
       app.appendChild(renderDashboardBar());
       const kiosk = el(`<main class="content no-tabbar"></main>`);
-      kiosk.appendChild(el(`<h1 class="screen-title">${escapeHtml(t("tabs.today"))}</h1>`));
-      kiosk.appendChild(renderTodayTab());
+      if (state.dashboardScreen === "settings") {
+        kiosk.appendChild(el(`<h1 class="screen-title">${escapeHtml(t("dashboard.settingsButton"))}</h1>`));
+        kiosk.appendChild(renderDashboardSettingsScreen());
+      } else {
+        kiosk.appendChild(el(`<h1 class="screen-title">${escapeHtml(t("tabs.today"))}</h1>`));
+        kiosk.appendChild(renderDashboardTodayView());
+      }
       app.appendChild(kiosk);
     }
     return;
@@ -990,11 +996,15 @@ function avatarHtml(user, extraClass) {
 // <select> stretched over it: the chip is what gets to look like part of a
 // header, while the platform's own picker (a wheel on a phone) is still
 // what opens on tap — no hand-built dropdown to get wrong.
-function renderSwitcherChip({ id, label, options, selectedValue, plain, onChange }) {
+function renderSwitcherChip({ id, label, options, selectedValue, plain, avatarUser, onChange }) {
   const switchable = options.length > 1;
+  // avatarUser lets a caller outside the app bar (the kiosk's child
+  // switcher, in single-child mode) show the selected child's own avatar
+  // instead of the logged-in user's. Both app-bar switchers still work
+  // unchanged, since neither passes it and this falls back to currentUser().
   const chip = el(`
     <div class="chip ${plain ? "chip-plain" : ""}">
-      ${plain ? `<span class="appbar-family"></span>` : `${avatarHtml(currentUser())}<span class="chip-name"></span>`}
+      ${plain ? `<span class="appbar-family"></span>` : `${avatarHtml(avatarUser !== undefined ? avatarUser : currentUser())}<span class="chip-name"></span>`}
       ${switchable ? `<span class="material-symbols-outlined chip-caret">unfold_more</span>` : ""}
     </div>
   `);
@@ -1102,13 +1112,23 @@ function renderViewingAsNotice() {
 // its app bar is just the app's own name, so a wall-mounted tablet still
 // looks like it's running something rather than showing a bare list.
 function renderDashboardBar() {
-  return el(`
+  const showingSettings = state.dashboardScreen === "settings";
+  const label = showingSettings ? t("dashboard.backButton") : t("dashboard.settingsButton");
+  const bar = el(`
     <header class="appbar">
       <div class="appbar-inner">
         <div class="appbar-family">${escapeHtml(appName())}</div>
+        <button type="button" class="secondary btn-icon" id="dashboard-settings-toggle" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+          <span class="material-symbols-outlined">${showingSettings ? "arrow_back" : "settings"}</span>
+        </button>
       </div>
     </header>
   `);
+  bar.querySelector("#dashboard-settings-toggle").addEventListener("click", () => {
+    state.dashboardScreen = showingSettings ? "today" : "settings";
+    render();
+  });
+  return bar;
 }
 
 // ---- Today tab (parents): today's status per child, at a glance -----------------------------------------------------
@@ -1156,44 +1176,74 @@ function appendOccurrenceSections(container, occurrences, childId, opts) {
   });
 }
 
-function renderTodayTab() {
+// One child's card: avatar + name (or, in the kiosk's single-child mode, a
+// switcher chip in that exact spot — see opts.switchOptions), today's
+// tasks, and the earned/owed stat strip. Extracted out of renderTodayTab so
+// the kiosk dashboard's "one child at a time" mode can reuse this same card
+// for whichever child is currently selected instead of duplicating it.
+function renderChildCard(s, opts) {
+  opts = opts || {};
+  const todays = state.occurrences.filter((o) => o.childId === s.child.id);
+  const doneCount = todays.filter((o) => o.completedAt).length;
+  const metaText = todays.length ? t("today.progress", { done: doneCount, total: todays.length }) : t("childTasks.empty");
+
+  const card = el(`<div class="card"></div>`);
+  const headerRow = el(`<div class="row" style="padding-top:0;"><div class="task-row-main"></div></div>`);
+  const mainRow = headerRow.querySelector(".task-row-main");
+
+  if (opts.switchOptions && opts.switchOptions.length > 1) {
+    mainRow.appendChild(
+      renderSwitcherChip({
+        id: "dashboard-child-switch",
+        label: t("dashboard.switchChildLabel"),
+        avatarUser: s.child,
+        selectedValue: s.child.id,
+        options: opts.switchOptions.map((c) => ({ value: c.id, label: c.name })),
+        onChange: (value) => {
+          setDashboardSelectedChildId(value);
+          render();
+        },
+      })
+    );
+    mainRow.appendChild(el(`<div class="task-row-text"><div class="task-meta">${escapeHtml(metaText)}</div></div>`));
+  } else {
+    mainRow.appendChild(el(avatarHtml(s.child, "lg")));
+    mainRow.appendChild(el(`
+      <div class="task-row-text">
+        <div class="task-title">${escapeHtml(s.child.name)}</div>
+        <div class="task-meta">${escapeHtml(metaText)}</div>
+      </div>
+    `));
+  }
+  card.appendChild(headerRow);
+
+  if (!todays.length) {
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
+  } else {
+    appendOccurrenceSections(card, todays, s.child.id);
+  }
+
+  card.appendChild(el(`
+    <div class="grid-2 stat-strip">
+      <div class="stat"><div class="value">${formatAmount(s.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
+      <div class="stat"><div class="value">${formatAmount(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
+    </div>
+  `));
+  return card;
+}
+
+// summaries defaults to state.summaries (the parent's own Today tab); the
+// kiosk dashboard passes a filtered list instead, so the two never drift
+// into separate copies of the same card markup.
+function renderTodayTab(summaries) {
+  const list = summaries || state.summaries;
   const wrap = el(`<div></div>`);
-  if (!state.summaries.length) {
+  if (!list.length) {
     wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("accounting.noChildren"))}</p></div>`));
     return wrap;
   }
 
-  state.summaries.forEach((s) => {
-    const todays = state.occurrences.filter((o) => o.childId === s.child.id);
-    const doneCount = todays.filter((o) => o.completedAt).length;
-    const card = el(`
-      <div class="card">
-        <div class="row" style="padding-top:0;">
-          <div class="task-row-main">
-            ${avatarHtml(s.child, "lg")}
-            <div class="task-row-text">
-              <div class="task-title">${escapeHtml(s.child.name)}</div>
-              <div class="task-meta">${escapeHtml(todays.length ? t("today.progress", { done: doneCount, total: todays.length }) : t("childTasks.empty"))}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `);
-
-    if (!todays.length) {
-      card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
-    } else {
-      appendOccurrenceSections(card, todays, s.child.id);
-    }
-
-    card.appendChild(el(`
-      <div class="grid-2 stat-strip">
-        <div class="stat"><div class="value">${formatAmount(s.earnedToday)}</div><div class="label">${escapeHtml(t("accounting.earnedToday"))}</div></div>
-        <div class="stat"><div class="value">${formatAmount(s.balance)}</div><div class="label">${escapeHtml(t("accounting.balanceOwed"))}</div></div>
-      </div>
-    `));
-    wrap.appendChild(card);
-  });
+  list.forEach((s) => wrap.appendChild(renderChildCard(s)));
 
   return wrap;
 }
@@ -2790,6 +2840,138 @@ function startDashboardAutoRefresh() {
   setInterval(() => {
     if (state.dashboardKey) withError(loadDashboardData);
   }, AUTO_REFRESH_MS);
+}
+
+// ---- Dashboard mode: the kiosk's own device-level display settings -----
+//
+// Same shape as theme/currency/lang — client-only, never sent to the
+// server, read straight off localStorage rather than cached in `state`.
+// Scoped to the kiosk screen itself (there's no login here to hang a
+// preference off), reachable from the kiosk's own gear icon rather than
+// the family's Settings tab.
+
+const DASHBOARD_VIEW_MODE_STORAGE = "chores.dashboardViewMode";
+function getDashboardViewMode() {
+  return localStorage.getItem(DASHBOARD_VIEW_MODE_STORAGE) === "single" ? "single" : "all";
+}
+function setDashboardViewMode(mode) {
+  if (mode === "single") localStorage.setItem(DASHBOARD_VIEW_MODE_STORAGE, "single");
+  else localStorage.removeItem(DASHBOARD_VIEW_MODE_STORAGE);
+}
+
+const DASHBOARD_SELECTED_CHILD_STORAGE = "chores.dashboardSelectedChildId";
+function getDashboardSelectedChildId() {
+  return localStorage.getItem(DASHBOARD_SELECTED_CHILD_STORAGE) || null;
+}
+function setDashboardSelectedChildId(childId) {
+  if (childId) localStorage.setItem(DASHBOARD_SELECTED_CHILD_STORAGE, childId);
+  else localStorage.removeItem(DASHBOARD_SELECTED_CHILD_STORAGE);
+}
+
+// Which children the kiosk shows at all — stored as the exclusions rather
+// than the inclusions, so a child added to the family later defaults to
+// shown instead of silently missing from a stale allow-list.
+const DASHBOARD_EXCLUDED_CHILDREN_STORAGE = "chores.dashboardExcludedChildIds";
+function getDashboardExcludedChildIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DASHBOARD_EXCLUDED_CHILDREN_STORAGE) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch (_) {
+    return [];
+  }
+}
+function setDashboardChildIncluded(childId, included) {
+  const excluded = new Set(getDashboardExcludedChildIds());
+  if (included) excluded.delete(childId);
+  else excluded.add(childId);
+  if (excluded.size) localStorage.setItem(DASHBOARD_EXCLUDED_CHILDREN_STORAGE, JSON.stringify([...excluded]));
+  else localStorage.removeItem(DASHBOARD_EXCLUDED_CHILDREN_STORAGE);
+}
+
+function dashboardIncludedSummaries() {
+  const excluded = getDashboardExcludedChildIds();
+  return state.summaries.filter((s) => !excluded.includes(s.child.id));
+}
+
+// The kiosk's main screen: every included child's card (unchanged from
+// before this setting existed) or, in single-child mode, just the selected
+// one with a switcher chip standing in for its usual avatar+name.
+function renderDashboardTodayView() {
+  const included = dashboardIncludedSummaries();
+  if (getDashboardViewMode() === "single") return renderDashboardSingleChildView(included);
+  return renderTodayTab(included);
+}
+
+function renderDashboardSingleChildView(included) {
+  const wrap = el(`<div></div>`);
+  if (!included.length) {
+    wrap.appendChild(el(`<div class="card"><p class="empty">${escapeHtml(t("accounting.noChildren"))}</p></div>`));
+    return wrap;
+  }
+  let selected = included.find((s) => s.child.id === getDashboardSelectedChildId());
+  if (!selected) {
+    // Nothing stored yet, or the stored id fell out of the included set
+    // (excluded from Settings, or removed from the family) — fall back to
+    // the first included child and remember that choice.
+    selected = included[0];
+    setDashboardSelectedChildId(selected.child.id);
+  }
+  wrap.appendChild(renderChildCard(selected, { switchOptions: included.map((s) => s.child) }));
+  return wrap;
+}
+
+function renderDashboardSettingsScreen() {
+  const wrap = el(`<div></div>`);
+  wrap.appendChild(renderDashboardViewModeSetting());
+  wrap.appendChild(renderDashboardIncludedChildrenSetting());
+  wrap.appendChild(renderThemeSwitcher());
+  wrap.appendChild(renderLangSwitcher());
+  return wrap;
+}
+
+function renderDashboardViewModeSetting() {
+  const current = getDashboardViewMode();
+  const card = el(`
+    <div class="card">
+      <h2>${escapeHtml(t("dashboard.viewModeHeading"))}</h2>
+      <p class="hint" style="margin:0 0 10px;">${escapeHtml(t("dashboard.viewModeHint"))}</p>
+      <select id="dashboard-view-mode" aria-label="${escapeHtml(t("dashboard.viewModeHeading"))}">
+        <option value="all" ${current === "all" ? "selected" : ""}>${escapeHtml(t("dashboard.viewModeAll"))}</option>
+        <option value="single" ${current === "single" ? "selected" : ""}>${escapeHtml(t("dashboard.viewModeSingle"))}</option>
+      </select>
+    </div>
+  `);
+  card.querySelector("#dashboard-view-mode").addEventListener("change", (e) => {
+    setDashboardViewMode(e.target.value);
+    render();
+  });
+  return card;
+}
+
+// Same tap-to-toggle chip list as the task editor's "which children is
+// this assigned to" picker (see .toggle-chip in app.css) — a checked chip
+// means shown on the kiosk.
+function renderDashboardIncludedChildrenSetting() {
+  const card = el(`<div class="card"><h2>${escapeHtml(t("dashboard.includeHeading"))}</h2></div>`);
+  card.appendChild(el(`<p class="hint" style="margin:0 0 10px;">${escapeHtml(t("dashboard.includeHint"))}</p>`));
+  if (!state.summaries.length) {
+    card.appendChild(el(`<p class="empty">${escapeHtml(t("accounting.noChildren"))}</p>`));
+    return card;
+  }
+  const excluded = getDashboardExcludedChildIds();
+  const checksWrap = el(`<div class="chip-group"></div>`);
+  state.summaries.forEach((s) => {
+    const label = el(`<label class="toggle-chip">
+      <input type="checkbox" data-child-id="${s.child.id}" ${excluded.includes(s.child.id) ? "" : "checked"} />${escapeHtml(s.child.name)}
+    </label>`);
+    label.querySelector("input").addEventListener("change", (e) => {
+      setDashboardChildIncluded(s.child.id, e.target.checked);
+      render();
+    });
+    checksWrap.appendChild(label);
+  });
+  card.appendChild(checksWrap);
+  return card;
 }
 
 // Shared by the boot sequence (a stored or ?key=-supplied key) and the

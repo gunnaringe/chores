@@ -408,6 +408,15 @@ they'd reject an anonymous one. "Regenerate key" invalidates the old key
 immediately (any device still using it falls back to the key prompt) and
 "Disable dashboard" turns the feature off until set up again.
 
+The kiosk screen has its own small Settings page too (a gear icon in its
+app bar, separate from the family's own Settings) — theme and language,
+same device-level preferences as the main app; which children it shows at
+all; and whether it shows every included child at once (the default, as
+above) or one at a time with a switcher in place of that child's name, for
+a screen too small to show everyone. All three are stored in that
+browser's `localStorage`, same as the dashboard key itself, so they're
+per-device and never touch the server.
+
 ## External API access
 
 Two ways exist to call the Connect API from outside the browser, and they're
