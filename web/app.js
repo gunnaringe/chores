@@ -107,7 +107,7 @@ function labelWithCurrencyUnit(label) {
 // index.html and login.html carry a standalone copy of applyTheme() in their
 // <head>, since it has to run before first paint (like the icons-loading
 // script) and app.js isn't loaded that early; keep the three in step.
-const THEMES = ["light", "dark", "retro", "playful", "hacker"];
+const THEMES = ["light", "dark", "retro", "playful", "hacker", "space-invaders", "high-contrast"];
 
 function getTheme() {
   const stored = localStorage.getItem("chores.theme");
@@ -443,6 +443,8 @@ const THEME_OPTIONS = [
   { value: "retro", labelKey: "settings.themeRetro" },
   { value: "playful", labelKey: "settings.themePlayful" },
   { value: "hacker", labelKey: "settings.themeHacker" },
+  { value: "space-invaders", labelKey: "settings.themeSpaceInvaders" },
+  { value: "high-contrast", labelKey: "settings.themeHighContrast" },
 ];
 function renderThemeSwitcher() {
   const current = getTheme();
