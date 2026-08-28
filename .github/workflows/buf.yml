@@ -1,0 +1,40 @@
+name: Buf
+
+# The unified buf-action covers lint/format/breaking on PRs and pushing to
+# the BSR on main from one config, driven by which event fired — see the
+# "Continuous integration" section of the README. `labeled`/`unlabeled` are
+# needed for the action's "skip breaking via label" feature, not something
+# this repo currently uses.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - "proto/**"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+  push:
+    branches: [main]
+    paths:
+      - "proto/**"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-action@v1
+        with:
+          version: "1.72.0"
+          # lint/format/breaking already default to pull_request and push
+          # already defaults to the push event, so nothing needs setting
+          # for those. breaking_against defaults to the PR's base branch
+          # via git, not the BSR, so that step needs no token either —
+          # only `buf push` (on a push to main) actually does.
+          token: ${{ github.event_name == 'push' && secrets.BUF_TOKEN || '' }}

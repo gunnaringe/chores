@@ -1,0 +1,23 @@
+name: pre-commit
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  prek:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.72.0"
+      # Node ships preinstalled on ubuntu-latest, so the node-check hook
+      # needs nothing extra set up here.
+      - uses: j178/prek-action@v3.0.0
