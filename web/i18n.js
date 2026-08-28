@@ -283,6 +283,7 @@ const TRANSLATIONS = {
 
     "login.tagline": "Family chores and allowance, in one place.",
     "login.button": "Log in",
+    "login.dashboardLink": "Have a dashboard code?",
     "login.howHeading": "How it works",
     "login.step1Title": "Parents set the chores",
     "login.step1Body": "Add a chore, set what it pays, and pick who it's for. Repeat it daily, weekly, or just once — and mark it a must-do or an optional extra.",
@@ -581,6 +582,7 @@ const TRANSLATIONS = {
 
     "login.tagline": "Husarbeid og ukelønn på ett sted.",
     "login.button": "Logg inn",
+    "login.dashboardLink": "Har du en dashbord-kode?",
     "login.howHeading": "Slik fungerer det",
     "login.step1Title": "Foreldre setter opp oppgavene",
     "login.step1Body": "Legg til en oppgave, sett hva den er verdt, og velg hvem den gjelder. Gjenta den daglig, ukentlig eller bare én gang — og merk den som må-gjøre eller valgfri ekstrajobb.",

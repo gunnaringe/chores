@@ -2993,6 +2993,18 @@ async function tryDashboardKey(key) {
   render();
 }
 
+// Undocumented: a parent who copies the whole dashboard URL (the copy
+// button next to it in Settings) rather than just the key can paste that
+// straight into this field too, instead of having to go pull the ?key=
+// value back out of it themselves first.
+function extractDashboardKey(raw) {
+  try {
+    return new URL(raw).searchParams.get("key") || raw;
+  } catch {
+    return raw;
+  }
+}
+
 function renderDashboardKeyPrompt() {
   const wrap = el(`<div class="hero" style="text-align:left;"></div>`);
   wrap.appendChild(el(`
@@ -3013,9 +3025,9 @@ function renderDashboardKeyPrompt() {
   `);
   const submit = () =>
     withError(async () => {
-      const key = form.querySelector("#dashboard-key-input").value.trim();
-      if (!key) throw new Error(t("dashboard.keyRequired"));
-      await tryDashboardKey(key);
+      const raw = form.querySelector("#dashboard-key-input").value.trim();
+      if (!raw) throw new Error(t("dashboard.keyRequired"));
+      await tryDashboardKey(extractDashboardKey(raw));
     });
   form.querySelector("#dashboard-key-submit").addEventListener("click", submit);
   form.querySelector("#dashboard-key-input").addEventListener("keydown", (e) => {
