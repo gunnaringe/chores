@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package chores.v1;
 
-option go_package = "github.com/gunnaringe/chores/gen/chores/v1;choresv1";
-
 import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/gunnaringe/chores/gen/chores/v1;choresv1";
 
 // An amount of money, always as a whole number of minor units — never a
 // float, which can't represent an exact number of øre. There is one
@@ -451,9 +451,9 @@ message ListTasksResponse {
 message ListTaskOccurrencesRequest {
   string family_id = 1;
   string start_date = 2; // YYYY-MM-DD; optional, defaults to the earliest
-                          // date any occurrence in the family could exist from
-  string end_date = 3;   // YYYY-MM-DD; optional, defaults to today
-  string child_id = 4;   // optional filter
+  // date any occurrence in the family could exist from
+  string end_date = 3; // YYYY-MM-DD; optional, defaults to today
+  string child_id = 4; // optional filter
   // Case-insensitive substring match against the occurrence's title or the
   // child's name. Optional; when set, start_date/end_date are typically
   // left unset, in which case the search spans the retention window — the

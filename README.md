@@ -517,12 +517,38 @@ buf generate
 The schema is also published to the [Buf Schema
 Registry](https://buf.build/apphub/chores), for anything that wants to
 depend on it without cloning this repo. `buf.yaml`'s `name:` points at that
-module, but publishing isn't automatic — there's no CI wired up for it — so
-after a schema change that should be reflected there, push it too:
+module, and pushing happens automatically on merge to `main` (see
+Continuous integration below) whenever `proto/`, `buf.yaml`, or
+`buf.gen.yaml` changed — no manual step needed. To push by hand anyway
+(e.g. to check a change against the BSR before opening a PR):
 
 ```bash
 buf push
 ```
+
+## Continuous integration
+
+Three GitHub Actions workflows run on every PR into `main`:
+
+- **CI** (`.github/workflows/ci.yml`) — `go build ./...` and
+  `go test ./...`. Also runs on pushes to `main` as a safety net.
+- **Buf** (`.github/workflows/buf.yml`) — lints and format-checks
+  `proto/chores/v1/chores.proto` and runs breaking-change detection against
+  the PR's base branch, via the single unified `bufbuild/buf-action`. On a
+  push to `main` that touches the schema, the same workflow instead runs
+  `buf push` to the BSR (see above) — that leg needs the `BUF_TOKEN`
+  repository secret, a BSR API token.
+- **pre-commit** (`.github/workflows/pre-commit.yml`) — runs
+  [`prek`](https://github.com/j178/prek) (a fast, dependency-free
+  reimplementation of `pre-commit`) against `.pre-commit-config.yaml`, so a
+  PR fails the same way whether or not the author had it installed
+  locally.
+
+`.pre-commit-config.yaml` itself mirrors the "Verifying a change" checklist
+in `CLAUDE.md` — `gofmt`, `go vet`, `buf lint`, `node --check` on the web
+JS files — rather than introducing a linter this repo doesn't otherwise
+use. Install it locally with `prek install` (git hook, runs on every
+commit) or run it on demand with `prek run --all-files`.
 
 ## Updating the Material Symbols icon list
 

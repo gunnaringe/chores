@@ -1,0 +1,35 @@
+# Run with `prek run --all-files` (or `pre-commit run --all-files` — the
+# config format is the same). `prek install` wires these into `git commit`
+# locally; .github/workflows/pre-commit.yml runs the same hooks on every PR
+# so a skipped or missing local install can't silently let something
+# through. Hooks mirror CLAUDE.md's "Verifying a change" checklist rather
+# than introducing a new linter this repo doesn't already use elsewhere.
+repos:
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        description: Every .go file must already be gofmt-clean (gen/ is generated, so it's exempt).
+        entry: >-
+          bash -c 'out=$(gofmt -l . | grep -v "^gen/"); [ -z "$out" ] || { echo "$out"; exit 1; }'
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: go-vet
+        name: go vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: buf-lint
+        name: buf lint
+        entry: buf lint
+        language: system
+        files: ^proto/
+        pass_filenames: false
+      - id: node-check
+        name: node --check (web JS)
+        description: Syntax-only check — catches parse errors, nothing about runtime/rendering behavior (see the verify-ui skill for that).
+        entry: node --check
+        language: system
+        files: ^web/(app|i18n|sw)\.js$

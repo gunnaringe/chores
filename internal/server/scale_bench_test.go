@@ -32,10 +32,10 @@ import (
 )
 
 type scaleParams struct {
-	families         int
-	childrenPerFam   int
-	tasksPerFam      int
-	daysOfHistory    int
+	families          int
+	childrenPerFam    int
+	tasksPerFam       int
+	daysOfHistory     int
 	completionsPerDay int // per child
 }
 
