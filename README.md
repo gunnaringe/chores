@@ -236,7 +236,7 @@ step.
 
 Settings offers a choice of **Match device** (the default — follows the
 OS's light/dark setting, which is all the app did before this option
-existed), **Light**, **Dark**, **Retro**, and **Playful**. Like the language
+existed), **Light**, **Dark**, **Retro**, **Playful**, and **Hacker**. Like the language
 and currency choices, it's purely a `localStorage` preference on that
 device and never reaches the server. Each theme is a block of CSS custom
 properties in `web/app.css` (`:root[data-theme="..."]`); add one there and
