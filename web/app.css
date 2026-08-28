@@ -50,6 +50,12 @@
   --pill-optional-bg: #e0e7ff;
   --pill-optional-fg: #3730a3;
 
+  /* A repeating decorative background tile, off by default — playful and
+     space-invaders set it. Read by the body rule below; kept as a token
+     rather than a per-theme body selector so themes without one don't need
+     to say so. */
+  --bg-pattern: none;
+
   --page: 860px;
   --gutter: 16px;
   --tabbar-h: 58px;
@@ -64,8 +70,9 @@
   font-size: 16px;
 }
 
-/* Settings offers an explicit Light/Dark/Retro/Playful choice on top of the
-   OS-following default ("Match device"). An explicit choice is stamped as
+/* Settings offers an explicit Light/Dark/Retro/Playful/Space Invaders/High
+   Contrast choice on top of the OS-following default ("Match device"). An
+   explicit choice is stamped as
    data-theme on <html> by applyTheme() in app.js (and, before that file
    even loads, by a standalone copy in index.html/login.html's <head> —
    see the comment there). The system-dark block below is scoped to
@@ -250,6 +257,12 @@
 
   color-scheme: light;
   font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", sans-serif;
+
+  /* A repeating teddy bear, heart, star and balloon tile, tinted just
+     above the surface color — see --bg-pattern's definition above. Cards
+     stay opaque, so this only actually shows in the gaps between them and
+     faintly through the translucent app bar/tab bar, not behind text. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%20viewBox='0%200%20160%20160'%3E%3Cg%20fill='%23ffb8de'%20opacity='0.55'%3E%3Ccircle%20cx='40'%20cy='42'%20r='14'/%3E%3Ccircle%20cx='29'%20cy='27'%20r='5'/%3E%3Ccircle%20cx='51'%20cy='27'%20r='5'/%3E%3Cellipse%20cx='40'%20cy='48'%20rx='4'%20ry='3'/%3E%3Cg%20transform='translate(98,8)%20scale(1.3)'%3E%3Cpath%20d='M12%2021s-8-4.5-8-11a5%205%200%200%201%208-4%205%205%200%200%201%208%204c0%206.5-8%2011-8%2011z'/%3E%3C/g%3E%3Cg%20transform='translate(6,90)%20scale(1.15)'%3E%3Cpath%20d='M12%202l2.9%206.9L22%209.3l-5.5%204.8L18.2%2022%2012%2018.3%205.8%2022l1.7-7.9L2%209.3l7.1-.4z'/%3E%3C/g%3E%3Cellipse%20cx='128'%20cy='112'%20rx='9'%20ry='12'/%3E%3Cpath%20d='M128%20124l-2%206h4z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* A CRT terminal: near-black surfaces, green-on-black text, square corners,
@@ -301,6 +314,104 @@
   font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
+/* An arcade cabinet: black surfaces, a cyan/magenta/invader-green palette
+   distinct from hacker's uniform green-on-black, zero radius (pixel-art
+   square edges, more literal than hacker's slightly-rounded "CRT" look),
+   and hard-edged offset shadows instead of soft blur. */
+:root[data-theme="space-invaders"] {
+  --bg: #000000;
+  --surface: #0a0a12;
+  --card: #0a0a12;
+  --surface-sunken: #12121e;
+  --text: #e8e8f0;
+  --muted: #8888a8;
+  --faint: #55557a;
+  --border: #22223a;
+  --border-strong: #33335a;
+
+  --accent: #00e5ff;
+  --accent-hover: #33ecff;
+  --accent-soft: #0a2a30;
+  --accent-fg: #001014;
+  --green: #39ff14;
+  --green-soft: #0d2a08;
+  --red: #ff2e4d;
+  --red-soft: #2a0a10;
+  --red-text: #ff6b81;
+
+  --shadow-sm: 2px 2px 0 rgba(0, 229, 255, 0.15);
+  --shadow-md: 3px 3px 0 rgba(0, 229, 255, 0.2);
+  --shadow-lg: 4px 4px 0 rgba(0, 229, 255, 0.25);
+
+  --r-xl: 0;
+  --r-lg: 0;
+  --r-md: 0;
+  --r-sm: 0;
+
+  --pill-parent-bg: #0a2a30;
+  --pill-parent-fg: #00e5ff;
+  --pill-child-bg: #0d2a08;
+  --pill-child-fg: #39ff14;
+  --pill-notcompleted-bg: #2a0a10;
+  --pill-notcompleted-fg: #ff6b81;
+  --pill-mandatory-bg: #2a2408;
+  --pill-mandatory-fg: #ffe14d;
+  --pill-optional-bg: #1a0a2a;
+  --pill-optional-fg: #cc7aff;
+
+  color-scheme: dark;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* One pixel-grid alien, repeated — the same idea as playful's tile
+     above, just a single blocky path instead of rects/curves to keep the
+     data URI shorter. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='100'%20viewBox='0%200%20100%20100'%3E%3Cpath%20transform='translate(17,26)'%20fill='%2339ff14'%20opacity='0.3'%20d='M12%200%20h6%20v6%20h-6%20ZM48%200%20h6%20v6%20h-6%20ZM18%206%20h6%20v6%20h-6%20ZM42%206%20h6%20v6%20h-6%20ZM12%2012%20h6%20v6%20h-6%20ZM18%2012%20h6%20v6%20h-6%20ZM24%2012%20h6%20v6%20h-6%20ZM30%2012%20h6%20v6%20h-6%20ZM36%2012%20h6%20v6%20h-6%20ZM42%2012%20h6%20v6%20h-6%20ZM48%2012%20h6%20v6%20h-6%20ZM6%2018%20h6%20v6%20h-6%20ZM12%2018%20h6%20v6%20h-6%20ZM24%2018%20h6%20v6%20h-6%20ZM30%2018%20h6%20v6%20h-6%20ZM36%2018%20h6%20v6%20h-6%20ZM48%2018%20h6%20v6%20h-6%20ZM54%2018%20h6%20v6%20h-6%20ZM0%2024%20h6%20v6%20h-6%20ZM6%2024%20h6%20v6%20h-6%20ZM12%2024%20h6%20v6%20h-6%20ZM18%2024%20h6%20v6%20h-6%20ZM24%2024%20h6%20v6%20h-6%20ZM30%2024%20h6%20v6%20h-6%20ZM36%2024%20h6%20v6%20h-6%20ZM42%2024%20h6%20v6%20h-6%20ZM48%2024%20h6%20v6%20h-6%20ZM54%2024%20h6%20v6%20h-6%20ZM60%2024%20h6%20v6%20h-6%20ZM0%2030%20h6%20v6%20h-6%20ZM12%2030%20h6%20v6%20h-6%20ZM18%2030%20h6%20v6%20h-6%20ZM24%2030%20h6%20v6%20h-6%20ZM30%2030%20h6%20v6%20h-6%20ZM36%2030%20h6%20v6%20h-6%20ZM42%2030%20h6%20v6%20h-6%20ZM48%2030%20h6%20v6%20h-6%20ZM60%2030%20h6%20v6%20h-6%20ZM0%2036%20h6%20v6%20h-6%20ZM12%2036%20h6%20v6%20h-6%20ZM48%2036%20h6%20v6%20h-6%20ZM60%2036%20h6%20v6%20h-6%20ZM18%2042%20h6%20v6%20h-6%20ZM24%2042%20h6%20v6%20h-6%20ZM36%2042%20h6%20v6%20h-6%20ZM42%2042%20h6%20v6%20h-6%20Z'/%3E%3C/svg%3E");
+}
+
+/* Maximum legibility: pure black text on white, black borders throughout
+   (border and border-strong collapse to the same value), and darkened
+   semantic colors chosen to keep strong contrast against white rather
+   than the app's usual soft pastel accents. No background pattern and no
+   radius/font override — this theme is about contrast, not decoration. */
+:root[data-theme="high-contrast"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --surface-sunken: #e8e8e8;
+  --text: #000000;
+  --muted: #3a3a3a;
+  --faint: #545454;
+  --border: #000000;
+  --border-strong: #000000;
+
+  --accent: #0033cc;
+  --accent-hover: #002299;
+  --accent-soft: #cce0ff;
+  --accent-fg: #ffffff;
+  --green: #006400;
+  --green-soft: #d6f5d6;
+  --red: #b30000;
+  --red-soft: #ffd6d6;
+  --red-text: #7a0000;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 6px 16px rgba(0, 0, 0, 0.4);
+
+  --pill-parent-bg: #cce0ff;
+  --pill-parent-fg: #001a4d;
+  --pill-child-bg: #d6f5d6;
+  --pill-child-fg: #003300;
+  --pill-notcompleted-bg: #ffd6d6;
+  --pill-notcompleted-fg: #4d0000;
+  --pill-mandatory-bg: #fff0b3;
+  --pill-mandatory-fg: #4d3800;
+  --pill-optional-bg: #e6d6ff;
+  --pill-optional-fg: #2e004d;
+
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; }
 
 html {
@@ -313,7 +424,9 @@ body.sheet-open { overflow: hidden; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--bg-pattern);
+  background-repeat: repeat;
   color: var(--text);
   line-height: 1.45;
   /* App-like touch behaviour: no grey flash on tap, no double-tap zoom

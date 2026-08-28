@@ -236,11 +236,22 @@ step.
 
 Settings offers a choice of **Match device** (the default — follows the
 OS's light/dark setting, which is all the app did before this option
-existed), **Light**, **Dark**, **Retro**, **Playful**, and **Hacker**. Like the language
-and currency choices, it's purely a `localStorage` preference on that
-device and never reaches the server. Each theme is a block of CSS custom
-properties in `web/app.css` (`:root[data-theme="..."]`); add one there and
-an entry in `THEME_OPTIONS` in `web/app.js` to add another.
+existed), **Light**, **Dark**, **Retro**, **Playful**, **Hacker**, **Space
+Invaders**, and **High Contrast**. Like the language and currency choices,
+it's purely a `localStorage` preference on that device and never reaches
+the server. Each theme is a block of CSS custom properties in
+`web/app.css` (`:root[data-theme="..."]`); add one there and an entry in
+`THEME_OPTIONS` in `web/app.js` to add another.
+
+Playful and Space Invaders also set `--bg-pattern`, a repeating decorative
+background tile (teddy bears/hearts/stars, and a pixel-art alien,
+respectively) drawn as an inline SVG data URI rather than a separate asset
+file — consistent with everything else here being embedded at build time
+rather than fetched. It only shows in the gaps between cards and faintly
+through the translucent app bar/tab bar, never behind text, since cards
+stay opaque. High Contrast deliberately sets none: black-on-white with
+black borders throughout, for the OS-agnostic case where the device's own
+accessibility settings aren't enough.
 
 ## Authentication
 
