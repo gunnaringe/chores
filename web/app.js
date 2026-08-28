@@ -107,7 +107,7 @@ function labelWithCurrencyUnit(label) {
 // index.html and login.html carry a standalone copy of applyTheme() in their
 // <head>, since it has to run before first paint (like the icons-loading
 // script) and app.js isn't loaded that early; keep the three in step.
-const THEMES = ["light", "dark", "retro", "playful"];
+const THEMES = ["light", "dark", "retro", "playful", "hacker"];
 
 function getTheme() {
   const stored = localStorage.getItem("chores.theme");
@@ -442,6 +442,7 @@ const THEME_OPTIONS = [
   { value: "dark", labelKey: "settings.themeDark" },
   { value: "retro", labelKey: "settings.themeRetro" },
   { value: "playful", labelKey: "settings.themePlayful" },
+  { value: "hacker", labelKey: "settings.themeHacker" },
 ];
 function renderThemeSwitcher() {
   const current = getTheme();
@@ -2978,13 +2979,18 @@ let confirmingRevokeTokenId = null;
 // rather than one crammed line. Shared by the grpcurl and plain-JSON usage
 // examples on the personal access tokens page.
 function renderTerminalCommandField(label, cmd, hint) {
-  // One row per logical line, plus one for headroom: the Authorization
-  // header line is long enough to wrap onto a second visual row on a
-  // narrow phone, and a row count that didn't allow for that would
-  // silently clip the last line instead of just wasting a little space on
-  // a wider screen. Computed from cmd itself rather than a fixed number —
-  // callers' commands don't all have the same number of lines.
-  const rows = cmd.split("\n").length + 1;
+  // A flat "+1" row of headroom isn't enough once a single logical line
+  // (the request URL in the JSON example) is long enough to wrap two or
+  // three times on a narrow phone — that silently clipped the tail of the
+  // command instead of just wasting a little space on a wider screen.
+  // Estimating wraps per line from character count instead, using the
+  // narrowest width this app supports (320px, see the verify-ui skill) at
+  // .terminal-cmd's font-size: 25 monospace characters is what fits across
+  // that field's content width there. A DOM measurement would be exact,
+  // but this field isn't attached to the page yet when this function runs,
+  // so there's nothing to measure against.
+  const CHARS_PER_ROW = 25;
+  const rows = cmd.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / CHARS_PER_ROW)), 0);
   const field = el(`
     <div class="field" style="margin-top:16px;">
       <label>${escapeHtml(label)}</label>

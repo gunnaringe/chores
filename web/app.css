@@ -252,6 +252,55 @@
   font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", sans-serif;
 }
 
+/* A CRT terminal: near-black surfaces, green-on-black text, square corners,
+   and a monospace face everywhere — the same green as .terminal-cmd's
+   fixed, theme-independent look above, so the grpcurl example on the API
+   access page reads as "at home" here instead of standing out. */
+:root[data-theme="hacker"] {
+  --bg: #0a0e0a;
+  --surface: #0d1410;
+  --card: #0d1410;
+  --surface-sunken: #0f1a12;
+  --text: #3ddc4a;
+  --muted: #4a7a52;
+  --faint: #2f5a38;
+  --border: #1c3320;
+  --border-strong: #2a4a30;
+
+  --accent: #00ff41;
+  --accent-hover: #33ff66;
+  --accent-soft: #103a1a;
+  --accent-fg: #04140a;
+  --green: #00ff41;
+  --green-soft: #0d2a12;
+  --red: #ff3b3b;
+  --red-soft: #2a1010;
+  --red-text: #ff6b6b;
+
+  --shadow-sm: 0 0 0 1px rgba(61, 220, 74, 0.08), 0 1px 2px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 0 16px rgba(61, 220, 74, 0.12), 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 0 32px rgba(61, 220, 74, 0.18), 0 16px 48px rgba(0, 0, 0, 0.7);
+
+  --r-xl: 4px;
+  --r-lg: 3px;
+  --r-md: 2px;
+  --r-sm: 2px;
+
+  --pill-parent-bg: #10241a;
+  --pill-parent-fg: #3ddc4a;
+  --pill-child-bg: #142a18;
+  --pill-child-fg: #5eff7e;
+  --pill-notcompleted-bg: #2a1010;
+  --pill-notcompleted-fg: #ff5f5f;
+  --pill-mandatory-bg: #241f10;
+  --pill-mandatory-fg: #e2d24a;
+  --pill-optional-bg: #10241f;
+  --pill-optional-fg: #4adec2;
+
+  color-scheme: dark;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
 * { box-sizing: border-box; }
 
 html {
@@ -693,6 +742,13 @@ label {
   color: #3ddc4a;
   border-color: #0a0e0a;
   font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  /* The 16px floor above exists to stop iOS Safari zooming the viewport on
+     focus, which only happens for a field the on-screen keyboard opens for
+     — this one is readonly (tap selects instead, see wireCopyButton), so no
+     keyboard ever appears and it's free to go smaller. Doing so is the
+     difference between the Authorization header line wrapping or not on a
+     360px-ish phone. */
+  font-size: 0.8rem;
 }
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
