@@ -378,13 +378,13 @@ func labelOccurrence(occ *v1.TaskOccurrence, task *v1.Task, childName string) {
 // nothing has happened to this one yet, so there's nothing to preserve.
 func occurrenceFromTask(t *v1.Task, childID, childName, dueDate string) *v1.TaskOccurrence {
 	return &v1.TaskOccurrence{
-		FamilyId:    t.GetFamilyId(),
-		TaskId:      t.GetId(),
-		ChildId:     childID,
-		ChildName:   childName,
-		DueDate:     dueDate,
-		Title:       t.GetTitle(),
-		Description: t.GetDescription(),
+		FamilyId:       t.GetFamilyId(),
+		TaskId:         t.GetId(),
+		ChildId:        childID,
+		ChildName:      childName,
+		DueDate:        dueDate,
+		Title:          t.GetTitle(),
+		Description:    t.GetDescription(),
 		Icon:           t.GetIcon(),
 		Classification: t.GetClassification(),
 		Amount:         money(t.GetPrice().GetCents()),
