@@ -232,6 +232,16 @@ the UI is JS, those two names are declared twice — `app.name` in
 `web/i18n.js` and `appNames` in `web/manifest.go` — and have to be kept in
 step.
 
+## Theme
+
+Settings offers a choice of **Match device** (the default — follows the
+OS's light/dark setting, which is all the app did before this option
+existed), **Light**, **Dark**, **Retro**, and **Playful**. Like the language
+and currency choices, it's purely a `localStorage` preference on that
+device and never reaches the server. Each theme is a block of CSS custom
+properties in `web/app.css` (`:root[data-theme="..."]`); add one there and
+an entry in `THEME_OPTIONS` in `web/app.js` to add another.
+
 ## Authentication
 
 A login is always required — `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID` and

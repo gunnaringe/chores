@@ -36,6 +36,20 @@
   --r-md: 12px;
   --r-sm: 10px;
 
+  /* Pill background/foreground pairs, broken out as tokens (rather than
+     hardcoded on the .pill.* rules below) so a theme can restyle them too —
+     see the retro/playful blocks further down. */
+  --pill-parent-bg: #dbeafe;
+  --pill-parent-fg: #1e40af;
+  --pill-child-bg: #dcfce7;
+  --pill-child-fg: #166534;
+  --pill-notcompleted-bg: #fee2e2;
+  --pill-notcompleted-fg: #991b1b;
+  --pill-mandatory-bg: #fef3c7;
+  --pill-mandatory-fg: #92400e;
+  --pill-optional-bg: #e0e7ff;
+  --pill-optional-fg: #3730a3;
+
   --page: 860px;
   --gutter: 16px;
   --tabbar-h: 58px;
@@ -50,8 +64,15 @@
   font-size: 16px;
 }
 
+/* Settings offers an explicit Light/Dark/Retro/Playful choice on top of the
+   OS-following default ("Match device"). An explicit choice is stamped as
+   data-theme on <html> by applyTheme() in app.js (and, before that file
+   even loads, by a standalone copy in index.html/login.html's <head> —
+   see the comment there). The system-dark block below is scoped to
+   :not([data-theme]) so it only fires for "Match device"; each explicit
+   theme gets its own block, guarded by the attribute, further down. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #101216;
     --surface: #1a1d23;
     --card: #1a1d23;
@@ -74,7 +95,161 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+    --pill-parent-bg: #1e3a8a55;
+    --pill-parent-fg: #93c5fd;
+    --pill-child-bg: #14532d55;
+    --pill-child-fg: #86efac;
+    --pill-notcompleted-bg: #7f1d1d55;
+    --pill-notcompleted-fg: #fca5a5;
+    --pill-mandatory-bg: #92400e55;
+    --pill-mandatory-fg: #fcd34d;
+    --pill-optional-bg: #3730a355;
+    --pill-optional-fg: #a5b4fc;
+
+    color-scheme: dark;
   }
+}
+
+/* data-theme="light" needs no block of its own: the bare :root above is
+   already the light palette, and :not([data-theme]) on the system-dark
+   block already keeps it from applying once any explicit theme is picked.
+   This still needs to force color-scheme so native controls (scrollbars,
+   checkboxes) read as light even when the OS itself is set to dark. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #101216;
+  --surface: #1a1d23;
+  --card: #1a1d23;
+  --surface-sunken: #23272f;
+  --text: #e8eaee;
+  --muted: #9aa2b0;
+  --faint: #767e8c;
+  --border: #2a2f38;
+  --border-strong: #3a4049;
+
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: #1e3a8a55;
+  --green: #22c55e;
+  --green-soft: #14532d55;
+  --red: #ef4444;
+  --red-soft: #7f1d1d55;
+  --red-text: #fca5a5;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --pill-parent-bg: #1e3a8a55;
+  --pill-parent-fg: #93c5fd;
+  --pill-child-bg: #14532d55;
+  --pill-child-fg: #86efac;
+  --pill-notcompleted-bg: #7f1d1d55;
+  --pill-notcompleted-fg: #fca5a5;
+  --pill-mandatory-bg: #92400e55;
+  --pill-mandatory-fg: #fcd34d;
+  --pill-optional-bg: #3730a355;
+  --pill-optional-fg: #a5b4fc;
+
+  color-scheme: dark;
+}
+
+/* Warm and boxy rather than the app's usual cool neutrals — a sepia paper
+   background, a serif face, and slightly squared-off corners. */
+:root[data-theme="retro"] {
+  --bg: #f1e6d2;
+  --surface: #fbf3e3;
+  --card: #fbf3e3;
+  --surface-sunken: #e9dcc0;
+  --text: #3a2e22;
+  --muted: #7a6a53;
+  --faint: #a3927a;
+  --border: #d8c7a3;
+  --border-strong: #c2ac7d;
+
+  --accent: #b5541f;
+  --accent-hover: #9c4517;
+  --accent-soft: #f0d3ba;
+  --accent-fg: #fff8ef;
+  --green: #5c7a35;
+  --green-soft: #dbe6c0;
+  --red: #a13a2d;
+  --red-soft: #f0d2ca;
+  --red-text: #7a2b21;
+
+  --shadow-sm: 0 1px 2px rgba(58, 46, 34, 0.12), 0 1px 3px rgba(58, 46, 34, 0.1);
+  --shadow-md: 0 4px 16px rgba(58, 46, 34, 0.18);
+  --shadow-lg: 0 16px 48px rgba(58, 46, 34, 0.32);
+
+  --r-xl: 14px;
+  --r-lg: 10px;
+  --r-md: 8px;
+  --r-sm: 6px;
+
+  --pill-parent-bg: #e9d1a0;
+  --pill-parent-fg: #6b4a1e;
+  --pill-child-bg: #d7e0b0;
+  --pill-child-fg: #435415;
+  --pill-notcompleted-bg: #e8c2b0;
+  --pill-notcompleted-fg: #7a2b21;
+  --pill-mandatory-bg: #f0d3a0;
+  --pill-mandatory-fg: #7a4e12;
+  --pill-optional-bg: #d9cba0;
+  --pill-optional-fg: #55461c;
+
+  color-scheme: light;
+  font-family: Georgia, "Times New Roman", Times, serif;
+}
+
+/* Bright and bubbly — candy-pink surfaces, a bigger radius everywhere, and
+   a rounded display face instead of the app's usual system sans. */
+:root[data-theme="playful"] {
+  --bg: #fdf1fb;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --surface-sunken: #f6e8fb;
+  --text: #2d1b3a;
+  --muted: #8a7398;
+  --faint: #b39fc0;
+  --border: #ecd6f2;
+  --border-strong: #ddb8ea;
+
+  --accent: #ff5da2;
+  --accent-hover: #ff3d8f;
+  --accent-soft: #ffe0ef;
+  --accent-fg: #ffffff;
+  --green: #12b76a;
+  --green-soft: #d3f8df;
+  --red: #fb4d3d;
+  --red-soft: #ffe1db;
+  --red-text: #b5321f;
+
+  --shadow-sm: 0 1px 2px rgba(214, 51, 108, 0.1), 0 1px 3px rgba(214, 51, 108, 0.08);
+  --shadow-md: 0 4px 16px rgba(214, 51, 108, 0.16);
+  --shadow-lg: 0 16px 48px rgba(214, 51, 108, 0.28);
+
+  --r-xl: 28px;
+  --r-lg: 22px;
+  --r-md: 16px;
+  --r-sm: 12px;
+
+  --pill-parent-bg: #dbe4ff;
+  --pill-parent-fg: #3730a3;
+  --pill-child-bg: #d3f8df;
+  --pill-child-fg: #0f7a42;
+  --pill-notcompleted-bg: #ffe1db;
+  --pill-notcompleted-fg: #b5321f;
+  --pill-mandatory-bg: #fff3c4;
+  --pill-mandatory-fg: #92600a;
+  --pill-optional-bg: #ffe0ef;
+  --pill-optional-fg: #a3195b;
+
+  color-scheme: light;
+  font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -651,18 +826,11 @@ label {
   background: var(--surface-sunken);
   color: var(--muted);
 }
-.pill.parent { background: #dbeafe; color: #1e40af; }
-.pill.child { background: #dcfce7; color: #166534; }
-.pill.notcompleted { background: #fee2e2; color: #991b1b; }
-.pill.mandatory { background: #fef3c7; color: #92400e; }
-.pill.optional { background: #e0e7ff; color: #3730a3; }
-@media (prefers-color-scheme: dark) {
-  .pill.parent { background: #1e3a8a55; color: #93c5fd; }
-  .pill.child { background: #14532d55; color: #86efac; }
-  .pill.notcompleted { background: #7f1d1d55; color: #fca5a5; }
-  .pill.mandatory { background: #92400e55; color: #fcd34d; }
-  .pill.optional { background: #3730a355; color: #a5b4fc; }
-}
+.pill.parent { background: var(--pill-parent-bg); color: var(--pill-parent-fg); }
+.pill.child { background: var(--pill-child-bg); color: var(--pill-child-fg); }
+.pill.notcompleted { background: var(--pill-notcompleted-bg); color: var(--pill-notcompleted-fg); }
+.pill.mandatory { background: var(--pill-mandatory-bg); color: var(--pill-mandatory-fg); }
+.pill.optional { background: var(--pill-optional-bg); color: var(--pill-optional-fg); }
 
 /* ---- task rows & stats ----------------------------------------------- */
 
