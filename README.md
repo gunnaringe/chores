@@ -514,6 +514,16 @@ After editing `proto/chores/v1/chores.proto`:
 buf generate
 ```
 
+The schema is also published to the [Buf Schema
+Registry](https://buf.build/apphub/chores), for anything that wants to
+depend on it without cloning this repo. `buf.yaml`'s `name:` points at that
+module, but publishing isn't automatic — there's no CI wired up for it — so
+after a schema change that should be reflected there, push it too:
+
+```bash
+buf push
+```
+
 ## Updating the Material Symbols icon list
 
 `web/material-symbols.json` (the icon names the task icon picker's search
