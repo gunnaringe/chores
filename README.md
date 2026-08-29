@@ -139,7 +139,10 @@ app is, a three-step walkthrough, screenshots of the real screens (in
 `web/screenshots/`, one set per language), and a footer pointing at the
 source and where it runs. The Log in button stays at the top, above the
 fold, exactly where it was before — someone who already uses the app should
-never have to read or scroll past any of it.
+never have to read or scroll past any of it. A quiet second link below it,
+"Have a dashboard code?", goes straight to `/dashboard`'s key prompt (see
+Kiosk dashboard below) for the kitchen-tablet crowd who were never going to
+log in at all.
 
 ### Push notifications
 

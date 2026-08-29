@@ -1374,6 +1374,14 @@ label {
   font-size: 1.05rem;
   margin-bottom: 22px;
 }
+/* A quiet second option below the primary Log in button — most visitors
+   should never notice it, so it's plain text rather than a second button. */
+.welcome-dashboard-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--muted);
+  text-decoration: underline;
+}
 .welcome-lang {
   margin-top: 18px;
 }
