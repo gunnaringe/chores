@@ -3,5 +3,5 @@ package web
 
 import "embed"
 
-//go:embed index.html app.js app.css i18n.js login.html manifest.webmanifest sw.js icons screenshots material-symbols.json
+//go:embed index.html app.js app.css i18n.js login.html manifest.webmanifest sw.js qrcode.js icons screenshots material-symbols.json
 var FS embed.FS

@@ -369,11 +369,13 @@ a child old enough to have their own Auth0 account.
 Whoever enters that code in their own "Join a family" section — after
 logging into their own Auth0 account — is bound to that slot in the same
 family, with the role the invite was created for. The code is shown once,
-right where it was created; a parent can revoke an invite before it's
-accepted (from the "Pending invitations" list), which also removes the
-unclaimed slot it created. Accepting an invite isn't restricted to any
-particular email address — possession of the code is what grants access, so
-only share it with the intended person.
+right where it was created, next to a QR-code button that expands a
+scannable code for the invite link — handing a phone the link beats reading
+a code aloud; a parent can revoke an invite before it's accepted (from the
+"Pending invitations" list), which also removes the unclaimed slot it
+created. Accepting an invite isn't restricted to any particular email
+address — possession of the code is what grants access, so only share it
+with the intended person.
 
 ### Leaving, removing a child, or deleting the family
 
@@ -400,7 +402,12 @@ up dashboard" generates a per-family secret key and a URL
 immediately, and the key is then remembered in that browser's
 `localStorage` so it survives reloads without needing the query string
 again (which is stripped from the address bar right after first use).
-Without a `?key=`, `/dashboard` instead prompts for the key to be typed in.
+Without a `?key=`, `/dashboard` instead prompts for the key to be typed in
+(pasting the whole URL there works too — it pulls the key back out of it).
+The URL also has its own QR-code button for scanning it straight onto the
+kiosk device, generated client-side by a vendored library (`web/qrcode.js`)
+rather than a hosted QR API, since the URL it encodes is a bearer
+credential.
 
 A dashboard key is a bearer credential scoped to exactly one family and to
 four actions: list children's daily status, list today's task occurrences,
@@ -603,7 +610,7 @@ screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 - `internal/scheduling` — cron-expression date matching for recurring tasks
 - `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending, `dashboard.go` for the kiosk key, and `tokens.go` for personal access tokens
 - `internal/auth` — the OAuth2/OIDC login gating the app
-- `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings
+- `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings, and `web/qrcode.js` is a vendored client-side QR encoder (see Kiosk dashboard)
 - `cmd/chores` — main entrypoint
 - `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)
 - `cmd/dbaudit` — read-only report on a database: row counts, data hazards, and per-child balances. Used to check that a migration didn't move anything (see Deploying a schema change)
