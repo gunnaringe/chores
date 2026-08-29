@@ -412,6 +412,511 @@
   color-scheme: light;
 }
 
+/* A friendly forest clearing: moss green, bark brown, and a muted-gold
+   accent standing in for a sunlit path. Kept soft rather than saturated so
+   it reads calm as easily as cheerful — the brief for this one covers both
+   a kids' profile and a quieter adult read off the same palette. */
+:root[data-theme="fairytale-forest"] {
+  --bg: #f3efdf;
+  --surface: #fffdf5;
+  --card: #fffdf5;
+  --surface-sunken: #e8e0c4;
+  --text: #2b3a22;
+  --muted: #6f7a5c;
+  --faint: #9aa385;
+  --border: #ddd2ad;
+  --border-strong: #c7b98c;
+
+  --accent: #b5862a;
+  --accent-hover: #996f1f;
+  --accent-soft: #f3e6c2;
+  --accent-fg: #2b2308;
+  --green: #4c7a3a;
+  --green-soft: #dcead0;
+  --red: #b5482e;
+  --red-soft: #f3ddd0;
+  --red-text: #7a3220;
+
+  --shadow-sm: 0 1px 2px rgba(43, 58, 34, 0.1), 0 1px 3px rgba(43, 58, 34, 0.08);
+  --shadow-md: 0 4px 16px rgba(43, 58, 34, 0.16);
+  --shadow-lg: 0 16px 48px rgba(43, 58, 34, 0.26);
+
+  --r-xl: 24px;
+  --r-lg: 18px;
+  --r-md: 14px;
+  --r-sm: 10px;
+
+  --pill-parent-bg: #e4d9b0;
+  --pill-parent-fg: #5b4a1e;
+  --pill-child-bg: #dcead0;
+  --pill-child-fg: #2f5c1e;
+  --pill-notcompleted-bg: #f3ddd0;
+  --pill-notcompleted-fg: #7a3220;
+  --pill-mandatory-bg: #f5e6b0;
+  --pill-mandatory-fg: #7a5e12;
+  --pill-optional-bg: #d7e6e0;
+  --pill-optional-fg: #1f5c50;
+
+  color-scheme: light;
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+
+  /* A little pine, a star and a fallen leaf, repeated — see --bg-pattern's
+     definition near the top of this file. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%20viewBox='0%200%20140%20140'%3E%3Cg%20fill='%234c7a3a'%20opacity='0.35'%3E%3Cpath%20d='M20%2010%20L30%2030%20L10%2030%20Z'/%3E%3Cpath%20d='M20%2020%20L33%2045%20L7%2045%20Z'/%3E%3Cpath%20d='M20%2034%20L36%2062%20L4%2062%20Z'/%3E%3Crect%20x='17'%20y='62'%20width='6'%20height='10'/%3E%3Cpath%20d='M100%2020%20l3%207%207%201%20-5%205%201%207%20-6%20-3%20-6%203%201%20-7%20-5%20-5%207%20-1%20Z'/%3E%3Cellipse%20cx='95'%20cy='95'%20rx='10'%20ry='5'%20transform='rotate(30%2095%2095)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Sun-bleached parchment: sand and dark ink, a sea-blue accent for the
+   primary action, and gold reserved for "must-do" — a task feels like a
+   marked treasure rather than just another button. */
+:root[data-theme="pirate-map"] {
+  --bg: #ecd9ad;
+  --surface: #f7ecd1;
+  --card: #f7ecd1;
+  --surface-sunken: #e0c78e;
+  --text: #3b2a17;
+  --muted: #7a6540;
+  --faint: #a68f61;
+  --border: #d2b57e;
+  --border-strong: #b89a5e;
+
+  --accent: #a5761a;
+  --accent-hover: #8c6215;
+  --accent-soft: #f0dba0;
+  --accent-fg: #2b1e05;
+  --green: #4f7a3a;
+  --green-soft: #dde6c4;
+  --red: #9c3b26;
+  --red-soft: #ecd0c2;
+  --red-text: #6b2717;
+
+  --shadow-sm: 0 1px 2px rgba(59, 42, 23, 0.14), 0 1px 3px rgba(59, 42, 23, 0.1);
+  --shadow-md: 0 4px 16px rgba(59, 42, 23, 0.2);
+  --shadow-lg: 0 16px 48px rgba(59, 42, 23, 0.32);
+
+  --r-xl: 12px;
+  --r-lg: 9px;
+  --r-md: 7px;
+  --r-sm: 5px;
+
+  --pill-parent-bg: #cfe6ee;
+  --pill-parent-fg: #123a4a;
+  --pill-child-bg: #dde6c4;
+  --pill-child-fg: #3c4f1e;
+  --pill-notcompleted-bg: #ecd0c2;
+  --pill-notcompleted-fg: #6b2717;
+  --pill-mandatory-bg: #f0dba0;
+  --pill-mandatory-fg: #7a5b12;
+  --pill-optional-bg: #e6d6ee;
+  --pill-optional-fg: #4a2f6b;
+
+  color-scheme: light;
+  font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+
+  /* A compass rose, an X, and a dotted route — a map, not a specific one. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%20viewBox='0%200%20140%20140'%3E%3Cg%20fill='%237a5b2a'%20opacity='0.35'%3E%3Cpath%20d='M30%206%20L34%2026%20L54%2030%20L34%2034%20L30%2054%20L26%2034%20L6%2030%20L26%2026%20Z'/%3E%3Cpath%20d='M95%2085%20l8%208%20-3%203%20-8%20-8%20-8%208%20-3%20-3%208%20-8%20-8%20-8%203%20-3%208%208%208%20-8%203%203%20Z'/%3E%3Ccircle%20cx='100'%20cy='30'%20r='2'/%3E%3Ccircle%20cx='108'%20cy='36'%20r='2'/%3E%3Ccircle%20cx='116'%20cy='44'%20r='2'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Sea-green and turquoise on a pearl-white surface, with a soft coral for
+   alerts instead of the app's usual hard red — the one concession here to
+   "soft movement" a static palette can make. */
+:root[data-theme="underwater"] {
+  --bg: #eaf6f6;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --surface-sunken: #d9f0ee;
+  --text: #0d3b3f;
+  --muted: #4c7a80;
+  --faint: #86aeb2;
+  --border: #cdeae8;
+  --border-strong: #a9dbd8;
+
+  --accent: #0e8f8f;
+  --accent-hover: #0b7373;
+  --accent-soft: #d3f3f0;
+  --accent-fg: #ffffff;
+  --green: #1fa66b;
+  --green-soft: #d3f5e4;
+  --red: #d64545;
+  --red-soft: #fbdada;
+  --red-text: #8a2626;
+
+  --shadow-sm: 0 1px 2px rgba(13, 59, 63, 0.1), 0 1px 3px rgba(13, 59, 63, 0.08);
+  --shadow-md: 0 4px 16px rgba(13, 59, 63, 0.16);
+  --shadow-lg: 0 16px 48px rgba(13, 59, 63, 0.26);
+
+  --r-xl: 26px;
+  --r-lg: 20px;
+  --r-md: 16px;
+  --r-sm: 12px;
+
+  --pill-parent-bg: #cfeaf7;
+  --pill-parent-fg: #0b4a63;
+  --pill-child-bg: #d3f5e4;
+  --pill-child-fg: #106b43;
+  --pill-notcompleted-bg: #fbdada;
+  --pill-notcompleted-fg: #8a2626;
+  --pill-mandatory-bg: #fdf0c2;
+  --pill-mandatory-fg: #7a5e12;
+  --pill-optional-bg: #e6def7;
+  --pill-optional-fg: #4a2f8a;
+
+  color-scheme: light;
+
+  /* A fish, a trail of bubbles and a strand of seaweed. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='150'%20height='150'%20viewBox='0%200%20150%20150'%3E%3Cg%20fill='%230e8f8f'%20opacity='0.3'%3E%3Cellipse%20cx='30'%20cy='30'%20rx='16'%20ry='9'/%3E%3Cpath%20d='M14%2030%20L2%2022%20L2%2038%20Z'/%3E%3Ccircle%20cx='38'%20cy='27'%20r='1.6'%20fill='%23ffffff'/%3E%3Ccircle%20cx='110'%20cy='100'%20r='5'/%3E%3Ccircle%20cx='122'%20cy='112'%20r='3.5'/%3E%3Ccircle%20cx='104'%20cy='115'%20r='2.5'/%3E%3Cpath%20d='M90%2040%20q6%208%200%2016%20q-6%208%200%2016'%20stroke='%230e8f8f'%20stroke-width='3'%20fill='none'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* A dark workshop bench rather than a bright one — graphite surfaces, a
+   cyan primary, and orange reserved for "must-do" the way a warning light
+   is orange on real equipment. A task here reads as a small job ticket. */
+:root[data-theme="robot-workshop"] {
+  --bg: #1c1f22;
+  --surface: #24282c;
+  --card: #24282c;
+  --surface-sunken: #2c3136;
+  --text: #e4e7ea;
+  --muted: #9aa3ab;
+  --faint: #6b747c;
+  --border: #33383d;
+  --border-strong: #444b52;
+
+  --accent: #29c4d6;
+  --accent-hover: #4fd6e6;
+  --accent-soft: #123a40;
+  --accent-fg: #04181a;
+  --green: #3ddc7a;
+  --green-soft: #123a24;
+  --red: #ff5555;
+  --red-soft: #3a1414;
+  --red-text: #ff9a9a;
+
+  --shadow-sm: 0 0 0 1px rgba(41, 196, 214, 0.08), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 0 16px rgba(41, 196, 214, 0.12), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 0 32px rgba(41, 196, 214, 0.18), 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --r-xl: 8px;
+  --r-lg: 6px;
+  --r-md: 4px;
+  --r-sm: 3px;
+
+  --pill-parent-bg: #123a40;
+  --pill-parent-fg: #29c4d6;
+  --pill-child-bg: #123a24;
+  --pill-child-fg: #3ddc7a;
+  --pill-notcompleted-bg: #3a1414;
+  --pill-notcompleted-fg: #ff9a9a;
+  --pill-mandatory-bg: #3a2a12;
+  --pill-mandatory-fg: #ffa94d;
+  --pill-optional-bg: #2a2f36;
+  --pill-optional-fg: #9aa3ab;
+
+  color-scheme: dark;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* A gear and a bolt, cyan on graphite. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%20viewBox='0%200%20120%20120'%3E%3Cg%20fill='%2329c4d6'%20opacity='0.28'%3E%3Ccircle%20cx='30'%20cy='30'%20r='14'/%3E%3Ccircle%20cx='30'%20cy='30'%20r='6'%20fill='%231c1f22'/%3E%3Crect%20x='27'%20y='6'%20width='6'%20height='8'/%3E%3Crect%20x='27'%20y='46'%20width='6'%20height='8'/%3E%3Crect%20x='6'%20y='27'%20width='8'%20height='6'/%3E%3Crect%20x='46'%20y='27'%20width='8'%20height='6'/%3E%3Crect%20x='13'%20y='13'%20width='7'%20height='7'%20transform='rotate(45%2016.5%2016.5)'/%3E%3Crect%20x='40'%20y='13'%20width='7'%20height='7'%20transform='rotate(45%2043.5%2016.5)'/%3E%3Crect%20x='13'%20y='40'%20width='7'%20height='7'%20transform='rotate(45%2016.5%2043.5)'/%3E%3Crect%20x='40'%20y='40'%20width='7'%20height='7'%20transform='rotate(45%2043.5%2043.5)'/%3E%3Crect%20x='90'%20y='85'%20width='5'%20height='20'/%3E%3Crect%20x='80'%20y='95'%20width='20'%20height='5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Warm neutrals and muted forest/sky tones rather than the app's cooler
+   default — deliberately the calmest of the nature-themed additions, with
+   no background pattern, so it reads as suited to an adult profile first
+   and a family one second, per its brief. */
+:root[data-theme="cabin"] {
+  --bg: #f1efe9;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --surface-sunken: #e6e2d8;
+  --text: #2e2a24;
+  --muted: #6e6a60;
+  --faint: #9c988c;
+  --border: #ded8c8;
+  --border-strong: #c7c0aa;
+
+  --accent: #4a86b0;
+  --accent-hover: #3c6f92;
+  --accent-soft: #dcebf5;
+  --accent-fg: #ffffff;
+  --green: #3f7a55;
+  --green-soft: #dcebe0;
+  --red: #a1483a;
+  --red-soft: #f0d8d2;
+  --red-text: #6b2e24;
+
+  --shadow-sm: 0 1px 2px rgba(46, 42, 36, 0.08), 0 1px 3px rgba(46, 42, 36, 0.06);
+  --shadow-md: 0 4px 16px rgba(46, 42, 36, 0.14);
+  --shadow-lg: 0 16px 48px rgba(46, 42, 36, 0.22);
+
+  --r-xl: 16px;
+  --r-lg: 12px;
+  --r-md: 10px;
+  --r-sm: 8px;
+
+  --pill-parent-bg: #dcebf5;
+  --pill-parent-fg: #1f4a63;
+  --pill-child-bg: #dcebe0;
+  --pill-child-fg: #1f4a30;
+  --pill-notcompleted-bg: #f0d8d2;
+  --pill-notcompleted-fg: #6b2e24;
+  --pill-mandatory-bg: #ecdfc4;
+  --pill-mandatory-fg: #6b5518;
+  --pill-optional-bg: #e2ddd2;
+  --pill-optional-fg: #5c5648;
+
+  color-scheme: light;
+}
+
+/* Light lilac with a purple accent and mint for "done" — chosen so the
+   panel of chips and cards stays legible even though the theme's whole
+   point is to feel a bit silly. Nothing here draws on any actual
+   character; the "monster" is a plain blob with two dot eyes. */
+:root[data-theme="monster-lab"] {
+  --bg: #f4f0fb;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --surface-sunken: #e9e1f7;
+  --text: #2c2a3d;
+  --muted: #746e94;
+  --faint: #a79fc4;
+  --border: #ded4f2;
+  --border-strong: #c7b8ea;
+
+  --accent: #8a4fd6;
+  --accent-hover: #7539c2;
+  --accent-soft: #ece0fb;
+  --accent-fg: #ffffff;
+  --green: #2fbf8f;
+  --green-soft: #d3f5e9;
+  --red: #e2584a;
+  --red-soft: #fbe0dc;
+  --red-text: #8a2e22;
+
+  --shadow-sm: 0 1px 2px rgba(44, 42, 61, 0.12), 0 1px 3px rgba(44, 42, 61, 0.1);
+  --shadow-md: 0 4px 16px rgba(44, 42, 61, 0.18);
+  --shadow-lg: 0 16px 48px rgba(44, 42, 61, 0.28);
+
+  --r-xl: 30px;
+  --r-lg: 24px;
+  --r-md: 18px;
+  --r-sm: 14px;
+
+  --pill-parent-bg: #e0d4fb;
+  --pill-parent-fg: #4a2f8a;
+  --pill-child-bg: #d3f5e9;
+  --pill-child-fg: #146b4a;
+  --pill-notcompleted-bg: #fbe0dc;
+  --pill-notcompleted-fg: #8a2e22;
+  --pill-mandatory-bg: #fde3d0;
+  --pill-mandatory-fg: #8a5518;
+  --pill-optional-bg: #e9e1f7;
+  --pill-optional-fg: #4a4470;
+
+  color-scheme: light;
+
+  /* A blobby, two-eyed original creature and a drop of slime. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='130'%20viewBox='0%200%20130%20130'%3E%3Cg%20fill='%238a4fd6'%20opacity='0.3'%3E%3Cellipse%20cx='30'%20cy='34'%20rx='20'%20ry='16'/%3E%3Ccircle%20cx='60'%20cy='24'%20r='4'/%3E%3Ccircle%20cx='60'%20cy='34'%20r='3'/%3E%3Ccircle%20cx='60'%20cy='44'%20r='4'/%3E%3Ccircle%20cx='22'%20cy='28'%20r='4'%20fill='%23ffffff'/%3E%3Ccircle%20cx='38'%20cy='28'%20r='4'%20fill='%23ffffff'/%3E%3Ccircle%20cx='22'%20cy='28'%20r='2'%20fill='%232c2a3d'/%3E%3Ccircle%20cx='38'%20cy='28'%20r='2'%20fill='%232c2a3d'/%3E%3Cpath%20d='M100%2090%20q10%2010%200%2020%20q-10%20-6%200%20-20%20Z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Olive and sand with a volcanic-gray accent for "must-do" and amber for
+   the child pill — like an egg half-buried in sand. Chunky rather than
+   sharp corners, for a kid-friendly but still legible card. */
+:root[data-theme="dino-park"] {
+  --bg: #efe9d6;
+  --surface: #fbf7ea;
+  --card: #fbf7ea;
+  --surface-sunken: #e3dbbd;
+  --text: #3a3424;
+  --muted: #756b4a;
+  --faint: #a89d75;
+  --border: #d8cc9e;
+  --border-strong: #c0b077;
+
+  --accent: #6b7a2e;
+  --accent-hover: #576223;
+  --accent-soft: #e2e8c4;
+  --accent-fg: #ffffff;
+  --green: #4f8a3a;
+  --green-soft: #dcecc4;
+  --red: #a13a26;
+  --red-soft: #ecd2c4;
+  --red-text: #6b2417;
+
+  --shadow-sm: 0 1px 2px rgba(58, 52, 36, 0.12), 0 1px 3px rgba(58, 52, 36, 0.1);
+  --shadow-md: 0 4px 16px rgba(58, 52, 36, 0.18);
+  --shadow-lg: 0 16px 48px rgba(58, 52, 36, 0.28);
+
+  --r-xl: 14px;
+  --r-lg: 11px;
+  --r-md: 9px;
+  --r-sm: 7px;
+
+  --pill-parent-bg: #e2e8c4;
+  --pill-parent-fg: #3f4a12;
+  --pill-child-bg: #f5e2a0;
+  --pill-child-fg: #7a5c0a;
+  --pill-notcompleted-bg: #ecd2c4;
+  --pill-notcompleted-fg: #6b2417;
+  --pill-mandatory-bg: #dcdcd0;
+  --pill-mandatory-fg: #4a473c;
+  --pill-optional-bg: #dfe6e6;
+  --pill-optional-fg: #33504f;
+
+  color-scheme: light;
+
+  /* A three-toed footprint and a fallen leaf. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='130'%20viewBox='0%200%20130%20130'%3E%3Cg%20fill='%236b7a2e'%20opacity='0.3'%3E%3Cellipse%20cx='30'%20cy='40'%20rx='10'%20ry='13'/%3E%3Cellipse%20cx='16'%20cy='22'%20rx='5'%20ry='9'%20transform='rotate(-20%2016%2022)'/%3E%3Cellipse%20cx='30'%20cy='16'%20rx='5'%20ry='9'/%3E%3Cellipse%20cx='44'%20cy='22'%20rx='5'%20ry='9'%20transform='rotate(20%2044%2022)'/%3E%3Cellipse%20cx='100'%20cy='90'%20rx='9'%20ry='4'%20transform='rotate(30%20100%2090)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* A dark, original "mission control" look — navy surfaces, a red primary
+   accent, and silver-blue readouts, with crisp near-square corners for a
+   HUD feel. Deliberately generic (a radar sweep and readout bars, no
+   badge, no emblem) so it doesn't lean on any actual agency or franchise. */
+:root[data-theme="mission-base"] {
+  --bg: #0e1420;
+  --surface: #141b2b;
+  --card: #141b2b;
+  --surface-sunken: #1a2233;
+  --text: #dfe4ee;
+  --muted: #8f9ab0;
+  --faint: #5f6a80;
+  --border: #232c3f;
+  --border-strong: #303a50;
+
+  --accent: #d64545;
+  --accent-hover: #ef5a5a;
+  --accent-soft: #3a1418;
+  --accent-fg: #ffffff;
+  --green: #3ddc7a;
+  --green-soft: #123a24;
+  --red: #d64545;
+  --red-soft: #3a1418;
+  --red-text: #ff9a9a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.65);
+
+  --r-xl: 6px;
+  --r-lg: 4px;
+  --r-md: 3px;
+  --r-sm: 2px;
+
+  --pill-parent-bg: #1a2a40;
+  --pill-parent-fg: #8fb4e0;
+  --pill-child-bg: #123a24;
+  --pill-child-fg: #3ddc7a;
+  --pill-notcompleted-bg: #3a1418;
+  --pill-notcompleted-fg: #ff9a9a;
+  --pill-mandatory-bg: #3a2a12;
+  --pill-mandatory-fg: #ffbb55;
+  --pill-optional-bg: #242c3d;
+  --pill-optional-fg: #9aa6ba;
+
+  color-scheme: dark;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* A radar sweep and a few readout bars — control-room dressing, not an
+     insignia. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%20viewBox='0%200%20140%20140'%3E%3Cg%20stroke='%238fb4e0'%20stroke-width='2'%20fill='none'%20opacity='0.28'%3E%3Ccircle%20cx='35'%20cy='35'%20r='10'/%3E%3Ccircle%20cx='35'%20cy='35'%20r='18'/%3E%3Ccircle%20cx='35'%20cy='35'%20r='26'/%3E%3Cline%20x1='35'%20y1='2'%20x2='35'%20y2='12'/%3E%3Cline%20x1='35'%20y1='58'%20x2='35'%20y2='68'/%3E%3Cline%20x1='2'%20y1='35'%20x2='12'%20y2='35'/%3E%3Cline%20x1='58'%20y1='35'%20x2='68'%20y2='35'/%3E%3C/g%3E%3Cg%20fill='%238fb4e0'%20opacity='0.28'%3E%3Ccircle%20cx='35'%20cy='35'%20r='2.5'/%3E%3Crect%20x='95'%20y='90'%20width='30'%20height='4'/%3E%3Crect%20x='95'%20y='98'%20width='20'%20height='4'/%3E%3Crect%20x='95'%20y='106'%20width='24'%20height='4'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Neutral surfaces so a mix of primary colors (the pill/chip set below)
+   reads clearly against them — built for the extra-legible, kid-friendly
+   layout its brief asks for, not for a particular building-block brand:
+   the background tile below is four plain flat squares, no studs. */
+:root[data-theme="block-world"] {
+  --bg: #f5f5f2;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --surface-sunken: #e8e8e2;
+  --text: #1f2430;
+  --muted: #63697a;
+  --faint: #9aa0ac;
+  --border: #dcdcd4;
+  --border-strong: #c4c4b8;
+
+  --accent: #2e6fe0;
+  --accent-hover: #2559ba;
+  --accent-soft: #dbe7fb;
+  --accent-fg: #ffffff;
+  --green: #2fae4a;
+  --green-soft: #dcf5e0;
+  --red: #e04b3a;
+  --red-soft: #fbdcd6;
+  --red-text: #8a2418;
+
+  --shadow-sm: 0 1px 2px rgba(31, 36, 48, 0.08), 0 1px 3px rgba(31, 36, 48, 0.06);
+  --shadow-md: 0 4px 16px rgba(31, 36, 48, 0.14);
+  --shadow-lg: 0 16px 48px rgba(31, 36, 48, 0.22);
+
+  --r-xl: 18px;
+  --r-lg: 14px;
+  --r-md: 11px;
+  --r-sm: 9px;
+
+  --pill-parent-bg: #dbe7fb;
+  --pill-parent-fg: #1a3f8a;
+  --pill-child-bg: #dcf5e0;
+  --pill-child-fg: #146b2a;
+  --pill-notcompleted-bg: #fbdcd6;
+  --pill-notcompleted-fg: #8a2418;
+  --pill-mandatory-bg: #fdf0c0;
+  --pill-mandatory-fg: #7a5e0a;
+  --pill-optional-bg: #e8e0f5;
+  --pill-optional-fg: #4a2f8a;
+
+  color-scheme: light;
+
+  /* Four flat, rounded squares — a generic building-block motif. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%20viewBox='0%200%20120%20120'%3E%3Cg%20opacity='0.28'%3E%3Crect%20x='10'%20y='10'%20width='30'%20height='30'%20rx='6'%20fill='%232e6fe0'/%3E%3Crect%20x='46'%20y='10'%20width='30'%20height='30'%20rx='6'%20fill='%232fae4a'/%3E%3Crect%20x='10'%20y='46'%20width='30'%20height='30'%20rx='6'%20fill='%23e04b3a'/%3E%3Crect%20x='46'%20y='46'%20width='30'%20height='30'%20rx='6'%20fill='%23f2c230'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* The calmest and most "grown-up" of this batch: sage, dusty blue and
+   terracotta on warm beige, no background pattern and a restrained radius
+   — quiet order rather than decoration, on purpose. */
+:root[data-theme="cozy-home"] {
+  --bg: #f3ede4;
+  --surface: #fffbf5;
+  --card: #fffbf5;
+  --surface-sunken: #e8ddc9;
+  --text: #332f28;
+  --muted: #7a7161;
+  --faint: #a89d89;
+  --border: #ddd0b8;
+  --border-strong: #c7b898;
+
+  --accent: #7c8f6e;
+  --accent-hover: #66795a;
+  --accent-soft: #e2e8da;
+  --accent-fg: #ffffff;
+  --green: #6b8f5a;
+  --green-soft: #dfe8d4;
+  --red: #b5583c;
+  --red-soft: #f0dcd2;
+  --red-text: #7a3620;
+
+  --shadow-sm: 0 1px 2px rgba(51, 47, 40, 0.08), 0 1px 3px rgba(51, 47, 40, 0.06);
+  --shadow-md: 0 4px 16px rgba(51, 47, 40, 0.14);
+  --shadow-lg: 0 16px 48px rgba(51, 47, 40, 0.22);
+
+  --r-xl: 20px;
+  --r-lg: 15px;
+  --r-md: 12px;
+  --r-sm: 10px;
+
+  --pill-parent-bg: #d8e0ea;
+  --pill-parent-fg: #2f4a63;
+  --pill-child-bg: #dfe8d4;
+  --pill-child-fg: #3f5c2e;
+  --pill-notcompleted-bg: #f0dcd2;
+  --pill-notcompleted-fg: #7a3620;
+  --pill-mandatory-bg: #f0e0c4;
+  --pill-mandatory-fg: #7a5e18;
+  --pill-optional-bg: #ecdcd0;
+  --pill-optional-fg: #7a4a30;
+
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; }
 
 html {
