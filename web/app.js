@@ -506,6 +506,7 @@ function resetTransientUiState() {
   expandedFamilyRow = null;
   confirmingRevokeTokenId = null;
   newPersonalAccessTokenSecret = null;
+  openQrPanelId = null;
 }
 
 function renderTabBar(defs, activeKey) {
@@ -661,6 +662,48 @@ function wireCopyButton(btn, value, label) {
       render();
     }
   });
+}
+
+// Which QR panel, if any, is currently open — "dashboard", or an
+// invitation's own id, so multiple pending invites don't fight over one
+// slot. Module-level rather than in `state` for the same reason as
+// expandedFamilyRow: a background auto-refresh tears down and rebuilds the
+// whole DOM, and without this the panel would silently vanish out from
+// under someone mid-scan. resetTransientUiState() clears it on navigation
+// like every other expanded/confirm flag.
+let openQrPanelId = null;
+
+// The QR toggle next to every copy button whose value is also worth
+// scanning (invite link, dashboard URL) — `id` is this toggle's slot in
+// openQrPanelId above. Generated entirely client-side by the vendored
+// qrcode.js (see its header) rather than a hosted QR API, since both an
+// invite token and a dashboard key are bearer credentials that shouldn't
+// have to leave the browser to become a picture of themselves.
+function renderQrButton(id) {
+  const open = openQrPanelId === id;
+  const label = t(open ? "qr.hide" : "qr.show");
+  const btn = el(`
+    <button type="button" class="secondary btn-icon" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-expanded="${open}">
+      <span class="material-symbols-outlined">${open ? "close" : "qr_code_2"}</span>
+    </button>
+  `);
+  btn.addEventListener("click", () => {
+    openQrPanelId = open ? null : id;
+    render();
+  });
+  return btn;
+}
+
+// The dropdown itself — only ever built while its toggle is open (see call
+// sites), so this never runs when qrcode.js hasn't been needed yet.
+// Fixed white-on-black regardless of theme, same as .terminal-cmd and for
+// the same reason: a light-on-dark code is exactly the kind of thing a
+// phone's scanner struggles with, and that has to hold in dark mode too.
+function renderQrPanel(value) {
+  const qr = qrcode(0, "M");
+  qr.addData(value);
+  qr.make();
+  return el(`<div class="qr-panel">${qr.createSvgTag(6, 8)}</div>`);
 }
 
 // Material Symbols are rendered as ligature text content (not a class
@@ -2114,7 +2157,13 @@ function renderFamilyTab() {
           // and a recipient copying one usually doesn't want the other.
           wireCopyButton(inviteField.querySelector('[data-copy="url"]'), acceptUrl, t("invitations.copyLink"));
           wireCopyButton(inviteField.querySelector('[data-copy="code"]'), pendingInvite.token, t("invitations.copyCode"));
+          // The QR is for the link (the code alone is meant to be read or
+          // typed, not scanned), so its toggle sits next to that copy
+          // button — the first .input-row in this field, not the code's.
+          const qrId = `invite:${pendingInvite.id}`;
+          inviteField.querySelector(".input-row").appendChild(renderQrButton(qrId));
           detail.appendChild(inviteField);
+          if (openQrPanelId === qrId) detail.appendChild(renderQrPanel(acceptUrl));
         }
         const revokeBtn = el(`<button type="button" class="danger" style="margin-top:10px;">${escapeHtml(t("invitations.revoke"))}</button>`);
         revokeBtn.addEventListener("click", () => {
@@ -3106,7 +3155,11 @@ function renderDashboardSettingsSection() {
     `);
     wireCopyButton(fields.querySelector('[data-copy="url"]'), url, t("dashboard.copyUrl"));
     wireCopyButton(fields.querySelector('[data-copy="key"]'), state.dashboardConfig.dashboardKey, t("dashboard.copyKey"));
+    // The QR is for the URL (it already carries the key), so its toggle
+    // sits next to that copy button — the first .input-row, not the key's.
+    fields.querySelector(".input-row").appendChild(renderQrButton("dashboard"));
     card.appendChild(fields);
+    if (openQrPanelId === "dashboard") card.appendChild(renderQrPanel(url));
     const actions = el(`<div class="actions"></div>`);
     const regenBtn = el(`<button class="secondary">${escapeHtml(t("dashboard.regenerate"))}</button>`);
     regenBtn.addEventListener("click", () =>

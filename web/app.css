@@ -864,6 +864,24 @@ label {
   font-size: 0.8rem;
 }
 
+/* Fixed white-on-black regardless of theme, same reasoning as .terminal-cmd
+   above: a scanner-friendly code needs dark modules on a light background,
+   and that can't follow the rest of the page into dark mode. */
+.qr-panel {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 14px;
+  background: #fff;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.qr-panel svg {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+}
+
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 /* On a phone a lone primary action reads better spanning the card. */
 @media (max-width: 520px) {

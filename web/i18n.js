@@ -279,6 +279,9 @@ const TRANSLATIONS = {
     "invitations.copyCode": "Copy invite code",
     "invitations.copied": "Copied!",
 
+    "qr.show": "Show QR code",
+    "qr.hide": "Hide QR code",
+
     "auth.logout": "Log out",
 
     "login.tagline": "Family chores and allowance, in one place.",
@@ -577,6 +580,9 @@ const TRANSLATIONS = {
     "invitations.copyLink": "Kopier invitasjonslenke",
     "invitations.copyCode": "Kopier invitasjonskode",
     "invitations.copied": "Kopiert!",
+
+    "qr.show": "Vis QR-kode",
+    "qr.hide": "Skjul QR-kode",
 
     "auth.logout": "Logg ut",
 
