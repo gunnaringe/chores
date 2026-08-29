@@ -13,7 +13,9 @@ is the only support channel. See "Hosting" further down for how it's
 deployed.
 
 Prefer your own copy — your own data, your own uptime — instead of the
-shared instance? See "Running" below.
+shared instance? See "Running" below. The code is
+[Apache-2.0 licensed](LICENSE), so forking and self-hosting it is
+explicitly fine.
 
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
