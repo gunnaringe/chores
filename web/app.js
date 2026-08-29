@@ -107,7 +107,25 @@ function labelWithCurrencyUnit(label) {
 // index.html and login.html carry a standalone copy of applyTheme() in their
 // <head>, since it has to run before first paint (like the icons-loading
 // script) and app.js isn't loaded that early; keep the three in step.
-const THEMES = ["light", "dark", "retro", "playful", "hacker", "space-invaders", "high-contrast"];
+const THEMES = [
+  "light",
+  "dark",
+  "retro",
+  "playful",
+  "hacker",
+  "space-invaders",
+  "high-contrast",
+  "fairytale-forest",
+  "pirate-map",
+  "underwater",
+  "robot-workshop",
+  "cabin",
+  "monster-lab",
+  "dino-park",
+  "mission-base",
+  "block-world",
+  "cozy-home",
+];
 
 function getTheme() {
   const stored = localStorage.getItem("chores.theme");
@@ -446,6 +464,16 @@ const THEME_OPTIONS = [
   { value: "hacker", labelKey: "settings.themeHacker" },
   { value: "space-invaders", labelKey: "settings.themeSpaceInvaders" },
   { value: "high-contrast", labelKey: "settings.themeHighContrast" },
+  { value: "fairytale-forest", labelKey: "settings.themeFairytaleForest" },
+  { value: "pirate-map", labelKey: "settings.themePirateMap" },
+  { value: "underwater", labelKey: "settings.themeUnderwater" },
+  { value: "robot-workshop", labelKey: "settings.themeRobotWorkshop" },
+  { value: "cabin", labelKey: "settings.themeCabin" },
+  { value: "monster-lab", labelKey: "settings.themeMonsterLab" },
+  { value: "dino-park", labelKey: "settings.themeDinoPark" },
+  { value: "mission-base", labelKey: "settings.themeMissionBase" },
+  { value: "block-world", labelKey: "settings.themeBlockWorld" },
+  { value: "cozy-home", labelKey: "settings.themeCozyHome" },
 ];
 function renderThemeSwitcher() {
   const current = getTheme();
