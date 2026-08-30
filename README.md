@@ -29,6 +29,74 @@ binary. That's an acceptable tradeoff here since the app already needs a
 live connection to its own backend for essentially everything; there's no
 offline mode to preserve.
 
+## Contents
+
+- [Running](#running)
+- [Features](#features)
+  - [Tasks](#tasks)
+  - [Occurrence history and retention](#occurrence-history-and-retention)
+  - [Repeat rules](#repeat-rules)
+  - [The parent view](#the-parent-view)
+  - [The child view](#the-child-view)
+  - [Balance and payouts](#balance-and-payouts)
+  - [Multiple families](#multiple-families)
+  - [Auto-refresh and the Settings page](#auto-refresh-and-the-settings-page)
+  - [The welcome page](#the-welcome-page)
+  - [Push notifications](#push-notifications)
+- [Hosting](#hosting)
+- [Language](#language)
+- [Theme](#theme)
+- [Authentication](#authentication)
+  - [Local testing without a real Auth0 tenant](#local-testing-without-a-real-auth0-tenant)
+  - [Setting up Auth0](#setting-up-auth0)
+- [Family membership](#family-membership)
+  - [Creating or joining another family](#creating-or-joining-another-family)
+  - [The family members list](#the-family-members-list)
+  - [Inviting a family member](#inviting-a-family-member)
+  - [Leaving, removing a child, or deleting the family](#leaving-removing-a-child-or-deleting-the-family)
+- [Kiosk dashboard](#kiosk-dashboard)
+- [External API access](#external-api-access)
+- [Installing as an app (PWA)](#installing-as-an-app-pwa)
+- [Deploying a schema change](#deploying-a-schema-change)
+- [Regenerating the Connect/protobuf code](#regenerating-the-connectprotobuf-code)
+- [Continuous integration](#continuous-integration)
+- [Updating the Material Symbols icon list](#updating-the-material-symbols-icon-list)
+- [Working on this with a coding agent](#working-on-this-with-a-coding-agent)
+- [Project layout](#project-layout)
+
+## Running
+
+To self-host instead of using the hosted instance mentioned above, clone
+this repo and run:
+
+```bash
+go run ./cmd/chores -addr=:8080 -db=chores.db
+```
+
+Then open http://localhost:8080. A login is always required (see
+Authentication below) — for local testing without a real Auth0 tenant, run
+`cmd/devauth` alongside it instead.
+
+(If you have an existing database from before the rename, pass
+`-db=ukelonn.db` to keep using it, or just rename the file — the schema
+itself didn't change.)
+
+Config is layered with [koanf](https://github.com/knadh/koanf), lowest to
+highest priority: an optional `.env` file in the working directory, real
+environment variables, then CLI flags on top. Each layer only overrides a
+value the one below it actually set — an unset flag or absent env var
+never clobbers what an earlier layer provided (see `loadConfig` in
+`cmd/chores/main.go`). The `.env` file is entirely optional and
+git-ignored; only the three `AUTH0_*` keys are read from it:
+
+```
+AUTH0_DOMAIN=your-tenant.eu.auth0.com
+AUTH0_CLIENT_ID=...
+AUTH0_CLIENT_SECRET=...
+```
+
+## Features
+
 The UI is built mobile-first, as an app shell rather than a page that
 merely reflows: a sticky app bar, a tab bar pinned to the bottom edge under
 the thumb, and the screen scrolling between them, with safe-area padding so
@@ -43,101 +111,126 @@ adapts from a phone up through a desktop window. Fields that are
 deliberately narrow on desktop (price, cron expression, etc.) go full-width
 below 520px, where that space would otherwise sit unused.
 
-- Parents create tasks with a price, an assignment to one or more children
-  (with a "select all" shortcut), and an optional icon shown next to the
-  title everywhere the task appears — a
-  [Material Symbols](https://fonts.google.com/icons) icon, picked by typing
-  a search term (matched against the official icon names, underscores
-  treated as spaces — no separate keyword/synonym list) and clicking one of
-  the matches. A task predating Material Symbols becoming the only
-  supported icon type (an emoji or a Font Awesome icon) keeps showing its
-  old icon as plain text rather than losing it, but can't be re-picked
-  through this UI — editing such a task starts with no icon selected. A
-  task only shows up for the children it's assigned to, can be edited in
-  place at any time, and can be paused (and later resumed) instead of
-  deleted. Cloning opens the same create-task sheet pre-filled from an
-  existing task, title suffixed `(copy)` — or `(copy 2)`, `(copy 3)`, etc.
-  if that title is already taken — as a starting point for a similar task
-  rather than building one from scratch.
-- Editing or deleting a task never rewrites what a child earned. An
-  occurrence records the amount it was worth at the moment it was recorded,
-  and nothing else — so repricing a chore changes what it pays from now on
-  and leaves last month's earnings alone. Its title and icon are read live
-  from the task, so correcting a name fixes it everywhere rather than
-  leaving older entries under the old one; the same treatment a child's own
-  name gets. Deleting is a soft delete: the task disappears from the Tasks
-  tab and stops coming due, but every occurrence it produced stays, and so
-  do the earnings behind them — a child's balance is never moved by
-  deleting a task. The hidden row is reclaimed once its occurrences have
-  aged out and nothing can still need its title. (Removing a *child* still
-  does take their history with them; see below.)
-- Occurrence history is kept for a rolling **62 days**, which always covers
-  the current month plus the whole of the previous one — the widest that
-  span ever gets is 61 days (31 January back to 1 December). Expressed as a
-  rolling window rather than calendar months so history ages out a day at a
-  time instead of a month disappearing on the 1st. Balances are *not*
-  affected: when occurrences age out, their earnings are carried into a
-  per-child ledger in the same transaction that deletes them, so what a
-  child has earned and is owed stays exact forever. What's lost beyond the
-  window is the itemisation — which chores made up the total — not the
-  total. Payouts are kept indefinitely.
-- A task's repeat rule is one of three modes: **does not repeat** (due once,
-  on a specific date, then never again), **weekly** (day-of-week checkboxes,
-  shown Monday-first, plus "every N weeks" — 1 for every week, higher for
-  every other week and beyond, counted from the date the task was created),
-  or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
-  every month) for anything the other two can't express.
-- A parent gets five tabs, in this order: **Today**, **History**, **Tasks**,
-  **Balance**, **Settings**. Today is a daily dashboard: for each child, today's tasks and
-  their completion status, what they've earned today, and their outstanding
-  balance — all at a glance. History is a browsable log of every completion,
-  grouped into Today / Yesterday / Earlier this week / Later — the "Later"
-  group loads a page at a time as you ask for more, rather than pulling a
-  whole retained window up front — plus a search box that matches by task
-  title or child name across that window. Every entry there can be
-  toggled between completed and not completed via a two-step inline confirm
-  — no browser popup, just a confirm button that appears in place of the
-  toggle itself. That's how a completion logged for the wrong child gets
-  undone (it stays visible as a missed task rather than vanishing), and
-  equally how one missed at the time gets backfilled after the fact. Tasks
-  manages task definitions, with the editor opening as a sheet over the list
-  rather than a form beneath it. Balance handles payouts and balance
-  history. The app bar's user name is itself a dropdown for
-  switching to a specific child's own restricted view, mainly useful for
-  previewing what a kid sees, or for a parent marking a chore done on
-  behalf of a child who doesn't have their own login — that dropdown only
-  ever offers children and yourself, never another parent, so one parent's
-  login can't casually end up "being" a co-parent.
-- A child gets two tabs, **Today** and **Settings**, and Today is the whole
-  app for them: their own checklist, with what they've earned today, this
-  week, and their current balance shown right above it. There's no separate
-  balance/payout page or family-member list for a child to get lost in —
-  those are parent-only concerns, tucked into the Balance tab and the
-  parent's own Settings page respectively.
-- Balance tracks earnings in the last 7 days and the outstanding balance
-  (total earned minus total paid out), plus — per child — what they've
-  earned this calendar month and last, with an expandable month-by-month
-  table underneath going back further. That table stays available past the
-  62-day retention window: the retention purge compacts each month's total
-  into `child_monthly_earnings` before deleting the occurrence rows it was
-  summed from, the same way it carries a purged balance into `child_ledger`.
-- Parents can pay out the full balance or a partial amount.
-- A login — parent or child — can belong to more than one family at once
-  (e.g. a child who splits time between two households, or a parent
-  co-running two, each running its own independent chores/allowance). The
-  family name in the top bar becomes a dropdown once there's more than one
-  to switch between; creating another family or joining one with an invite
-  code, whether or not you already belong to one, is done from the Settings
-  page.
-- The page auto-refreshes every 5 minutes (so a completion made from another
-  device or family member's session shows up without a manual reload),
-  pausing automatically while a form on the page has focus so it never wipes
-  out something you're mid-typing. This isn't configurable — there's no real
-  downside to it, so it's just always on. Web Push notifications (sent to
-  every other subscribed device in the family whenever a task is completed),
-  renaming the family, and — for a parent — managing family members and
-  invitations, all live on the Settings page, since none of them are things
-  you look at often enough to deserve their own always-visible tab.
+### Tasks
+
+Parents create tasks with a price, an assignment to one or more children
+(with a "select all" shortcut), and an optional icon shown next to the
+title everywhere the task appears — a
+[Material Symbols](https://fonts.google.com/icons) icon, picked by typing
+a search term (matched against the official icon names, underscores
+treated as spaces — no separate keyword/synonym list) and clicking one of
+the matches. A task predating Material Symbols becoming the only
+supported icon type (an emoji or a Font Awesome icon) keeps showing its
+old icon as plain text rather than losing it, but can't be re-picked
+through this UI — editing such a task starts with no icon selected. A
+task only shows up for the children it's assigned to, can be edited in
+place at any time, and can be paused (and later resumed) instead of
+deleted. Cloning opens the same create-task sheet pre-filled from an
+existing task, title suffixed `(copy)` — or `(copy 2)`, `(copy 3)`, etc.
+if that title is already taken — as a starting point for a similar task
+rather than building one from scratch.
+
+Editing or deleting a task never rewrites what a child earned. An
+occurrence records the amount it was worth at the moment it was recorded,
+and nothing else — so repricing a chore changes what it pays from now on
+and leaves last month's earnings alone. Its title and icon are read live
+from the task, so correcting a name fixes it everywhere rather than
+leaving older entries under the old one; the same treatment a child's own
+name gets. Deleting is a soft delete: the task disappears from the Tasks
+tab and stops coming due, but every occurrence it produced stays, and so
+do the earnings behind them — a child's balance is never moved by
+deleting a task. The hidden row is reclaimed once its occurrences have
+aged out and nothing can still need its title. (Removing a *child* still
+does take their history with them; see Family membership below.)
+
+### Occurrence history and retention
+
+Occurrence history is kept for a rolling **62 days**, which always covers
+the current month plus the whole of the previous one — the widest that
+span ever gets is 61 days (31 January back to 1 December). Expressed as a
+rolling window rather than calendar months so history ages out a day at a
+time instead of a month disappearing on the 1st. Balances are *not*
+affected: when occurrences age out, their earnings are carried into a
+per-child ledger in the same transaction that deletes them, so what a
+child has earned and is owed stays exact forever. What's lost beyond the
+window is the itemisation — which chores made up the total — not the
+total. Payouts are kept indefinitely.
+
+### Repeat rules
+
+A task's repeat rule is one of three modes: **does not repeat** (due once,
+on a specific date, then never again), **weekly** (day-of-week checkboxes,
+shown Monday-first, plus "every N weeks" — 1 for every week, higher for
+every other week and beyond, counted from the date the task was created),
+or **cron** (a raw 5-field cron expression, e.g. `0 0 1 * *` for the 1st of
+every month) for anything the other two can't express.
+
+### The parent view
+
+A parent gets five tabs, in this order: **Today**, **History**, **Tasks**,
+**Balance**, **Settings**. Today is a daily dashboard: for each child, today's tasks and
+their completion status, what they've earned today, and their outstanding
+balance — all at a glance. History is a browsable log of every completion,
+grouped into Today / Yesterday / Earlier this week / Later — the "Later"
+group loads a page at a time as you ask for more, rather than pulling a
+whole retained window up front — plus a search box that matches by task
+title or child name across that window. Every entry there can be
+toggled between completed and not completed via a two-step inline confirm
+— no browser popup, just a confirm button that appears in place of the
+toggle itself. That's how a completion logged for the wrong child gets
+undone (it stays visible as a missed task rather than vanishing), and
+equally how one missed at the time gets backfilled after the fact. Tasks
+manages task definitions, with the editor opening as a sheet over the list
+rather than a form beneath it. Balance handles payouts and balance
+history. The app bar's user name is itself a dropdown for
+switching to a specific child's own restricted view, mainly useful for
+previewing what a kid sees, or for a parent marking a chore done on
+behalf of a child who doesn't have their own login — that dropdown only
+ever offers children and yourself, never another parent, so one parent's
+login can't casually end up "being" a co-parent.
+
+### The child view
+
+A child gets two tabs, **Today** and **Settings**, and Today is the whole
+app for them: their own checklist, with what they've earned today, this
+week, and their current balance shown right above it. There's no separate
+balance/payout page or family-member list for a child to get lost in —
+those are parent-only concerns, tucked into the Balance tab and the
+parent's own Settings page respectively.
+
+### Balance and payouts
+
+Balance tracks earnings in the last 7 days and the outstanding balance
+(total earned minus total paid out), plus — per child — what they've
+earned this calendar month and last, with an expandable month-by-month
+table underneath going back further. That table stays available past the
+62-day retention window: the retention purge compacts each month's total
+into `child_monthly_earnings` before deleting the occurrence rows it was
+summed from, the same way it carries a purged balance into `child_ledger`.
+
+Parents can pay out the full balance or a partial amount.
+
+### Multiple families
+
+A login — parent or child — can belong to more than one family at once
+(e.g. a child who splits time between two households, or a parent
+co-running two, each running its own independent chores/allowance). The
+family name in the top bar becomes a dropdown once there's more than one
+to switch between; creating another family or joining one with an invite
+code, whether or not you already belong to one, is done from the Settings
+page (see Family membership below).
+
+### Auto-refresh and the Settings page
+
+The page auto-refreshes every 5 minutes (so a completion made from another
+device or family member's session shows up without a manual reload),
+pausing automatically while a form on the page has focus so it never wipes
+out something you're mid-typing. This isn't configurable — there's no real
+downside to it, so it's just always on. Web Push notifications (see below),
+renaming the family, and — for a parent — managing family members and
+invitations (see Family membership below), all live on the Settings page,
+since none of them are things you look at often enough to deserve their
+own always-visible tab.
 
 ### The welcome page
 
@@ -179,37 +272,6 @@ accounting, never a sibling's. Children don't have to log in individually,
 though — a bound parent's session can still act as any unbound child in
 their family via the in-app picker (handing the device to a kid to mark a
 chore done, for example).
-
-## Running
-
-To self-host instead of using the hosted instance mentioned above, clone
-this repo and run:
-
-```bash
-go run ./cmd/chores -addr=:8080 -db=chores.db
-```
-
-Then open http://localhost:8080. A login is always required (see
-Authentication below) — for local testing without a real Auth0 tenant, run
-`cmd/devauth` alongside it instead.
-
-(If you have an existing database from before the rename, pass
-`-db=ukelonn.db` to keep using it, or just rename the file — the schema
-itself didn't change.)
-
-Config is layered with [koanf](https://github.com/knadh/koanf), lowest to
-highest priority: an optional `.env` file in the working directory, real
-environment variables, then CLI flags on top. Each layer only overrides a
-value the one below it actually set — an unset flag or absent env var
-never clobbers what an earlier layer provided (see `loadConfig` in
-`cmd/chores/main.go`). The `.env` file is entirely optional and
-git-ignored; only the three `AUTH0_*` keys are read from it:
-
-```
-AUTH0_DOMAIN=your-tenant.eu.auth0.com
-AUTH0_CLIENT_ID=...
-AUTH0_CLIENT_SECRET=...
-```
 
 ## Hosting
 
@@ -339,6 +401,8 @@ domain, `localhost`, whatever) with no extra configuration — Auth0's
 Allowed Callback URLs list (step 2 above) is what actually decides which
 hostnames are allowed to complete a login; the app doesn't add any
 restriction of its own on top of that.
+
+## Family membership
 
 ### Creating or joining another family
 
@@ -484,7 +548,7 @@ that negotiates h2 with the client but falls back to HTTP/1.1 for its own
 connection to the origin will deliver an HTTP/2 request onto a connection
 that can't parse it, which surfaces as a blunt "505 HTTP Version Not
 Supported" rather than anything naming the real cause. On the author's own
-Fly.io instance (see Hosting below — Cloudflare there is DNS only, so
+Fly.io instance (see Hosting above — Cloudflare there is DNS only, so
 fly-proxy is the only other hop) this needed two settings in `fly.toml`'s
 `[http_service]`, one per leg: `tls_options.alpn = ["h2", "http/1.1"]` so
 fly-proxy's edge offers h2 to external clients at all (otherwise ALPN falls
@@ -596,7 +660,7 @@ commit) or run it on demand with `prek run --all-files`.
 ## Updating the Material Symbols icon list
 
 `web/material-symbols.json` (the icon names the task icon picker's search
-runs against — see "Parents create tasks..." above) is a point-in-time
+runs against — see Tasks above) is a point-in-time
 snapshot; Google adds new icons occasionally. Refresh it with:
 
 ```bash
