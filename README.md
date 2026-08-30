@@ -4,9 +4,10 @@ A family allowance and chore tracker. Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
 **The easiest way to use this is the author's own instance at
-[chores.apphub.casa](https://chores.apphub.casa)** — anyone's welcome to log
-in and set up their own family there; nothing about it is limited to the
-author. It's still a personal hobby project run for free in spare time
+[chores.apphub.casa](https://chores.apphub.casa)** (also reachable at
+[ukepenger.apphub.casa](https://ukepenger.apphub.casa)) — anyone's welcome
+to log in and set up their own family there; nothing about it is limited to
+the author. It's still a personal hobby project run for free in spare time
 (see the disclaimer on its welcome page), so treat it accordingly: no
 uptime promise, and [GitHub issues](https://github.com/gunnaringe/chores/issues)
 is the only support channel. See "Hosting" further down for how it's
