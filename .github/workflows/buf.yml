@@ -2,7 +2,7 @@ name: Buf
 
 # The unified buf-action covers lint/format/breaking on PRs and pushing to
 # the BSR on main from one config, driven by which event fired — see the
-# "Continuous integration" section of the README. `labeled`/`unlabeled` are
+# "Continuous integration" section of docs/APP.md. `labeled`/`unlabeled` are
 # needed for the action's "skip breaking via label" feature, not something
 # this repo currently uses.
 on:
