@@ -679,6 +679,16 @@ change. Two skills live in `.claude/skills/`: `run-local` (start the app
 against the devauth test provider) and `verify-ui` (drive it in a browser and
 screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 
+`scripts/dev-up.sh` and `scripts/dev-down.sh` start and stop a local
+devauth + app pair for manual testing — the same two processes `make dev`
+runs, but as plain shell (no `mise`, which agent sandboxes don't have) and
+with each process in its own process group, so stopping them actually
+releases the port. `--fresh` wipes the dev database first.
+`.claude/skills/verify-ui/seed-demo-data.js` then seeds a family, children,
+a task, and completions spanning several months to test against — over plain
+HTTP, so it needs Node but no browser. (`make test-data` runs the same thing,
+for anyone who does have `mise`.)
+
 ## Project layout
 
 - `proto/` — protobuf service/message definitions
@@ -691,3 +701,4 @@ screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 - `cmd/chores` — main entrypoint
 - `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)
 - `cmd/dbaudit` — read-only report on a database: row counts, data hazards, and per-child balances. Used to check that a migration didn't move anything (see Deploying a schema change)
+- `scripts/` — development helpers, not part of the built binary: `dev-up.sh`/`dev-down.sh` (run the app locally against devauth) and `update-material-symbols.sh` (refresh the icon name list)

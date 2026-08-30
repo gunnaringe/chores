@@ -14,8 +14,10 @@ in this repo and that reading the code doesn't make obvious.
 
 **`mise` is not installed in agent sandboxes, and every Makefile target shells
 through `mise exec --`.** So `make run`, `make dev` and `make devauth` all fail
-with `mise: not found` (exit 2). Run the underlying `go run` commands directly
-— see the `run-local` skill.
+with `mise: not found` (exit 2). Use `scripts/dev-up.sh` / `scripts/dev-down.sh`
+instead — plain shell, no mise, and they handle the process-group teardown this
+repo's `go run` setup otherwise makes easy to get wrong. See the `run-local`
+skill.
 
 `go` is on `PATH`. `buf` is not: `gen/` is checked in, so you only need buf if
 you edit `proto/chores/v1/chores.proto`.
