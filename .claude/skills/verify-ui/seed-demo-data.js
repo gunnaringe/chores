@@ -4,33 +4,88 @@
 // screenshot.js — or any custom verify-ui flow — has something worth looking
 // at, instead of an empty onboarding screen or a single flat month of data.
 //
+// Talks to the Connect API directly over plain HTTP; no browser needed. The
+// only non-trivial part is the login, since every RPC sits behind a session
+// cookie (see internal/auth/auth.go) — but devauth's identity picker is
+// plain HTML with an `identity=` shortcut (see cmd/devauth/main.go), so the
+// whole handshake is three GETs with redirects followed by hand, no
+// client_id/secret needed on this end: the actual code/token exchange
+// happens server-side, between chores and devauth, inside CallbackHandler.
+//
 //   node .claude/skills/verify-ui/seed-demo-data.js \
 //     --url http://localhost:8080/ --children "Anna,Erik"
 //
-// Logs in through cmd/devauth as "Test Parent" (see the run-local skill).
-// If the database is fresh, creates a family; otherwise seeds into whatever
-// family that account already belongs to. Prints the created ids as JSON.
-
-const { execSync } = require("child_process");
+// Logs in as devauth's "Test Parent" identity. If that login has no family
+// yet, creates one; otherwise seeds into whatever family it already has.
+// Prints the created ids as JSON.
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf("--" + name);
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 };
 
-const URL = arg("url", "http://localhost:8080/");
-const PW = arg("playwright", "/opt/node22/lib/node_modules/playwright");
+const BASE = arg("url", "http://localhost:8080/").replace(/\/$/, "");
 const FAMILY_NAME = arg("family", "The Testsons");
 const CHILDREN = arg("children", "Kid").split(",").map((s) => s.trim()).filter(Boolean);
 const TASK_TITLE = arg("task", "Dishes");
 const PRICE_CENTS = Number(arg("price-cents", "500"));
+// devauth's default parent identity ("Test Parent") — see cmd/devauth.
+const IDENTITY_SUB = "devauth|local-parent";
 
-// Version-pinned directory name, so glob rather than hardcode.
-const CHROME = execSync("ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1")
-  .toString()
-  .trim();
+// ---- cookie jar -----------------------------------------------------------
+// No domain scoping: the devauth hop below ends up receiving chores' cookies
+// too, which is harmless since devauth's /authorize ignores cookies entirely
+// and only this script ever reads the jar back.
 
-const { chromium } = require(PW);
+const jar = new Map();
+function rememberCookies(res) {
+  for (const raw of res.headers.getSetCookie()) {
+    const pair = raw.split(";", 1)[0];
+    const eq = pair.indexOf("=");
+    jar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+  }
+}
+function cookieHeader() {
+  return [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
+}
+
+// A GET that doesn't follow its redirect automatically, so the Location can
+// be inspected (and mutated, for the devauth hop) and cookies from each hop
+// are captured before the next request fires.
+async function hop(url) {
+  const res = await fetch(url, { redirect: "manual", headers: { Cookie: cookieHeader() } });
+  rememberCookies(res);
+  const location = res.headers.get("location");
+  if (!location) throw new Error(`expected a redirect from ${url}, got ${res.status}`);
+  return new URL(location, url);
+}
+
+// auth.go's LoginHandler redirects to devauth's /authorize (setting a state
+// cookie); devauth's /authorize, told which identity to use, redirects
+// straight to /auth/callback with a code (no picker — see resolveIdentity in
+// cmd/devauth/main.go); auth.go's CallbackHandler exchanges that code for a
+// token itself and sets the session cookie everything else needs.
+async function login() {
+  const authorizeURL = await hop(`${BASE}/auth/login`);
+  authorizeURL.searchParams.set("identity", IDENTITY_SUB);
+  const callbackURL = await hop(authorizeURL);
+  await hop(callbackURL);
+  if (!jar.has("chores_session")) {
+    throw new Error("login did not produce a chores_session cookie");
+  }
+}
+
+async function call(method, req) {
+  const res = await fetch(`${BASE}/chores.v1.ChoresService/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookieHeader() },
+    body: JSON.stringify(req || {}),
+  });
+  if (!res.ok) {
+    throw new Error(`${method} failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json();
+}
 
 // Relative to "now" rather than fixed calendar dates, so this keeps landing
 // in the past — and still crossing a year boundary or two — no matter when
@@ -45,65 +100,36 @@ function monthsAgo(n, day = 5) {
 const COMPLETION_OFFSETS = [0, 1, 14, 15, 26]; // this month, last month, then two year boundaries back
 
 (async () => {
-  const browser = await chromium.launch({
-    executablePath: CHROME,
-    args: [
-      ...(process.env.HTTPS_PROXY ? ["--proxy-server=" + process.env.HTTPS_PROXY] : []),
-      "--ignore-certificate-errors",
-    ],
+  await login();
+
+  const membership = await call("GetMyMembership", {});
+  let familyId = membership.memberships?.[0]?.family?.id;
+  if (!familyId) {
+    const created = await call("CreateFamily", { name: FAMILY_NAME });
+    familyId = created.family.id;
+  }
+
+  const childIds = [];
+  for (const name of CHILDREN) {
+    const child = await call("CreateUser", { familyId, name, role: "USER_ROLE_CHILD" });
+    childIds.push(child.user.id);
+  }
+  const task = await call("CreateTask", {
+    familyId,
+    title: TASK_TITLE,
+    schedule: { cron: { expression: "0 0 * * *" } },
+    price: { cents: PRICE_CENTS },
+    childIds,
   });
-  const page = await (await browser.newContext()).newPage();
-
-  await page.goto(URL, { waitUntil: "networkidle" });
-  const loginBtn = page.locator("#login-btn");
-  if (await loginBtn.count()) {
-    await loginBtn.click();
-    await page.waitForLoadState("networkidle");
-    await page.click('a:has-text("Test Parent")');
-    await page.waitForLoadState("networkidle");
-  }
-  await page.waitForTimeout(1000);
-
-  if (await page.locator("#onboard-family-name").count()) {
-    await page.fill("#onboard-family-name", FAMILY_NAME);
-    await page.click("#onboard-create-btn");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(800);
-  }
-
-  const result = await page.evaluate(
-    async ({ children, taskTitle, priceCents, dates }) => {
-      const familyId = state.familyId;
-      const childIds = [];
-      for (const name of children) {
-        const child = await call("CreateUser", { familyId, name, role: "USER_ROLE_CHILD" });
-        childIds.push(child.user.id);
-      }
-      const task = await call("CreateTask", {
-        familyId,
-        title: taskTitle,
-        schedule: { cron: { expression: "0 0 * * *" } },
-        price: { cents: priceCents },
-        childIds,
-      });
-      const taskId = task.task.id;
-      for (const childId of childIds) {
-        for (const dueDate of dates) {
-          await call("CompleteTask", { taskId, childId, dueDate });
-        }
-      }
-      return { familyId, childIds, taskId, dates };
-    },
-    {
-      children: CHILDREN,
-      taskTitle: TASK_TITLE,
-      priceCents: PRICE_CENTS,
-      dates: COMPLETION_OFFSETS.map((n) => monthsAgo(n)),
+  const taskId = task.task.id;
+  const dates = COMPLETION_OFFSETS.map((n) => monthsAgo(n));
+  for (const childId of childIds) {
+    for (const dueDate of dates) {
+      await call("CompleteTask", { taskId, childId, dueDate });
     }
-  );
+  }
 
-  await browser.close();
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify({ familyId, childIds, taskId, dates }, null, 2));
 })().catch((e) => {
   console.error("FAILED:", e);
   process.exit(1);

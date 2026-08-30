@@ -59,12 +59,17 @@ node .claude/skills/verify-ui/seed-demo-data.js \
   --url http://localhost:8080/ --children "Anna,Erik"
 ```
 
-It logs in the same way `screenshot.js` does, reuses whatever family that
-login already has if one exists, and prints the created ids as JSON. Flags:
-`--family`, `--children` (comma-separated), `--task`, `--price-cents`, `--url`,
-`--playwright`. Completion dates are computed relative to *today*, not
-hardcoded, so the year-boundary behavior stays exercised no matter when this
-runs.
+Unlike `screenshot.js`, this one doesn't touch Chromium or Playwright at
+all — it's plain `fetch()` calls straight against the Connect API. Logging in
+still needs a session cookie (everything's gated behind one — see
+internal/auth/auth.go), but devauth's identity picker is plain HTML with an
+`identity=` query param shortcut, so the whole handshake is three GETs with
+their redirects followed by hand, no browser required. It reuses whatever
+family the login already has if one exists, and prints the created ids as
+JSON. Flags: `--family`, `--children` (comma-separated), `--task`,
+`--price-cents`, `--url`. Completion dates are computed relative to *today*,
+not hardcoded, so the year-boundary behavior stays exercised no matter when
+this runs.
 
 ## Capture
 
