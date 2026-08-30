@@ -1,14 +1,18 @@
 # Chores — notes for coding agents
 
-Start with `README.md`. It covers what the app does, config layering, Auth0
-setup, the kiosk dashboard, and the project layout.
+Start with `README.md` for the quick pitch and setup; `docs/APP.md` has the
+detailed feature, hosting, and architecture reference.
 
-If you change the UI, check whether the README's description of it is still
-true and update it in the same PR — its feature list is prose, so nothing
-catches it going stale.
+If you change the UI, check whether `docs/APP.md`'s description of it is
+still true and update it in the same PR — its feature list is prose, so
+nothing catches it going stale.
 
 This file is only the delta: the things that have actually cost someone time
 in this repo and that reading the code doesn't make obvious.
+
+Two skills live in `.claude/skills/`: `run-local` (start the app against the
+devauth test provider) and `verify-ui` (drive it in a browser and screenshot
+it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 
 ## Toolchain
 
@@ -16,8 +20,11 @@ in this repo and that reading the code doesn't make obvious.
 through `mise exec --`.** So `make run`, `make dev` and `make devauth` all fail
 with `mise: not found` (exit 2). Use `scripts/dev-up.sh` / `scripts/dev-down.sh`
 instead — plain shell, no mise, and they handle the process-group teardown this
-repo's `go run` setup otherwise makes easy to get wrong. See the `run-local`
-skill.
+repo's `go run` setup otherwise makes easy to get wrong (`--fresh` wipes the
+dev database first). See the `run-local` skill.
+`.claude/skills/verify-ui/seed-demo-data.js` (or `make test-data`, for anyone
+who does have `mise`) then seeds a family, children, a task, and completions
+spanning several months to test against.
 
 `go` is on `PATH`. `buf` is not: `gen/` is checked in, so you only need buf if
 you edit `proto/chores/v1/chores.proto`.
