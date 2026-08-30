@@ -6,12 +6,14 @@ import (
 )
 
 // appNames maps a UI language to the name an installed PWA gets. These are
-// the same two names as the "app.name" key in web/i18n.js, which is what the
-// running UI uses — keep the two in step. English is the fallback for any
+// the same names as the "app.name" key in web/i18n.js, which is what the
+// running UI uses — keep them in step. English is the fallback for any
 // language this doesn't know, matching t()'s own fallback.
 var appNames = map[string]string{
 	"en": "Chores",
-	"nb": "Ukelønn",
+	"nb": "Ukepenger",
+	"nn": "Vekepengar",
+	"sv": "Veckopeng",
 }
 
 // ManifestHandler serves the web app manifest with its name localized to the

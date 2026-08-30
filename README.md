@@ -236,7 +236,8 @@ own always-visible tab.
 
 Logged out, `/` serves a welcome page rather than a bare login box: what the
 app is, a three-step walkthrough, screenshots of the real screens (in
-`web/screenshots/`, one set per language), and a footer pointing at the
+`web/screenshots/` — English and Bokmål each have their own set; other
+languages fall back to English), and a footer pointing at the
 source and where it runs. The Log in button stays at the top, above the
 fold, exactly where it was before — someone who already uses the app should
 never have to read or scroll past any of it. A quiet second link below it,
@@ -288,21 +289,24 @@ anyone reading this file.
 
 ## Language
 
-The UI is available in English and Norwegian (Bokmål), picked with a
-dropdown on the welcome page and, once logged in, on the Settings page. It
-defaults to the browser's language when there's no saved preference, and
-the choice is then remembered in `localStorage`. Translation strings live in
-`web/i18n.js`; add a new language by adding another entry to
-`TRANSLATIONS` there and to `window.LANGUAGES`. Error messages coming from
-the server (validation errors, permission errors) aren't localized yet —
-only the UI text is.
+The UI is available in English, Norwegian Bokmål, Norwegian Nynorsk, and
+Swedish, picked with a dropdown on the welcome page and, once logged in, on
+the Settings page. It defaults to the browser's language when there's no
+saved preference, and the choice is then remembered in `localStorage`.
+Translation strings live in `web/i18n.js`; add a new language by adding
+another entry to `TRANSLATIONS` there and to `window.LANGUAGES`. Error
+messages coming from the server (validation errors, permission errors)
+aren't localized yet — only the UI text is.
 
-The app's own name is part of that: it's **Chores** in English and
-**Ukelønn** in Norwegian, including the name an installed PWA takes (see
-Installing as an app below). Because the manifest is JSON served by Go while
-the UI is JS, those two names are declared twice — `app.name` in
-`web/i18n.js` and `appNames` in `web/manifest.go` — and have to be kept in
-step.
+The app's own name is part of that: it's **Chores** in English,
+**Ukepenger** in Bokmål, **Vekepengar** in Nynorsk, and **Veckopeng** in
+Swedish, including the name an installed PWA takes (see Installing as an
+app below). Because the manifest is JSON served by Go while the UI is JS,
+those names are declared twice — `app.name` in `web/i18n.js` and `appNames`
+in `web/manifest.go` — and have to be kept in step.
+
+Only English and Bokmål have their own welcome-page screenshots — Nynorsk
+and Swedish fall back to the English set (see The welcome page above).
 
 ## Theme
 
