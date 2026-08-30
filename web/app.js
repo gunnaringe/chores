@@ -203,13 +203,15 @@ function formatDateStr(s) {
   return new Date(y, m - 1, d).toLocaleDateString(localeTag());
 }
 
-// Formats a "YYYY-MM" month string (as returned by ListMonthlyEarnings) for
-// display, e.g. "August 2026". Same reasoning as formatDateStr: build the
+// Formats the month of a "YYYY-MM" string (as returned by
+// ListMonthlyEarnings) on its own, e.g. "August" — the year is shown
+// separately, as a heading, whenever it isn't the current one; see
+// renderMonthlyEarningsCard. Same reasoning as formatDateStr: build the
 // Date from components rather than parsing the string directly.
-function formatMonthStr(s) {
+function formatMonthName(s) {
   if (!s) return "";
   const [y, m] = s.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString(localeTag(), { year: "numeric", month: "long" });
+  return new Date(y, m - 1, 1).toLocaleDateString(localeTag(), { month: "long" });
 }
 
 // Describes a task's repeat rule (one-off date, weekly pattern, or raw
@@ -1907,10 +1909,22 @@ function renderMonthlyEarningsCard(childId) {
     if (!months.length) {
       detail.appendChild(el(`<p class="empty">${escapeHtml(t("accounting.noMonthlyEarnings"))}</p>`));
     } else {
+      // Months read as bare names ("August", "July", …) for the current
+      // year, the year itself being implied; a heading marks the boundary
+      // the first time the list crosses into an earlier one, and again for
+      // every year after that — so a table spanning several years reads as
+      // "February / January / 2025 / December / … / 2024 / December / …"
+      // rather than repeating the year on every single row.
+      let yearShown = new Date().getFullYear();
       months.forEach((m) => {
+        const year = Number(m.yearMonth.split("-")[0]);
+        if (year !== yearShown) {
+          detail.appendChild(el(`<div class="section-label occurrence-group">${escapeHtml(String(year))}</div>`));
+          yearShown = year;
+        }
         detail.appendChild(el(`
           <div class="row">
-            <span>${escapeHtml(formatMonthStr(m.yearMonth))}</span>
+            <span>${escapeHtml(formatMonthName(m.yearMonth))}</span>
             <strong>${formatAmount(m.earned)}</strong>
           </div>
         `));
