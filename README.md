@@ -1,4 +1,5 @@
 <div align="center">
+<img src="web/icons/logo.png" width="96" height="96" alt="">
 
 # Chores
 
@@ -16,7 +17,11 @@ Installable as a Progressive Web App. \
 gRPC and REST-ish API through Buf Connect — [SDK](https://buf.build/apphub/chores). \
 Home Assistant app (coming soon).
 
-<images of the app here>
+<p>
+  <img src="web/screenshots/today-en.webp" width="230" alt="The Today tab, showing each child's tasks and what they've earned">
+  <img src="web/screenshots/tasks-en.webp" width="230" alt="The Tasks tab, listing chores with their price and schedule">
+  <img src="web/screenshots/balance-en.webp" width="230" alt="The Balance tab, showing what's owed and a pay-out form">
+</p>
 
 </div>
 
