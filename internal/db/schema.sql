@@ -153,6 +153,20 @@ CREATE TABLE IF NOT EXISTS child_ledger (
     updated_at TEXT
 );
 
+-- The month-by-month counterpart to child_ledger. child_ledger keeps a
+-- purge's earnings recoverable as a single running number, because that's
+-- all a balance needs; this table keeps the same earnings recoverable one
+-- calendar month at a time, because a month-by-month display (Balance's
+-- per-child earnings history) can't be rebuilt from task_occurrences once
+-- the rows it would sum have been purged. Populated by the same purge, in
+-- the same transaction, from the same rows, before they're deleted.
+CREATE TABLE IF NOT EXISTS child_monthly_earnings (
+    child_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    year_month TEXT NOT NULL, -- "YYYY-MM"
+    earned_cents INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (child_id, year_month)
+);
+
 CREATE TABLE IF NOT EXISTS payouts (
     id TEXT PRIMARY KEY,
     child_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

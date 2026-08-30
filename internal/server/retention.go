@@ -55,6 +55,24 @@ func (s *Server) purgeExpiredOccurrences(ctx context.Context, now time.Time) (de
 		`, formatTime(now), cutoff); err != nil {
 			return fmt.Errorf("carry earnings forward: %w", err)
 		}
+		// The same rows, compacted into a second shape alongside the ledger
+		// above: one total per calendar month rather than one running total.
+		// This is what lets Balance's per-child month-by-month earnings
+		// reach further back than the retention window — without it, a
+		// month's earnings would exist only as an undifferentiated part of
+		// child_ledger's running total, which answers "how much overall" but
+		// not "which month".
+		if _, err := q.ExecContext(ctx, `
+			INSERT INTO child_monthly_earnings (child_id, year_month, earned_cents)
+			SELECT child_id, strftime('%Y-%m', due_date), SUM(amount_cents)
+			FROM task_occurrences
+			WHERE due_date < ? AND completed_at IS NOT NULL
+			GROUP BY child_id, strftime('%Y-%m', due_date)
+			ON CONFLICT (child_id, year_month) DO UPDATE SET
+				earned_cents = earned_cents + excluded.earned_cents
+		`, cutoff); err != nil {
+			return fmt.Errorf("compact monthly earnings: %w", err)
+		}
 		res, err := q.ExecContext(ctx,
 			`DELETE FROM task_occurrences WHERE due_date < ?`, cutoff)
 		if err != nil {

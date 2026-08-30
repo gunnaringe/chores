@@ -264,6 +264,17 @@ message ChildSummary {
   Money earned_this_week = 14;
 }
 
+// One calendar month's completed earnings for a single child. Recent
+// months (inside the retention window) are summed live from
+// task_occurrences; older ones come from child_monthly_earnings, where the
+// retention purge compacts them before deleting the rows they were summed
+// from — see purgeExpiredOccurrences.
+message MonthlyEarning {
+  // "YYYY-MM".
+  string year_month = 1;
+  Money earned = 2;
+}
+
 // ---- Families -------------------------------------------------------------
 
 message CreateFamilyRequest {
@@ -503,6 +514,17 @@ message ListChildSummariesResponse {
   repeated ChildSummary summaries = 1;
 }
 
+message ListMonthlyEarningsRequest {
+  string child_id = 1;
+}
+message ListMonthlyEarningsResponse {
+  // Descending by year_month (most recent first). Always includes an entry
+  // for the current and previous calendar month, even when their earnings
+  // are zero, so callers can read months[0]/months[1] as "this month" and
+  // "last month" without special-casing an empty result.
+  repeated MonthlyEarning months = 1;
+}
+
 message CreatePayoutRequest {
   // 3 was amount_cents (int64), superseded by `amount`.
   reserved 3;
@@ -718,6 +740,7 @@ service ChoresService {
 
   rpc GetChildSummary(GetChildSummaryRequest) returns (GetChildSummaryResponse);
   rpc ListChildSummaries(ListChildSummariesRequest) returns (ListChildSummariesResponse);
+  rpc ListMonthlyEarnings(ListMonthlyEarningsRequest) returns (ListMonthlyEarningsResponse);
 
   rpc CreatePayout(CreatePayoutRequest) returns (CreatePayoutResponse);
   rpc ListPayouts(ListPayoutsRequest) returns (ListPayoutsResponse);

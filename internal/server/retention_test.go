@@ -230,6 +230,30 @@ func TestRetention_LedgerCascadesWithTheChild(t *testing.T) {
 	}
 }
 
+// child_monthly_earnings is keyed by child, same as child_ledger, so a
+// removed child must take both with them or a re-added child could inherit
+// a stranger's compacted earnings history.
+func TestRetention_MonthlyEarningsCascadesWithTheChild(t *testing.T) {
+	f := newHistoryFixture(t, "auth0|purge-monthly-cascade")
+	f.completeOn(t, daysAgo(200), 500)
+	if _, err := f.s.purgeExpiredOccurrences(f.ctx, nowUTC()); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	var rows int
+	f.s.db.QueryRow(`SELECT COUNT(*) FROM child_monthly_earnings WHERE child_id = ?`, f.childID).Scan(&rows)
+	if rows != 1 {
+		t.Fatalf("expected the purge to write a monthly-earnings row, got %d", rows)
+	}
+
+	if _, err := f.s.db.Exec(`DELETE FROM users WHERE id = ?`, f.childID); err != nil {
+		t.Fatalf("remove child: %v", err)
+	}
+	f.s.db.QueryRow(`SELECT COUNT(*) FROM child_monthly_earnings WHERE child_id = ?`, f.childID).Scan(&rows)
+	if rows != 0 {
+		t.Errorf("%d monthly-earnings rows survived the child's removal, want 0", rows)
+	}
+}
+
 // A soft-deleted task is kept only so its occurrences can resolve a title.
 // Once those have aged out it has no readers left, and the purge reclaims
 // it — the storage argument for soft deletion having a bounded cost.
