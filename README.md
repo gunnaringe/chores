@@ -1,6 +1,72 @@
+<div align="center">
+
 # Chores
 
-A family allowance and chore tracker. Single Go binary, embedded web UI,
+**A family allowance and chore tracker.**
+
+A simple family chore and allowance app
+
+Choose between running yourself or use my hosted version for free. \
+★ [link to self host] ★ \
+★ [chores.apphub.casa](https://chores.apphub.casa) ★ \
+★ [ukepenger.apphub.casa](https://ukepenger.apphub.casa) ★
+
+
+Everything is running as a single Go binary with a SQLite database.
+
+Available in English, Norwegian (Bokmål and Nynorsk), and Swedish
+
+Dashboard for showing and ticking of tasks on a wall display
+
+Installable as a Progressive Webapp (looks and feels like a app)
+
+gRPC and REST-ish API through Buf Connect [SDK](https://buf.build/apphub/chores)
+
+Home Assistant app (coming soon)
+
+<images of the app here>
+
+</div>
+
+<div>
+  The easiest way to use this is by using my hosted version, you are welcome to use that one.
+  No payment required. If you prefer, you can of course run it yourself instead.  
+</div>
+
+---
+
+After I made the app, I also found these ones that could be worth to look at:
+- https://github.com/donetick/donetick
+- https://github.com/liftedkilt/openchore
+- https://github.com/ccpk1/choreops
+- https://github.com/caspii/dinkydash
+
+# Features
+
+# Quick Start
+
+## Running the app
+< setup publishing the go binary in github >
+
+## Container
+< setup a container build in github >
+
+## Build locally
+Use mise for managing dependencies (list them here in addition)
+
+
+# Contributing
+Tell people to create issues
+
+# Licence
+
+# Support Chores
+Issues and PRs are welcome! Consider leaving us a star or tell your neighbour about the project if you like it.
+
+-- Claude -> The below here should be rewritten --
+
+
+ Single Go binary, embedded web UI,
 SQLite storage, Buf-generated Connect API.
 
 **The easiest way to use this is the author's own instance at
