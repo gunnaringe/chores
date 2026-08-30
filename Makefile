@@ -1,6 +1,6 @@
 MISE := mise exec --
 
-.PHONY: run devauth dev update-material-symbols
+.PHONY: run devauth dev update-material-symbols test-data
 
 run: ## Run the app against the Auth0 tenant configured in .env
 	$(MISE) go run ./cmd/chores -addr=:8080 -db=chores.db
@@ -18,3 +18,6 @@ dev: ## Run the app wired to the local devauth server, plus devauth itself
 
 update-material-symbols: ## Refresh web/material-symbols.json with the latest Material Symbols icon names
 	./scripts/update-material-symbols.sh
+
+test-data: ## Seed a family, children, a task and completions for manual testing (needs `make dev` running; pass extra flags via ARGS="--children Anna,Erik")
+	node .claude/skills/verify-ui/seed-demo-data.js $(ARGS)
