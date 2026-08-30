@@ -24,10 +24,23 @@ const ASSETS = arg("assets", "/tmp");
 const URL = arg("url", "http://localhost:8080/");
 const PW = arg("playwright", "/opt/node22/lib/node_modules/playwright");
 
-// Version-pinned directory name, so glob rather than hardcode.
-const CHROME = execSync("ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1")
-  .toString()
-  .trim();
+// Version-pinned directory name, so glob rather than hardcode. --chrome
+// overrides this for any sandbox that doesn't match this exact layout (only
+// the managed Claude Code image is guaranteed to) — see the verify-ui skill.
+function globPreinstalledChrome() {
+  try {
+    return execSync("ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome 2>/dev/null | head -1")
+      .toString()
+      .trim();
+  } catch {
+    return "";
+  }
+}
+const CHROME = arg("chrome", globPreinstalledChrome());
+if (!CHROME) {
+  console.error("No Chromium found at /opt/pw-browsers and no --chrome given. See the verify-ui skill.");
+  process.exit(1);
+}
 
 const { chromium, devices } = require(PW);
 fs.mkdirSync(OUT, { recursive: true });

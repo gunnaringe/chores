@@ -17,7 +17,7 @@ dev: ## Run the app wired to the local devauth server, plus devauth itself
 	$(MISE) go run ./cmd/chores -addr=:8080 -db=chores.db
 
 update-material-symbols: ## Refresh web/material-symbols.json with the latest Material Symbols icon names
-	./scripts/update-material-symbols.sh
+	$(MISE) ./scripts/update-material-symbols.sh
 
 test-data: ## Seed a family, children, a task and completions for manual testing (needs `make dev` running; pass extra flags via ARGS="--children Anna,Erik")
-	node .claude/skills/verify-ui/seed-demo-data.js $(ARGS)
+	$(MISE) node .claude/skills/verify-ui/seed-demo-data.js $(ARGS)

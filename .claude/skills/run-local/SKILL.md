@@ -9,34 +9,26 @@ description: Start the Chores app locally with the devauth test identity provide
 
 Every Makefile target shells through `mise exec --`, and `mise` is not
 installed in agent sandboxes. `make run`, `make dev` and `make devauth` all
-fail with `mise: not found`. Run the `go run` commands directly instead.
+fail with `mise: not found`. Use `scripts/dev-up.sh` / `scripts/dev-down.sh`
+instead (below) — plain shell, no mise involved.
 
 ## Start it
 
-The app refuses to boot without Auth0 config, so local runs point
-`AUTH0_DOMAIN` at `cmd/devauth`, a self-contained OAuth2 provider that mimics
-Auth0's endpoint shape. Two processes, in this order:
-
 ```bash
-# 1. the test identity provider, on :9999
-go run ./cmd/devauth -client-id=devclient -client-secret=devsecret
-
-# 2. the app, on :8080, pointed at it
-AUTH0_DOMAIN=http://localhost:9999 \
-AUTH0_CLIENT_ID=devclient \
-AUTH0_CLIENT_SECRET=devsecret \
-  go run ./cmd/chores -addr=:8080 -db=/tmp/chores-dev.db
+scripts/dev-up.sh          # or --fresh to wipe the dev database first
 ```
 
-Keep the database out of the repo (`/tmp/...`), so a test run never leaves a
-stray `chores.db` in the working tree.
+That starts both processes `make dev` would (devauth on :9999, chores on
+:8080 pointed at it — the app refuses to boot without Auth0 config, so local
+runs point `AUTH0_DOMAIN` at `cmd/devauth`, a self-contained OAuth2 provider
+that mimics Auth0's endpoint shape), each in its own process group with a
+pidfile under `/tmp`, and polls until `:8080` answers before returning —
+however long the first build takes. Re-running it is safe: an already-running
+instance is left alone rather than double-started. See "Stopping it cleanly"
+below for why it's structured this way instead of two plain `go run`s.
 
-Give the first start ~10s — the Go toolchain and modules may need fetching.
-Wait for `Chores listening on :8080` in the log, or poll:
-
-```bash
-curl -sS --noproxy '*' -o /dev/null -w '%{http_code}\n' http://localhost:8080/app.css
-```
+The database lives at `/tmp/chores-dev.db`, out of the repo so a test run
+never leaves a stray `chores.db` in the working tree.
 
 ## Logging in
 
@@ -60,7 +52,11 @@ from Settings.
 `web/` is compiled into the binary by `//go:embed` (see `web/assets.go`).
 A running server keeps serving the assets it started with, so editing
 `app.js` / `app.css` / `i18n.js` and reloading the page shows **no change**.
-Restart the app process after any frontend edit.
+Restart after any frontend edit:
+
+```bash
+scripts/dev-down.sh && scripts/dev-up.sh
+```
 
 Confirm the running server actually has your change rather than trusting the
 reload — this is faster than re-debugging a change that was already correct:
@@ -71,8 +67,14 @@ curl -sS --noproxy '*' http://localhost:8080/app.css | grep -c 'some-new-class'
 
 ## Stopping it cleanly
 
-This is the single most time-wasting thing in this repo. Three separate traps
-stack on top of each other:
+```bash
+scripts/dev-down.sh
+```
+
+This used to be the single most time-wasting thing in this repo, with three
+separate traps stacking on top of each other — worth knowing even now that
+the script handles it, since it explains why the script is structured the
+way it is (and what to do if you ever have to do this by hand):
 
 1. **`pkill -f 'chores -addr=:8080'` kills your own shell.** The pattern
    matches the shell's own `/proc` command line, because it contains the
@@ -88,20 +90,14 @@ stack on top of each other:
 Moving the matcher into a script file only fixes trap 1 *if nothing else on
 the invoking command line repeats the pattern* — which is easy to get wrong.
 
-**Use a process group and a pidfile, and don't scan `/proc` at all:**
+The fix `scripts/dev-up.sh` / `dev-down.sh` use: a process group and a
+pidfile, no `/proc` scanning at all. `dev-up.sh` starts each process with
+`setsid ... &` and records `$!` (the wrapper's pid, which `setsid` also makes
+the process group leader) to a pidfile; `dev-down.sh` reads it back and runs
+`kill -- "-$pid"` — the leading `-` targets the whole group, wrapper and
+exec'd binary together, so nothing is left holding the port.
 
-```bash
-setsid env AUTH0_DOMAIN=http://localhost:9999 AUTH0_CLIENT_ID=devclient \
-  AUTH0_CLIENT_SECRET=devsecret \
-  go run ./cmd/chores -addr=:8080 -db=/tmp/chores-dev.db \
-  > /tmp/chores.log 2>&1 < /dev/null &
-echo $! > /tmp/chores.pgid
-
-# later — the leading "-" kills the whole group, wrapper and binary together:
-kill -- "-$(cat /tmp/chores.pgid)"
-```
-
-If you have already lost the pid and must scan, match the **listen flag**
+If you've lost a pidfile and must scan by hand, match the **listen flag**
 (`-addr=:8080`), do it from a standalone script file, and invoke that script
 as the *only* thing on the command line.
 

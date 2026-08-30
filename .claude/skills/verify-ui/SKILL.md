@@ -14,10 +14,25 @@ Start the app first — see the `run-local` skill — and remember that `web/` i
 embedded at build time, so **restart the server after every frontend edit** or
 you will screenshot the old UI.
 
-Chromium and Playwright are preinstalled; do not run `playwright install`.
+Chromium and Playwright are preinstalled at these paths **in the managed
+Claude Code sandbox image**; do not run `playwright install` there.
 
 - browser: `/opt/pw-browsers/chromium-*/chrome-linux/chrome`
 - library: `/opt/node22/lib/node_modules/playwright`
+
+A different sandbox (or a plain local checkout) won't have these. `screenshot.js`
+fails loudly rather than guessing if the glob finds nothing — install your own
+and point it there instead:
+
+```bash
+npm install --prefix /tmp/pw playwright-core   # downloads no browser itself
+node .claude/skills/verify-ui/screenshot.js \
+  --chrome /usr/bin/google-chrome \            # or wherever a real Chrome/Chromium lives
+  --playwright /tmp/pw/node_modules/playwright-core \
+  --out /tmp/shots --assets /tmp
+```
+
+`seed-demo-data.js` needs neither — it's plain `fetch()`, no browser involved.
 
 ## Stub the icon font first
 
