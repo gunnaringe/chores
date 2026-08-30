@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/chores ./cmd/chores
 
-FROM ghcr.io/chainguard-images/static:latest
+FROM cgr.dev/chainguard/static:latest
 COPY --from=build /out/chores /chores
 
 EXPOSE 8080
