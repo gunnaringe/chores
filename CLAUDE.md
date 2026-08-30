@@ -20,6 +20,14 @@ with `mise: not found` (exit 2). Run the underlying `go run` commands directly
 `go` is on `PATH`. `buf` is not: `gen/` is checked in, so you only need buf if
 you edit `proto/chores/v1/chores.proto`.
 
+A plain `node` is also assumed on `PATH` (mise-managed — see `mise.toml`),
+needed for `node --check` below, `scripts/update-material-symbols.sh`, and
+everything under `.claude/skills/verify-ui/`. Of those, only `screenshot.js`
+needs a real browser (Chromium + Playwright, at fixed paths only guaranteed
+in the managed Claude Code sandbox image — see the `verify-ui` skill for the
+fallback); `seed-demo-data.js` is plain `fetch()` against the Connect API and
+needs nothing beyond Node itself.
+
 ## Verifying a change
 
 ```bash
