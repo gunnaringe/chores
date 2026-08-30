@@ -5,17 +5,13 @@
 
 **A family allowance and chore tracker.**
 
-Choose between running yourself or using the hosted version for free. \
-★ [Self host](#quick-start) ★ \
-★ [chores.apphub.casa](https://chores.apphub.casa) ★ \
-★ [ukepenger.apphub.casa](https://ukepenger.apphub.casa) ★
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Buf BSR](https://img.shields.io/badge/Buf%20BSR-apphub%2Fchores-1e40af)](https://buf.build/apphub/chores)
 
-Single Go binary, embedded web UI, SQLite storage. \
-Available in English, Norwegian (Bokmål and Nynorsk), and Swedish. \
-Dashboard mode for a wall-mounted tablet. \
-Installable as a Progressive Web App. \
-gRPC and REST-ish API through Buf Connect — [SDK](https://buf.build/apphub/chores). \
-Home Assistant app (coming soon).
+★ [Self host](#quick-start) &nbsp;·&nbsp;
+[chores.apphub.casa](https://chores.apphub.casa) &nbsp;·&nbsp;
+[ukepenger.apphub.casa](https://ukepenger.apphub.casa) ★
 
 <p>
   <img src="web/screenshots/today-en.webp" width="230" alt="The Today tab, showing each child's tasks and what they've earned">
@@ -29,19 +25,36 @@ Home Assistant app (coming soon).
 
 The easiest way to use this is the hosted version above — no payment
 required, anyone's welcome to sign up. Prefer your own data and uptime?
-See Quick Start below. The code is [Apache-2.0 licensed](LICENSE), so
-self-hosting or forking it is explicitly fine.
+See [Quick Start](#quick-start) below. The code is
+[Apache-2.0 licensed](LICENSE), so self-hosting or forking it is
+explicitly fine.
+
+- Single Go binary with an embedded web UI and SQLite storage — nothing
+  else to install.
+- English, Norwegian (Bokmål & Nynorsk), and Swedish, switchable per
+  device.
+- Installable as a Progressive Web App.
+- A read-only dashboard mode for a wall-mounted tablet.
+- gRPC and REST-ish API via Buf Connect —
+  [SDK](https://buf.build/apphub/chores).
+- Home Assistant app (coming soon).
 
 For everything else — features, hosting, authentication, family
 membership, the kiosk dashboard, the API, deploying schema changes — see
 [docs/APP.md](docs/APP.md).
 
+<details>
+<summary>Similar projects</summary>
+
 After making this, these other projects turned up that might also be
 worth a look:
+
 - https://github.com/donetick/donetick
 - https://github.com/liftedkilt/openchore
 - https://github.com/ccpk1/choreops
 - https://github.com/caspii/dinkydash
+
+</details>
 
 ## Quick Start
 
