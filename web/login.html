@@ -193,13 +193,15 @@
     }
 
     // Screenshots exist per language, since every word in them is UI text.
-    // Norwegian falls back to the English set if a shot is ever missing.
+    // Only English and Norwegian Bokmål have a dedicated set today — any
+    // other language falls back to English via the onerror handler below
+    // rather than needing every language covered before it can ship.
     const SHOTS = [
       { file: "today", caption: "login.shotToday" },
       { file: "tasks", caption: "login.shotTasks" },
       { file: "balance", caption: "login.shotBalance" },
     ];
-    const lang = getLang() === "nb" ? "nb" : "en";
+    const lang = getLang();
     const shots = document.getElementById("shots");
     for (const shot of SHOTS) {
       const figure = document.createElement("figure");

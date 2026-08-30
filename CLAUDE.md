@@ -113,22 +113,29 @@ load of the old UI.
 ## i18n
 
 Every user-facing string is a `t("some.key")` lookup resolved in `web/i18n.js`,
-which holds two complete blocks: `en` and `nb` (Norwegian Bokmål).
+which holds four complete blocks: `en`, `nb` (Bokmål), `nn` (Nynorsk), and `sv`
+(Swedish).
 
-**Add every new key to both blocks.** A key missing from `nb` silently falls
-back to English rather than erroring, so a half-translated UI looks fine in
-testing and ships broken.
+**Add every new key to all four blocks.** A key missing from one silently
+falls back to English rather than erroring, so a half-translated UI looks
+fine in testing and ships broken.
 
-**The app's own name is translated too** — "Chores" in English, "Ukelønn" in
-Norwegian — so never hardcode it. Use `appName()` in JS. The name also has to
-reach three places outside the rendered UI (the tab title, the iOS
-add-to-home-screen name, and the PWA manifest an install reads); `applyAppName()`
-stamps all three, and must be called again whenever the language changes.
+**The app's own name is translated too** — "Chores" in English, "Ukepenger"
+in Bokmål, "Vekepengar" in Nynorsk, "Veckopeng" in Swedish — so never
+hardcode it. Use `appName()` in JS. The name also has to reach three places
+outside the rendered UI (the tab title, the iOS add-to-home-screen name, and
+the PWA manifest an install reads); `applyAppName()` stamps all three, and
+must be called again whenever the language changes.
 
-Those two names exist **twice**: as the `app.name` key in `web/i18n.js`, and in
+Those names exist **twice**: as the `app.name` key in `web/i18n.js`, and in
 `appNames` in `web/manifest.go`, which serves the manifest with a localized
 name. The manifest is JSON served by Go and the UI is JS, so there is no shared
 definition to point at — change one and you must change the other.
+
+Only English and Bokmål have their own welcome-page screenshots
+(`web/screenshots/`); Nynorsk and Swedish fall back to the English set via
+`login.html`'s `onerror` handler rather than needing every language covered
+before it can ship.
 
 ## CSS
 
