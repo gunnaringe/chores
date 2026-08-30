@@ -46,6 +46,26 @@ the legacy response anyway.
 
 `screenshot.js` picks the stub up automatically.
 
+## Seed data first
+
+A fresh database has no family, so most tabs have nothing in them to
+screenshot. `seed-demo-data.js` creates a family (if needed), one or more
+children, a repeating task, and completions spread across several months —
+including two year boundaries back, so anything that depends on multi-year
+history (Balance's month-by-month breakdown) has something to show:
+
+```bash
+node .claude/skills/verify-ui/seed-demo-data.js \
+  --url http://localhost:8080/ --children "Anna,Erik"
+```
+
+It logs in the same way `screenshot.js` does, reuses whatever family that
+login already has if one exists, and prints the created ids as JSON. Flags:
+`--family`, `--children` (comma-separated), `--task`, `--price-cents`, `--url`,
+`--playwright`. Completion dates are computed relative to *today*, not
+hardcoded, so the year-boundary behavior stays exercised no matter when this
+runs.
+
 ## Capture
 
 ```bash
@@ -59,8 +79,8 @@ size, plus dark mode, a 320px screen and desktop. Any page error, console
 error or 4xx/5xx is printed at the end — treat a non-empty list as a failure.
 
 Against a **fresh database** there is no family yet, so there are no tabs to
-walk; the script says so and captures onboarding instead. Create a family
-first if you need the real screens.
+walk; the script says so and captures onboarding instead. Run
+`seed-demo-data.js` first if you need the real screens.
 
 Then actually **look at the PNGs** with the Read tool. That is the point; a
 script that exits 0 has verified nothing about how the page looks.
