@@ -203,6 +203,17 @@ function formatDateStr(s) {
   return new Date(y, m - 1, d).toLocaleDateString(localeTag());
 }
 
+// Formats the month of a "YYYY-MM" string (as returned by
+// ListMonthlyEarnings) on its own, e.g. "August" — the year is shown
+// separately, as a heading, whenever it isn't the current one; see
+// renderMonthlyEarningsCard. Same reasoning as formatDateStr: build the
+// Date from components rather than parsing the string directly.
+function formatMonthName(s) {
+  if (!s) return "";
+  const [y, m] = s.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(localeTag(), { month: "long" });
+}
+
 // Describes a task's repeat rule (one-off date, weekly pattern, or raw
 // cron) for display in the task list.
 function repeatLabel(t_) {
@@ -244,6 +255,7 @@ const state = {
   addingTask: false, // whether the task editor sheet is open on a new task
   pushConfig: null, // { vapidPublicKey }
   historyRecent: [], // completions from this Monday through today
+  monthlyEarningsByChild: {}, // child id -> [{yearMonth, earned}], most recent first (Balance tab)
   historyLater: [], // accumulated older pages, oldest loaded last
   historyLaterOffset: 0,
   historyLaterHasMore: true,
@@ -390,6 +402,15 @@ async function loadFamilyData() {
     });
     state.historyRecent = histResp.occurrences || [];
   }
+
+  // Balance's per-child month-by-month earnings. Parent-only, like History
+  // above — a child has no Balance tab to show it on.
+  if (isParent()) {
+    const monthlyEntries = await Promise.all(
+      state.summaries.map((s) => call("ListMonthlyEarnings", { childId: s.child.id }).then((r) => [s.child.id, r.months || []]))
+    );
+    state.monthlyEarningsByChild = Object.fromEntries(monthlyEntries);
+  }
 }
 
 async function loadPushConfig() {
@@ -535,6 +556,7 @@ function resetTransientUiState() {
   confirmingRevokeTokenId = null;
   newPersonalAccessTokenSecret = null;
   openQrPanelId = null;
+  expandedMonthlyChildId = null;
 }
 
 function renderTabBar(defs, activeKey) {
@@ -1844,6 +1866,76 @@ function renderTaskForm(existingTask, cloneSource) {
 
 // ---- Accounting tab -----------------------------------------------------
 
+// Which child's month-by-month earnings breakdown is showing, if any —
+// transient UI state like expandedFamilyRow below: module-level rather than
+// in `state`, reset on navigation by resetTransientUiState(). Only one
+// child's table is open at a time, the same restriction expandedFamilyRow
+// puts on the family list.
+let expandedMonthlyChildId = null;
+
+// This-month/last-month totals as a stat strip (matching the child summary
+// cards elsewhere), with an expandable row underneath listing every month
+// on record for this one child — including months whose occurrence rows
+// have long since been purged, via ListMonthlyEarnings' merge of live and
+// compacted totals.
+function renderMonthlyEarningsCard(childId) {
+  const months = state.monthlyEarningsByChild[childId] || [];
+  const thisMonth = months[0] || null;
+  const lastMonth = months[1] || null;
+  const card = el(`
+    <div class="card">
+      <div class="grid-2 stat-strip" style="margin-top:0;">
+        <div class="stat"><div class="value">${formatAmount(thisMonth ? thisMonth.earned : { cents: 0 })}</div><div class="label">${escapeHtml(t("accounting.earnedThisMonth"))}</div></div>
+        <div class="stat"><div class="value">${formatAmount(lastMonth ? lastMonth.earned : { cents: 0 })}</div><div class="label">${escapeHtml(t("accounting.earnedLastMonth"))}</div></div>
+      </div>
+    </div>
+  `);
+
+  const expanded = expandedMonthlyChildId === childId;
+  const toggle = el(`
+    <div class="row expandable">
+      <span>${escapeHtml(t("accounting.monthlyBreakdown"))}</span>
+      <span class="material-symbols-outlined chevron">${expanded ? "expand_less" : "expand_more"}</span>
+    </div>
+  `);
+  toggle.addEventListener("click", () => {
+    expandedMonthlyChildId = expanded ? null : childId;
+    render();
+  });
+  card.appendChild(toggle);
+
+  if (expanded) {
+    const detail = el(`<div class="row-detail"></div>`);
+    if (!months.length) {
+      detail.appendChild(el(`<p class="empty">${escapeHtml(t("accounting.noMonthlyEarnings"))}</p>`));
+    } else {
+      // Months read as bare names ("August", "July", …) for the current
+      // year, the year itself being implied; a heading marks the boundary
+      // the first time the list crosses into an earlier one, and again for
+      // every year after that — so a table spanning several years reads as
+      // "February / January / 2025 / December / … / 2024 / December / …"
+      // rather than repeating the year on every single row.
+      let yearShown = new Date().getFullYear();
+      months.forEach((m) => {
+        const year = Number(m.yearMonth.split("-")[0]);
+        if (year !== yearShown) {
+          detail.appendChild(el(`<div class="section-label occurrence-group">${escapeHtml(String(year))}</div>`));
+          yearShown = year;
+        }
+        detail.appendChild(el(`
+          <div class="row">
+            <span>${escapeHtml(formatMonthName(m.yearMonth))}</span>
+            <strong>${formatAmount(m.earned)}</strong>
+          </div>
+        `));
+      });
+    }
+    card.appendChild(detail);
+  }
+
+  return card;
+}
+
 function renderAccountingTab() {
   const wrap = el(`<div></div>`);
   const summaries = state.summaries;
@@ -1878,6 +1970,7 @@ function renderAccountingTab() {
       </div>
     `);
     wrapForChild.appendChild(card);
+    wrapForChild.appendChild(renderMonthlyEarningsCard(s.child.id));
     const balanceCents = Number((s.balance && s.balance.cents) || 0);
     const balanceKr = balanceCents / 100;
     const payoutForm = el(`

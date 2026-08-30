@@ -94,6 +94,9 @@ const (
 	// ChoresServiceListChildSummariesProcedure is the fully-qualified name of the ChoresService's
 	// ListChildSummaries RPC.
 	ChoresServiceListChildSummariesProcedure = "/chores.v1.ChoresService/ListChildSummaries"
+	// ChoresServiceListMonthlyEarningsProcedure is the fully-qualified name of the ChoresService's
+	// ListMonthlyEarnings RPC.
+	ChoresServiceListMonthlyEarningsProcedure = "/chores.v1.ChoresService/ListMonthlyEarnings"
 	// ChoresServiceCreatePayoutProcedure is the fully-qualified name of the ChoresService's
 	// CreatePayout RPC.
 	ChoresServiceCreatePayoutProcedure = "/chores.v1.ChoresService/CreatePayout"
@@ -158,6 +161,7 @@ type ChoresServiceClient interface {
 	UncompleteTask(context.Context, *connect.Request[v1.UncompleteTaskRequest]) (*connect.Response[v1.UncompleteTaskResponse], error)
 	GetChildSummary(context.Context, *connect.Request[v1.GetChildSummaryRequest]) (*connect.Response[v1.GetChildSummaryResponse], error)
 	ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error)
+	ListMonthlyEarnings(context.Context, *connect.Request[v1.ListMonthlyEarningsRequest]) (*connect.Response[v1.ListMonthlyEarningsResponse], error)
 	CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error)
 	ListPayouts(context.Context, *connect.Request[v1.ListPayoutsRequest]) (*connect.Response[v1.ListPayoutsResponse], error)
 	GetMyMembership(context.Context, *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error)
@@ -310,6 +314,12 @@ func NewChoresServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(choresServiceMethods.ByName("ListChildSummaries")),
 			connect.WithClientOptions(opts...),
 		),
+		listMonthlyEarnings: connect.NewClient[v1.ListMonthlyEarningsRequest, v1.ListMonthlyEarningsResponse](
+			httpClient,
+			baseURL+ChoresServiceListMonthlyEarningsProcedure,
+			connect.WithSchema(choresServiceMethods.ByName("ListMonthlyEarnings")),
+			connect.WithClientOptions(opts...),
+		),
 		createPayout: connect.NewClient[v1.CreatePayoutRequest, v1.CreatePayoutResponse](
 			httpClient,
 			baseURL+ChoresServiceCreatePayoutProcedure,
@@ -414,6 +424,7 @@ type choresServiceClient struct {
 	uncompleteTask            *connect.Client[v1.UncompleteTaskRequest, v1.UncompleteTaskResponse]
 	getChildSummary           *connect.Client[v1.GetChildSummaryRequest, v1.GetChildSummaryResponse]
 	listChildSummaries        *connect.Client[v1.ListChildSummariesRequest, v1.ListChildSummariesResponse]
+	listMonthlyEarnings       *connect.Client[v1.ListMonthlyEarningsRequest, v1.ListMonthlyEarningsResponse]
 	createPayout              *connect.Client[v1.CreatePayoutRequest, v1.CreatePayoutResponse]
 	listPayouts               *connect.Client[v1.ListPayoutsRequest, v1.ListPayoutsResponse]
 	getMyMembership           *connect.Client[v1.GetMyMembershipRequest, v1.GetMyMembershipResponse]
@@ -534,6 +545,11 @@ func (c *choresServiceClient) ListChildSummaries(ctx context.Context, req *conne
 	return c.listChildSummaries.CallUnary(ctx, req)
 }
 
+// ListMonthlyEarnings calls chores.v1.ChoresService.ListMonthlyEarnings.
+func (c *choresServiceClient) ListMonthlyEarnings(ctx context.Context, req *connect.Request[v1.ListMonthlyEarningsRequest]) (*connect.Response[v1.ListMonthlyEarningsResponse], error) {
+	return c.listMonthlyEarnings.CallUnary(ctx, req)
+}
+
 // CreatePayout calls chores.v1.ChoresService.CreatePayout.
 func (c *choresServiceClient) CreatePayout(ctx context.Context, req *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error) {
 	return c.createPayout.CallUnary(ctx, req)
@@ -622,6 +638,7 @@ type ChoresServiceHandler interface {
 	UncompleteTask(context.Context, *connect.Request[v1.UncompleteTaskRequest]) (*connect.Response[v1.UncompleteTaskResponse], error)
 	GetChildSummary(context.Context, *connect.Request[v1.GetChildSummaryRequest]) (*connect.Response[v1.GetChildSummaryResponse], error)
 	ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error)
+	ListMonthlyEarnings(context.Context, *connect.Request[v1.ListMonthlyEarningsRequest]) (*connect.Response[v1.ListMonthlyEarningsResponse], error)
 	CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error)
 	ListPayouts(context.Context, *connect.Request[v1.ListPayoutsRequest]) (*connect.Response[v1.ListPayoutsResponse], error)
 	GetMyMembership(context.Context, *connect.Request[v1.GetMyMembershipRequest]) (*connect.Response[v1.GetMyMembershipResponse], error)
@@ -770,6 +787,12 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(choresServiceMethods.ByName("ListChildSummaries")),
 		connect.WithHandlerOptions(opts...),
 	)
+	choresServiceListMonthlyEarningsHandler := connect.NewUnaryHandler(
+		ChoresServiceListMonthlyEarningsProcedure,
+		svc.ListMonthlyEarnings,
+		connect.WithSchema(choresServiceMethods.ByName("ListMonthlyEarnings")),
+		connect.WithHandlerOptions(opts...),
+	)
 	choresServiceCreatePayoutHandler := connect.NewUnaryHandler(
 		ChoresServiceCreatePayoutProcedure,
 		svc.CreatePayout,
@@ -892,6 +915,8 @@ func NewChoresServiceHandler(svc ChoresServiceHandler, opts ...connect.HandlerOp
 			choresServiceGetChildSummaryHandler.ServeHTTP(w, r)
 		case ChoresServiceListChildSummariesProcedure:
 			choresServiceListChildSummariesHandler.ServeHTTP(w, r)
+		case ChoresServiceListMonthlyEarningsProcedure:
+			choresServiceListMonthlyEarningsHandler.ServeHTTP(w, r)
 		case ChoresServiceCreatePayoutProcedure:
 			choresServiceCreatePayoutHandler.ServeHTTP(w, r)
 		case ChoresServiceListPayoutsProcedure:
@@ -1009,6 +1034,10 @@ func (UnimplementedChoresServiceHandler) GetChildSummary(context.Context, *conne
 
 func (UnimplementedChoresServiceHandler) ListChildSummaries(context.Context, *connect.Request[v1.ListChildSummariesRequest]) (*connect.Response[v1.ListChildSummariesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.ListChildSummaries is not implemented"))
+}
+
+func (UnimplementedChoresServiceHandler) ListMonthlyEarnings(context.Context, *connect.Request[v1.ListMonthlyEarningsRequest]) (*connect.Response[v1.ListMonthlyEarningsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("chores.v1.ChoresService.ListMonthlyEarnings is not implemented"))
 }
 
 func (UnimplementedChoresServiceHandler) CreatePayout(context.Context, *connect.Request[v1.CreatePayoutRequest]) (*connect.Response[v1.CreatePayoutResponse], error) {

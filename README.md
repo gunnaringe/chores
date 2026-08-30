@@ -115,7 +115,12 @@ below 520px, where that space would otherwise sit unused.
   those are parent-only concerns, tucked into the Balance tab and the
   parent's own Settings page respectively.
 - Balance tracks earnings in the last 7 days and the outstanding balance
-  (total earned minus total paid out).
+  (total earned minus total paid out), plus — per child — what they've
+  earned this calendar month and last, with an expandable month-by-month
+  table underneath going back further. That table stays available past the
+  62-day retention window: the retention purge compacts each month's total
+  into `child_monthly_earnings` before deleting the occurrence rows it was
+  summed from, the same way it carries a purged balance into `child_ledger`.
 - Parents can pay out the full balance or a partial amount.
 - A login — parent or child — can belong to more than one family at once
   (e.g. a child who splits time between two households, or a parent
@@ -616,7 +621,7 @@ screenshot it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — cron-expression date matching for recurring tasks
-- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending, `dashboard.go` for the kiosk key, and `tokens.go` for personal access tokens
+- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `monthly.go` (per-child month-by-month earnings), `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending, `dashboard.go` for the kiosk key, and `tokens.go` for personal access tokens
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings, and `web/qrcode.js` is a vendored client-side QR encoder (see Kiosk dashboard)
 - `cmd/chores` — main entrypoint
