@@ -54,6 +54,13 @@ After I made the app, I also found these ones that could be worth to look at:
 ## Build locally
 Use mise for managing dependencies (list them here in addition)
 
+# API
+SDKs are available from [Buf BSR](https://buf.build/apphub/chores).
+They are automatically pushed for new versions.
+
+We do have Buf checking that we do not break backward compatibility, but as this is a hobby project I may choose to do that instead of living with a lot of legacy code. 
+
+The UX is using the same API as JSON.
 
 # Contributing
 Tell people to create issues
