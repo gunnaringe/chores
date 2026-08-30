@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/chores ./cmd/chores
 
-FROM gcr.io/distroless/static-debian12
+FROM cgr.dev/chainguard/static:latest
 COPY --from=build /out/chores /chores
 
 EXPOSE 8080
