@@ -7,7 +7,7 @@
 A simple family chore and allowance app
 
 Choose between running yourself or use my hosted version for free. \
-★ [link to self host] ★ \
+★ [Self hose](link to the Quick Start) ★ \
 ★ [chores.apphub.casa](https://chores.apphub.casa) ★ \
 ★ [ukepenger.apphub.casa](https://ukepenger.apphub.casa) ★
 
@@ -66,6 +66,7 @@ The UX is using the same API as JSON.
 Tell people to create issues
 
 # Licence
+Apache 2.0
 
 # Support Chores
 Issues and PRs are welcome! Consider leaving us a star or tell your neighbour about the project if you like it.
