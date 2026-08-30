@@ -24,19 +24,21 @@
 ---
 
 The easiest way to use this is the hosted version above — no payment
-required, anyone's welcome to sign up. Prefer your own data and uptime?
-See [Quick Start](#quick-start) below. The code is
-[Apache-2.0 licensed](LICENSE), so self-hosting or forking it is
-explicitly fine.
+required, anyone's welcome to sign up.
+
+Prefer your own data and uptime? See [Quick Start](#quick-start) below.
+The code is [Apache-2.0 licensed](LICENSE), so self-hosting or forking
+it is explicitly fine.
 
 - Single Go binary with an embedded web UI and SQLite storage — nothing
   else to install.
 - English, Norwegian (Bokmål & Nynorsk), and Swedish, switchable per
   device.
 - Installable as a Progressive Web App.
-- A read-only dashboard mode for a wall-mounted tablet.
+- A family dashboard mode for a wall-mounted tablet.
 - gRPC and REST-ish API via Buf Connect —
   [SDK](https://buf.build/apphub/chores).
+- Change themes so that everyone in the family can get the look they want.
 - Home Assistant app (coming soon).
 
 For everything else — features, hosting, authentication, family
