@@ -232,6 +232,47 @@ never have to read or scroll past any of it. A quiet second link below it,
 Kiosk dashboard below) for the kitchen-tablet crowd who were never going to
 log in at all.
 
+Because crawlers get this page rather than the app shell, it also carries the
+link-preview (`og:`) metadata that decides what Facebook, Slack and iMessage
+show when someone shares the app's URL, alongside a copy in `index.html` for
+links to `/dashboard`. Neither file stores those tags: `Pages.Render` in
+`web/og.go` substitutes them into a `<!-- og:meta -->` placeholder per
+request, because what a crawler should be told depends on which hostname it
+asked for.
+
+`og:url` and `og:image` have to be absolute, and are built from the request's
+own scheme and `Host` — never a configured base URL — for the same reason
+`redirectURI` is (see Authentication below): the same binary has to work
+behind any hostname pointed at it, and no deployment's domains belong in this
+repo. Each hostname advertising *itself* is also what makes a second domain
+work at all, since Facebook caches a scrape against the `og:url` it is given;
+share two domains that both claim one canonical URL and the second gets the
+first one's cached card.
+
+Which language a hostname speaks comes from `-default-lang-hosts` /
+`DEFAULT_LANG_HOSTS`, comma-separated `host=lang` pairs
+(`ukepenger.example=nb,vekepengar.example=nn`) — set for the author's own
+instance in `fly.toml`'s `[env]`, which is where a real domain belongs rather
+than in this repo's source. An unlisted host stays on English, and an
+explicit `?lang=` overrides, matching how the manifest is already steered and
+making a preview testable without touching DNS. A malformed pair or an
+unknown language fails startup rather than being skipped — the symptom
+otherwise only appears in someone else's feed.
+
+The same mapping also decides the *page's* default language, not just the
+preview's: `Render` stamps it onto `<html lang>` and `data-default-lang`,
+which `getLang()` reads (see Language below). So a link shared as
+`ukepenger.apphub.casa` previews in Bokmål and then opens in Bokmål, even for
+a visitor whose browser is set to English — while anyone who has already
+picked a language in Settings keeps it. The
+wording is hard-coded per language in `ogTaglines`, duplicating
+`login.tagline` from `i18n.js` for the same reason the titles are duplicated
+in `appNames`: crawlers don't run JavaScript, so anything they should read
+has to be literally in the HTML. The 1200x630 cards are
+`web/icons/og-image-<lang>.png`, laid out as HTML and screenshotted by
+`scripts/make-og-image.sh` so they stay in step with the app's palette;
+re-run it if the wording or colours change.
+
 ### Push notifications
 
 Push notifications use the standard Web Push API: the server generates a
@@ -278,8 +319,10 @@ anyone reading this file.
 
 The UI is available in English, Norwegian Bokmål, Norwegian Nynorsk, and
 Swedish, picked with a dropdown on the welcome page and, once logged in, on
-the Settings page. It defaults to the browser's language when there's no
-saved preference, and the choice is then remembered in `localStorage`.
+the Settings page. With no saved preference it defaults to the hostname's
+own language if it has one (see The welcome page above) and otherwise to the
+browser's; the choice is then remembered in `localStorage` and outranks both
+from then on. `getLang()` in `web/i18n.js` is where that order lives.
 Translation strings live in `web/i18n.js`; add a new language by adding
 another entry to `TRANSLATIONS` there and to `window.LANGUAGES`. Error
 messages coming from the server (validation errors, permission errors)
@@ -328,6 +371,13 @@ A login is always required — `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID` and
 `AUTH0_CLIENT_SECRET` (via `.env`, environment variables, or the
 `-auth0-*` flags) all have to be set, or `chores` refuses to start. There's
 no way to run the app open, unauthenticated.
+
+A second hostname pointed at the deployment needs its callback URL added to
+Auth0's Allowed Callback URLs before anyone can log in through it — the
+`redirect_uri` follows the hostname the request arrived on, and Auth0 rejects
+any it hasn't been told about. Serving a localized link preview on that
+hostname (see The welcome page above) needs nothing from Auth0, since the
+welcome page itself is public.
 
 ### Local testing without a real Auth0 tenant
 

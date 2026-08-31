@@ -1289,6 +1289,14 @@ const TRANSLATIONS = {
 function getLang() {
   const stored = localStorage.getItem("chores.lang");
   if (stored && TRANSLATIONS[stored]) return stored;
+  // Stamped onto <html> by Pages.Render (web/og.go) when the hostname the
+  // page was served from maps to a language — someone who followed a link
+  // to ukepenger.apphub.casa asked for Norwegian by asking for that name,
+  // and that's a better guess than the browser's own setting. It stays
+  // below the stored choice, so picking a language in Settings still wins
+  // on every later visit.
+  const fromHost = document.documentElement.getAttribute("data-default-lang");
+  if (fromHost && TRANSLATIONS[fromHost]) return fromHost;
   const nav = (navigator.language || "en").toLowerCase();
   if (nav.startsWith("nn")) return "nn";
   if (nav.startsWith("nb") || nav.startsWith("no")) return "nb";
@@ -1329,6 +1337,10 @@ function appName() {
 // re-read the manifest when that href changes.
 function applyAppName() {
   document.title = appName();
+
+  // Keeps <html lang> honest after a language switch: the server stamps the
+  // hostname's language in, but the user can pick a different one.
+  document.documentElement.lang = getLang();
 
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle) appleTitle.setAttribute("content", appName());
