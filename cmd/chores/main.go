@@ -43,6 +43,7 @@ func loadConfig() *koanf.Koanf {
 	fs.String("auth0-domain", "", "Auth0 tenant domain, e.g. your-tenant.eu.auth0.com — or a full http://host:port base URL for a non-Auth0 issuer such as cmd/devauth (env: AUTH0_DOMAIN)")
 	fs.String("auth0-client-id", "", "Auth0 application client ID (env: AUTH0_CLIENT_ID)")
 	fs.String("auth0-client-secret", "", "Auth0 application client secret (env: AUTH0_CLIENT_SECRET)")
+	fs.String("default-lang-hosts", "", `hostnames that default to a language other than English, as comma-separated host=lang pairs, e.g. "ukepenger.example=nb" — sets both the link preview a crawler reads and the UI language a first-time visitor gets (env: DEFAULT_LANG_HOSTS)`)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("parse flags: %v", err)
 	}
@@ -51,6 +52,7 @@ func loadConfig() *koanf.Koanf {
 		"AUTH0_DOMAIN":        "auth0-domain",
 		"AUTH0_CLIENT_ID":     "auth0-client-id",
 		"AUTH0_CLIENT_SECRET": "auth0-client-secret",
+		"DEFAULT_LANG_HOSTS":  "default-lang-hosts",
 	}
 	mapEnvKey := func(s string) string { return envKeys[s] }
 
@@ -85,6 +87,17 @@ func main() {
 	auth0Domain := cfg.String("auth0-domain")
 	auth0ClientID := cfg.String("auth0-client-id")
 	auth0ClientSecret := cfg.String("auth0-client-secret")
+
+	// Parsed before anything starts listening: a typo here is invisible in
+	// a browser and only surfaces as a wrong-language link preview.
+	hostLangs, err := web.ParseHostLanguages(cfg.String("default-lang-hosts"))
+	if err != nil {
+		log.Fatalf("default-lang-hosts: %v", err)
+	}
+	pages, err := web.NewPages(hostLangs)
+	if err != nil {
+		log.Fatalf("prepare pages: %v", err)
+	}
 
 	if auth0Domain == "" || auth0ClientID == "" || auth0ClientSecret == "" {
 		log.Fatalf("auth configuration is required: set AUTH0_DOMAIN, AUTH0_CLIENT_ID and AUTH0_CLIENT_SECRET " +
@@ -152,13 +165,7 @@ func main() {
 	// client-side; see web/app.js). It's the same app shell as "/", just
 	// reached without a session.
 	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
-		data, err := web.FS.ReadFile("index.html")
-		if err != nil {
-			web.RenderErrorPage(w, http.StatusInternalServerError, "Internal error.")
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(data)
+		pages.Render(w, r, "index.html")
 	})
 
 	// Registered ahead of the static file server (and outside the login
@@ -166,7 +173,9 @@ func main() {
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
 
-	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(loginPageHandler)))
+	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pages.Render(w, r, "login.html")
+	})))
 
 	// Reflection's streaming RPCs need real HTTP/2, which a plain
 	// http.ListenAndServe never negotiates without TLS. UnencryptedHTTP2
@@ -203,16 +212,6 @@ func notFoundPage(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func loginPageHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := web.FS.ReadFile("login.html")
-	if err != nil {
-		web.RenderErrorPage(w, http.StatusInternalServerError, "Internal error.")
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(data)
 }
 
 // acceptInvitationHandler binds the now-authenticated caller (RequirePage

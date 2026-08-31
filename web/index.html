@@ -6,6 +6,17 @@
      areas; app.css pads past them with env(safe-area-inset-*). -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Chores</title>
+<!-- Link-preview metadata for Facebook, Slack, iMessage et al. Filled in
+     per request by Pages.Render in web/og.go, because what a crawler should
+     read depends on which hostname it asked for: the tags are localized by
+     host (see the og-locale-hosts setting) and their absolute URLs are built
+     from the request's own origin, so no deployment's hostnames appear in
+     this repo. Crawlers are served login.html — an unauthenticated "/" never
+     reaches the app shell, see Gate in internal/auth — and they don't run
+     JavaScript, so anything they should read has to be literal HTML: the
+     visible copy below is filled in by i18n.js at runtime and is empty as
+     far as a scraper is concerned. -->
+<!-- og:meta -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="/app.css" />

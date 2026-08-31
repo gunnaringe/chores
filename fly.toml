@@ -3,6 +3,15 @@ primary_region = "arn"
 
 [build]
 
+# Hostnames that answer to this app in a language other than English. Sets
+# both the link preview a crawler reads (see web/og.go) and the UI language a
+# first-time visitor gets, so ukepenger.apphub.casa opens in Bokmal. Here
+# rather than in the source, so the app itself stays free of any particular
+# deployment's domains. An unlisted hostname stays on English previews and a
+# browser-chosen UI; a name the app has no translations for fails startup.
+[env]
+  DEFAULT_LANG_HOSTS = "ukepenger.apphub.casa=nb"
+
 [[mounts]]
   source = "chores_data"
   destination = "/data"
