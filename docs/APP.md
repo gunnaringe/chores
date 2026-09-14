@@ -232,6 +232,14 @@ never have to read or scroll past any of it. A quiet second link below it,
 Kiosk dashboard below) for the kitchen-tablet crowd who were never going to
 log in at all.
 
+The footer also links to `/privacy.html`, a static page describing the
+author's own hosted instance's data practices (needed for the Google Play
+listing). It's deliberately not run through `i18n.js` like the rest of the
+UI — a legal document, unlike UI chrome, isn't something to machine-translate
+into `nb`/`nn`/`sv` and trust — except for the app name in its back link,
+which still calls `t("app.name")` so it matches whichever language sent you
+there.
+
 Because crawlers get this page rather than the app shell, it also carries the
 link-preview (`og:`) metadata that decides what Facebook, Slack and iMessage
 show when someone shares the app's URL, alongside a copy in `index.html` for
