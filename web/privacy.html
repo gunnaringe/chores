@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Privacy policy</title>
+<link rel="stylesheet" href="/app.css" />
+<meta name="theme-color" content="#f2f3f7" id="theme-color-meta" />
+<script>
+  // Applies a stored theme choice before first paint, same as login.html
+  // and index.html — see the fuller comment there.
+  (function () {
+    var theme = localStorage.getItem("chores.theme");
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+    var meta = document.getElementById("theme-color-meta");
+    if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+  })();
+</script>
+<meta name="color-scheme" content="light dark" />
+<meta name="robots" content="noindex" />
+</head>
+<body>
+<div id="app">
+  <main class="content no-tabbar welcome">
+    <div class="welcome-section" style="max-width:640px;margin:0 auto;">
+      <p><a href="/">&larr; <span id="back-app-name">Chores</span></a></p>
+      <h1>Privacy policy</h1>
+      <p><em>Last updated: 2026-09-14</em></p>
+
+      <p>
+        This page describes how the operator's own instance of this app,
+        running at chores.apphub.casa and ukepenger.apphub.casa, handles
+        your data. The app itself is open source
+        (<a href="https://github.com/gunnaringe/chores" rel="noopener">source on GitHub</a>,
+        Apache License 2.0) and anyone can run their own instance instead;
+        this policy only covers the operator's own instance and the
+        Google Play listing that points at it.
+      </p>
+
+      <h2>Who this is</h2>
+      <p>
+        This app is a small, self-hosted family chores and allowance
+        tracker, run by one person as a personal project. Contact:
+        <a href="mailto:gunnar.inge@sort.land">gunnar.inge@sort.land</a>.
+      </p>
+
+      <h2>What data is collected</h2>
+      <ul>
+        <li>
+          <strong>Login identity.</strong> Logging in goes through Auth0,
+          which hands the app a name and email address for your account.
+          This app never sees or stores your password.
+        </li>
+        <li>
+          <strong>Family data you enter.</strong> Family and child names,
+          tasks, completion history, and allowance balances — all entered
+          by a parent or child in the family. Money amounts are a made-up
+          in-app allowance, not real payments; nothing here connects to a
+          bank account or payment processor.
+        </li>
+        <li>
+          <strong>Push notification subscriptions.</strong> If you turn on
+          notifications, your browser registers a push subscription with
+          the server so other family members' devices can be notified when
+          a chore is completed. Notification text (a child's name and a
+          task title) is delivered through your browser's or device's push
+          service (e.g. Google's for Chrome/Android, Apple's for Safari/iOS,
+          Mozilla's for Firefox) to reach your device — the operator only
+          ever sends to that service, and never reads what it does with it
+          beyond delivery.
+        </li>
+        <li>
+          <strong>Session cookies.</strong> A login session is kept
+          server-side and referenced by a cookie in your browser, so you
+          stay logged in between visits.
+        </li>
+      </ul>
+      <p>
+        Your language and theme preferences are stored only in your
+        browser's local storage and never sent to the server.
+      </p>
+
+      <h2>What is not collected</h2>
+      <p>
+        There are no ads, no analytics, and no tracking of any kind beyond
+        what's listed above. Your data is never sold or shared with anyone
+        outside your own family, other than the third parties named above
+        that are strictly necessary to run the service (Auth0 for login,
+        your browser's push service if you enable notifications). The app
+        also loads the Material Symbols icon font from Google Fonts, which
+        means your browser makes a request to Google's servers (and so
+        Google sees your IP address) whenever a page with icons loads.
+      </p>
+
+      <h2>Children's data</h2>
+      <p>
+        This app is meant to be used within a family, by parents who
+        choose what information about their children — first names and
+        chore activity — to enter. It is not directed at children as its
+        primary audience, and a child only appears in it because a parent
+        or the child themself, invited into that family, put them there.
+        If you're a parent and want a child's data removed, contact the
+        operator using the details above.
+      </p>
+
+      <h2>Data retention and deletion</h2>
+      <p>
+        Detailed day-by-day task history is kept for about two months, after
+        which it's compacted into a monthly total per child (the running
+        balance is preserved either way). Account and family data is kept
+        for as long as the family uses the app. To have your family's data
+        deleted entirely, contact the operator using the details above.
+      </p>
+
+      <h2>Where data is hosted</h2>
+      <p>
+        The operator's instance runs on Fly.io in Stockholm, Sweden, with
+        its database on a persistent disk attached to that same machine.
+        Login is handled by Auth0's EU region.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If this policy changes, the updated version will be posted at this
+        same address with a new "last updated" date.
+      </p>
+    </div>
+  </main>
+</div>
+<script src="/i18n.js"></script>
+<script>
+  document.getElementById("back-app-name").textContent = t("app.name");
+</script>
+</body>
+</html>
