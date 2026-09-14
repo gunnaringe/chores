@@ -704,6 +704,9 @@ func TestTaskRepeatModes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTask CRON: %v", err)
 	}
+	// Due date asserted below is in the past relative to the test clock, same
+	// as the weekly task above — it has to have existed by then to be due on it.
+	backdateTask(t, s, cron.Msg.Task.Id, "2026-08-01T00:00:00Z")
 	occ, err = s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, StartDate: "2026-09-01", EndDate: "2026-09-30",
 	}))
