@@ -13,7 +13,9 @@
   --surface-sunken: #eceef4;
   --text: #11141a;
   --muted: #656d7b;
-  --faint: #98a0ae;
+  /* Only for icons and placeholders, so it's held to the 3:1 non-text
+     contrast bar rather than 4.5:1 — anything a person reads uses --muted. */
+  --faint: #838d9e;
   --border: #e5e8ef;
   --border-strong: #d3d8e2;
 
@@ -21,11 +23,20 @@
   --accent-hover: #1d4ed8;
   --accent-soft: #e7efff;
   --accent-fg: #ffffff;
+  /* --accent where it's text on the page (links, ghost buttons, the active
+     tab) rather than a fill: a theme whose accent is tuned for white button
+     text can be too light to read as text on its own background. */
+  --accent-text: var(--accent);
   --green: #16a34a;
   --green-soft: #dcfce7;
+  /* The glyph on a --green/--red fill (done tick, danger button). White by
+     default; themes with a neon or pale green/red set a dark one instead,
+     same as they do for --accent-fg. */
+  --green-fg: #ffffff;
   --red: #dc2626;
   --red-soft: #fee2e2;
   --red-text: #991b1b;
+  --red-fg: #ffffff;
 
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04);
   --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.09);
@@ -70,12 +81,11 @@
   font-size: 16px;
 }
 
-/* Settings offers an explicit Light/Dark/Retro/Playful/Space Invaders/High
-   Contrast choice on top of the OS-following default ("Match device"). An
-   explicit choice is stamped as
-   data-theme on <html> by applyTheme() in app.js (and, before that file
-   even loads, by a standalone copy in index.html/login.html's <head> —
-   see the comment there). The system-dark block below is scoped to
+/* Settings offers explicit themes (Light, Dark, and the decorated ones
+   below) on top of the OS-following default ("Match device"). An explicit
+   choice is stamped as data-theme on <html> by applyTheme() in app.js
+   (and, before that file even loads, by a standalone copy in each page's
+   <head> — see the comment in index.html). The system-dark block below is scoped to
    :not([data-theme]) so it only fires for "Match device"; each explicit
    theme gets its own block, guarded by the attribute, further down. */
 @media (prefers-color-scheme: dark) {
@@ -90,11 +100,13 @@
     --border: #2a2f38;
     --border-strong: #3a4049;
 
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
+    --accent: #1e6ff5;
+    --accent-hover: #0b60ee;
     --accent-soft: #1e3a8a55;
+    --accent-text: #3a81f6;
     --green: #22c55e;
     --green-soft: #14532d55;
+    --green-fg: #101216;
     --red: #ef4444;
     --red-soft: #7f1d1d55;
     --red-text: #fca5a5;
@@ -138,11 +150,13 @@
   --border: #2a2f38;
   --border-strong: #3a4049;
 
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
+  --accent: #1e6ff5;
+  --accent-hover: #0b60ee;
   --accent-soft: #1e3a8a55;
+  --accent-text: #3a81f6;
   --green: #22c55e;
   --green-soft: #14532d55;
+  --green-fg: #101216;
   --red: #ef4444;
   --red-soft: #7f1d1d55;
   --red-text: #fca5a5;
@@ -173,14 +187,15 @@
   --card: #fbf3e3;
   --surface-sunken: #e9dcc0;
   --text: #3a2e22;
-  --muted: #7a6a53;
-  --faint: #a3927a;
+  --muted: #756650;
+  --faint: #948166;
   --border: #d8c7a3;
   --border-strong: #c2ac7d;
 
   --accent: #b5541f;
   --accent-hover: #9c4517;
   --accent-soft: #f0d3ba;
+  --accent-text: #a84e1d;
   --accent-fg: #fff8ef;
   --green: #5c7a35;
   --green-soft: #dbe6c0;
@@ -220,17 +235,19 @@
   --card: #ffffff;
   --surface-sunken: #f6e8fb;
   --text: #2d1b3a;
-  --muted: #8a7398;
-  --faint: #b39fc0;
+  --muted: #7f678d;
+  --faint: #9e84ae;
   --border: #ecd6f2;
   --border-strong: #ddb8ea;
 
-  --accent: #ff5da2;
-  --accent-hover: #ff3d8f;
+  --accent: #e90063;
+  --accent-hover: #d3005a;
   --accent-soft: #ffe0ef;
+  --accent-text: #dc005e;
   --accent-fg: #ffffff;
   --green: #12b76a;
   --green-soft: #d3f8df;
+  --green-fg: #2d1b3a;
   --red: #fb4d3d;
   --red-soft: #ffe1db;
   --red-text: #b5321f;
@@ -258,11 +275,13 @@
   color-scheme: light;
   font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", sans-serif;
 
-  /* A repeating teddy bear, heart, star and balloon tile, tinted just
+  /* Hearts, stars, a balloon, a flower and confetti, scattered at mixed
+     sizes and angles across a 240px tile so the repeat reads as wallpaper
+     rather than a grid (the other decorated themes follow suit), tinted just
      above the surface color — see --bg-pattern's definition above. Cards
      stay opaque, so this only actually shows in the gaps between them and
      faintly through the translucent app bar/tab bar, not behind text. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%20viewBox='0%200%20160%20160'%3E%3Cg%20fill='%23ffb8de'%20opacity='0.55'%3E%3Ccircle%20cx='40'%20cy='42'%20r='14'/%3E%3Ccircle%20cx='29'%20cy='27'%20r='5'/%3E%3Ccircle%20cx='51'%20cy='27'%20r='5'/%3E%3Cellipse%20cx='40'%20cy='48'%20rx='4'%20ry='3'/%3E%3Cg%20transform='translate(98,8)%20scale(1.3)'%3E%3Cpath%20d='M12%2021s-8-4.5-8-11a5%205%200%200%201%208-4%205%205%200%200%201%208%204c0%206.5-8%2011-8%2011z'/%3E%3C/g%3E%3Cg%20transform='translate(6,90)%20scale(1.15)'%3E%3Cpath%20d='M12%202l2.9%206.9L22%209.3l-5.5%204.8L18.2%2022%2012%2018.3%205.8%2022l1.7-7.9L2%209.3l7.1-.4z'/%3E%3C/g%3E%3Cellipse%20cx='128'%20cy='112'%20rx='9'%20ry='12'/%3E%3Cpath%20d='M128%20124l-2%206h4z'/%3E%3C/g%3E%3C/svg%3E");
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.6'%3E%3Cg%20transform='translate(40%2044)%20rotate(-12)%20scale(1.1)'%3E%3Cpath%20fill='%23f6a3cf'%20d='M0%2012C-20-2-12-20%200-9C12-20%2020-2%200%2012Z'/%3E%3C/g%3E%3Cg%20transform='translate(150%2030)%20rotate(10)%20scale(0.9)'%3E%3Cpath%20fill='%23f6a3cf'%20stroke='%23f6a3cf'%20stroke-width='3'%20stroke-linejoin='round'%20d='M0.0%20-14.0%20L3.8%20-5.3%20L13.3%20-4.3%20L6.2%202.0%20L8.2%2011.3%20L0.0%206.5%20L-8.2%2011.3%20L-6.2%202.0%20L-13.3%20-4.3%20L-3.8%20-5.3Z'/%3E%3C/g%3E%3Cg%20transform='translate(200%20110)%20rotate(8)%20scale(1.1)'%3E%3Cellipse%20fill='%23f6a3cf'%20cx='0'%20cy='-8'%20rx='10'%20ry='12.5'/%3E%3Cpath%20fill='%23f6a3cf'%20d='M-3%205L3%205L0%201Z'/%3E%3Cpath%20fill='none'%20stroke='%23f6a3cf'%20stroke-width='1.6'%20stroke-linecap='round'%20d='M0%205C-5%2011%205%2015%200%2022'/%3E%3Cellipse%20fill='%23fdf1fb'%20cx='-4'%20cy='-12'%20rx='2.2'%20ry='3.5'%20transform='rotate(25%20-4%20-12)'/%3E%3C/g%3E%3Cg%20transform='translate(95%20120)%20rotate(0)%20scale(1.0)'%3E%3Ccircle%20fill='%23f6a3cf'%20cx='0.0'%20cy='-8.0'%20r='6.5'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='7.6'%20cy='-2.5'%20r='6.5'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='4.7'%20cy='6.5'%20r='6.5'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='-4.7'%20cy='6.5'%20r='6.5'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='-7.6'%20cy='-2.5'%20r='6.5'/%3E%3Ccircle%20fill='%23fdf1fb'%20cx='0'%20cy='0'%20r='4.5'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='0'%20cy='0'%20r='2.5'/%3E%3C/g%3E%3Cg%20transform='translate(30%20170)%20rotate(20)%20scale(0.8)'%3E%3Cpath%20fill='%23f6a3cf'%20stroke='%23f6a3cf'%20stroke-width='3'%20stroke-linejoin='round'%20d='M0.0%20-14.0%20L3.8%20-5.3%20L13.3%20-4.3%20L6.2%202.0%20L8.2%2011.3%20L0.0%206.5%20L-8.2%2011.3%20L-6.2%202.0%20L-13.3%20-4.3%20L-3.8%20-5.3Z'/%3E%3C/g%3E%3Cg%20transform='translate(150%20200)%20rotate(14)%20scale(0.8)'%3E%3Cpath%20fill='%23f6a3cf'%20d='M0%2012C-20-2-12-20%200-9C12-20%2020-2%200%2012Z'/%3E%3C/g%3E%3Cg%20transform='translate(215%20205)%20rotate(0)%20scale(0.9)'%3E%3Cpath%20fill='%23f6a3cf'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(100%2060)%20rotate(0)%20scale(1)'%3E%3Crect%20fill='%23f6a3cf'%20x='-10'%20y='-3'%20width='7'%20height='3'%20rx='1.5'%20transform='rotate(30)'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='6'%20cy='-6'%20r='2'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='2'%20cy='8'%20r='1.5'/%3E%3C/g%3E%3Cg%20transform='translate(60%20225)%20rotate(90)%20scale(1)'%3E%3Crect%20fill='%23f6a3cf'%20x='-10'%20y='-3'%20width='7'%20height='3'%20rx='1.5'%20transform='rotate(30)'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='6'%20cy='-6'%20r='2'/%3E%3Ccircle%20fill='%23f6a3cf'%20cx='2'%20cy='8'%20r='1.5'/%3E%3C/g%3E%3Cg%20transform='translate(200%2045)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%23f6a3cf'%20cx='0'%20cy='0'%20r='2.5'/%3E%3C/g%3E%3Cg%20transform='translate(140%20150)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%23f6a3cf'%20cx='0'%20cy='0'%20r='2'/%3E%3C/g%3E%3Cg%20transform='translate(20%20105)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%23f6a3cf'%20cx='0'%20cy='0'%20r='3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* A CRT terminal: near-black surfaces, green-on-black text, square corners,
@@ -275,8 +294,8 @@
   --card: #0d1410;
   --surface-sunken: #0f1a12;
   --text: #3ddc4a;
-  --muted: #4a7a52;
-  --faint: #2f5a38;
+  --muted: #53895c;
+  --faint: #386c43;
   --border: #1c3320;
   --border-strong: #2a4a30;
 
@@ -286,9 +305,11 @@
   --accent-fg: #04140a;
   --green: #00ff41;
   --green-soft: #0d2a12;
+  --green-fg: #0a0e0a;
   --red: #ff3b3b;
   --red-soft: #2a1010;
   --red-text: #ff6b6b;
+  --red-fg: #0a0e0a;
 
   --shadow-sm: 0 0 0 1px rgba(61, 220, 74, 0.08), 0 1px 2px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 0 16px rgba(61, 220, 74, 0.12), 0 4px 16px rgba(0, 0, 0, 0.6);
@@ -325,7 +346,7 @@
   --surface-sunken: #12121e;
   --text: #e8e8f0;
   --muted: #8888a8;
-  --faint: #55557a;
+  --faint: #5a5a81;
   --border: #22223a;
   --border-strong: #33335a;
 
@@ -335,9 +356,11 @@
   --accent-fg: #001014;
   --green: #39ff14;
   --green-soft: #0d2a08;
+  --green-fg: #000000;
   --red: #ff2e4d;
   --red-soft: #2a0a10;
   --red-text: #ff6b81;
+  --red-fg: #000000;
 
   --shadow-sm: 2px 2px 0 rgba(0, 229, 255, 0.15);
   --shadow-md: 3px 3px 0 rgba(0, 229, 255, 0.2);
@@ -422,14 +445,15 @@
   --card: #fffdf5;
   --surface-sunken: #e8e0c4;
   --text: #2b3a22;
-  --muted: #6f7a5c;
-  --faint: #9aa385;
+  --muted: #667054;
+  --faint: #838e6b;
   --border: #ddd2ad;
   --border-strong: #c7b98c;
 
   --accent: #b5862a;
   --accent-hover: #996f1f;
   --accent-soft: #f3e6c2;
+  --accent-text: #8a6620;
   --accent-fg: #2b2308;
   --green: #4c7a3a;
   --green-soft: #dcead0;
@@ -460,9 +484,9 @@
   color-scheme: light;
   font-family: "Trebuchet MS", Verdana, sans-serif;
 
-  /* A little pine, a star and a fallen leaf, repeated — see --bg-pattern's
+  /* Pines, spotted toadstools, leaves and sparkles — see --bg-pattern's
      definition near the top of this file. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%20viewBox='0%200%20140%20140'%3E%3Cg%20fill='%234c7a3a'%20opacity='0.35'%3E%3Cpath%20d='M20%2010%20L30%2030%20L10%2030%20Z'/%3E%3Cpath%20d='M20%2020%20L33%2045%20L7%2045%20Z'/%3E%3Cpath%20d='M20%2034%20L36%2062%20L4%2062%20Z'/%3E%3Crect%20x='17'%20y='62'%20width='6'%20height='10'/%3E%3Cpath%20d='M100%2020%20l3%207%207%201%20-5%205%201%207%20-6%20-3%20-6%203%201%20-7%20-5%20-5%207%20-1%20Z'/%3E%3Cellipse%20cx='95'%20cy='95'%20rx='10'%20ry='5'%20transform='rotate(30%2095%2095)'/%3E%3C/g%3E%3C/svg%3E");
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.35'%3E%3Cg%20transform='translate(40%2050)%20rotate(0)%20scale(1.3)'%3E%3Cg%20fill='%236f9460'%20stroke='%236f9460'%20stroke-width='2.5'%20stroke-linejoin='round'%3E%3Cpath%20d='M0-24L9-12L4-12L13%200L6%200L16%2012L-16%2012L-6%200L-13%200L-4-12L-9-12Z'/%3E%3C/g%3E%3Crect%20fill='%236f9460'%20x='-2.5'%20y='12'%20width='5'%20height='8'%20rx='1'/%3E%3C/g%3E%3Cg%20transform='translate(70%2062)%20rotate(0)%20scale(0.9)'%3E%3Cg%20fill='%236f9460'%20stroke='%236f9460'%20stroke-width='2.5'%20stroke-linejoin='round'%3E%3Cpath%20d='M0-24L9-12L4-12L13%200L6%200L16%2012L-16%2012L-6%200L-13%200L-4-12L-9-12Z'/%3E%3C/g%3E%3Crect%20fill='%236f9460'%20x='-2.5'%20y='12'%20width='5'%20height='8'%20rx='1'/%3E%3C/g%3E%3Cg%20transform='translate(170%2040)%20rotate(0)%20scale(0.9)'%3E%3Cpath%20fill='%236f9460'%20d='M-17%200C-17-13-8-18%200-18C8-18%2017-13%2017%200Z'/%3E%3Cpath%20fill='%236f9460'%20d='M-5%202L5%202L6%2016Q0%2019-6%2016Z'/%3E%3Ccircle%20fill='%23f3efdf'%20cx='-8'%20cy='-8'%20r='3'/%3E%3Ccircle%20fill='%23f3efdf'%20cx='4'%20cy='-12'%20r='2.3'/%3E%3Ccircle%20fill='%23f3efdf'%20cx='9'%20cy='-4'%20r='2'/%3E%3C/g%3E%3Cg%20transform='translate(130%20125)%20rotate(35)%20scale(1.0)'%3E%3Cpath%20fill='%236f9460'%20d='M0-16C11-9%2011%207%200%2016C-11%207-11-9%200-16Z'/%3E%3Cpath%20fill='none'%20stroke='%23f3efdf'%20stroke-width='1.6'%20stroke-linecap='round'%20d='M0-10L0%2020M0-2L5-6M0%205L-5%201M0%2010L4%207'/%3E%3C/g%3E%3Cg%20transform='translate(205%20145)%20rotate(0)%20scale(1.4)'%3E%3Cg%20fill='%236f9460'%20stroke='%236f9460'%20stroke-width='2.5'%20stroke-linejoin='round'%3E%3Cpath%20d='M0-24L9-12L4-12L13%200L6%200L16%2012L-16%2012L-6%200L-13%200L-4-12L-9-12Z'/%3E%3C/g%3E%3Crect%20fill='%236f9460'%20x='-2.5'%20y='12'%20width='5'%20height='8'%20rx='1'/%3E%3C/g%3E%3Cg%20transform='translate(45%20175)%20rotate(0)%20scale(1.0)'%3E%3Cpath%20fill='%236f9460'%20d='M-17%200C-17-13-8-18%200-18C8-18%2017-13%2017%200Z'/%3E%3Cpath%20fill='%236f9460'%20d='M-5%202L5%202L6%2016Q0%2019-6%2016Z'/%3E%3Ccircle%20fill='%23f3efdf'%20cx='-8'%20cy='-8'%20r='3'/%3E%3Ccircle%20fill='%23f3efdf'%20cx='4'%20cy='-12'%20r='2.3'/%3E%3Ccircle%20fill='%23f3efdf'%20cx='9'%20cy='-4'%20r='2'/%3E%3C/g%3E%3Cg%20transform='translate(120%20205)%20rotate(-40)%20scale(0.8)'%3E%3Cpath%20fill='%236f9460'%20d='M0-16C11-9%2011%207%200%2016C-11%207-11-9%200-16Z'/%3E%3Cpath%20fill='none'%20stroke='%23f3efdf'%20stroke-width='1.6'%20stroke-linecap='round'%20d='M0-10L0%2020M0-2L5-6M0%205L-5%201M0%2010L4%207'/%3E%3C/g%3E%3Cg%20transform='translate(215%20225)%20rotate(0)%20scale(0.6)'%3E%3Cpath%20fill='%236f9460'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(105%2030)%20rotate(0)%20scale(0.5)'%3E%3Cpath%20fill='%236f9460'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(20%20115)%20rotate(0)%20scale(0.5)'%3E%3Cpath%20fill='%236f9460'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(215%2080)%20rotate(60)%20scale(0.7)'%3E%3Cpath%20fill='%236f9460'%20d='M0-16C11-9%2011%207%200%2016C-11%207-11-9%200-16Z'/%3E%3Cpath%20fill='none'%20stroke='%23f3efdf'%20stroke-width='1.6'%20stroke-linecap='round'%20d='M0-10L0%2020M0-2L5-6M0%205L-5%201M0%2010L4%207'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Sun-bleached parchment: sand and dark ink, a sea-blue accent for the
@@ -474,14 +498,15 @@
   --card: #f7ecd1;
   --surface-sunken: #e0c78e;
   --text: #3b2a17;
-  --muted: #7a6540;
-  --faint: #a68f61;
+  --muted: #715d3b;
+  --faint: #8e7950;
   --border: #d2b57e;
   --border-strong: #b89a5e;
 
-  --accent: #a5761a;
-  --accent-hover: #8c6215;
+  --accent: #b07e1c;
+  --accent-hover: #c08a1f;
   --accent-soft: #f0dba0;
+  --accent-text: #7d5a14;
   --accent-fg: #2b1e05;
   --green: #4f7a3a;
   --green-soft: #dde6c4;
@@ -512,8 +537,9 @@
   color-scheme: light;
   font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
 
-  /* A compass rose, an X, and a dotted route — a map, not a specific one. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%20viewBox='0%200%20140%20140'%3E%3Cg%20fill='%237a5b2a'%20opacity='0.35'%3E%3Cpath%20d='M30%206%20L34%2026%20L54%2030%20L34%2034%20L30%2054%20L26%2034%20L6%2030%20L26%2026%20Z'/%3E%3Cpath%20d='M95%2085%20l8%208%20-3%203%20-8%20-8%20-8%208%20-3%20-3%208%20-8%20-8%20-8%203%20-3%208%208%208%20-8%203%203%20Z'/%3E%3Ccircle%20cx='100'%20cy='30'%20r='2'/%3E%3Ccircle%20cx='108'%20cy='36'%20r='2'/%3E%3Ccircle%20cx='116'%20cy='44'%20r='2'/%3E%3C/g%3E%3C/svg%3E");
+  /* A compass rose, a dotted route to an X, an anchor and waves — a map,
+     not a specific one. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.35'%3E%3Cg%20transform='translate(50%2052)%20rotate(0)%20scale(1.2)'%3E%3Ccircle%20fill='none'%20stroke='%238a6a34'%20stroke-width='1.6'%20cx='0'%20cy='0'%20r='15'/%3E%3Cpath%20fill='%238a6a34'%20d='M0.0%20-24.0%20L3.5%20-3.5%20L24.0%200.0%20L3.5%203.5%20L0.0%2024.0%20L-3.5%203.5%20L-24.0%200.0%20L-3.5%20-3.5Z'/%3E%3Cpath%20fill='%238a6a34'%20d='M9.2%20-9.2%20L3.5%200.0%20L9.2%209.2%20L0.0%203.5%20L-9.2%209.2%20L-3.5%200.0%20L-9.2%20-9.2%20L-0.0%20-3.5Z'/%3E%3Ccircle%20fill='%23ecd9ad'%20cx='0'%20cy='0'%20r='2.5'/%3E%3C/g%3E%3Cg%20transform='translate(150%20110)%20rotate(-8)%20scale(1.3)'%3E%3Cpath%20fill='none'%20stroke='%238a6a34'%20stroke-width='2.5'%20stroke-linecap='round'%20stroke-dasharray='1%207'%20d='M-40%2022C-25%200-10%2030%205%208S20-12%2028-14'/%3E%3Cpath%20stroke='%238a6a34'%20stroke-width='5'%20stroke-linecap='round'%20d='M31-24L45-10M45-24L31-10'/%3E%3C/g%3E%3Cg%20transform='translate(200%2040)%20rotate(20)%20scale(0.9)'%3E%3Cg%20fill='none'%20stroke='%238a6a34'%20stroke-width='3.5'%20stroke-linecap='round'%3E%3Ccircle%20cx='0'%20cy='-17'%20r='4'/%3E%3Cpath%20d='M0-13L0%2017M-8-7L8-7M-15%205Q-13%2017%200%2017Q13%2017%2015%205'/%3E%3C/g%3E%3Cpath%20fill='%238a6a34'%20d='M-15%200L-19%208L-11%206ZM15%200L19%208L11%206Z'/%3E%3C/g%3E%3Cg%20transform='translate(50%20170)%20rotate(0)%20scale(1.0)'%3E%3Cpath%20fill='none'%20stroke='%238a6a34'%20stroke-width='2.5'%20stroke-linecap='round'%20d='M-16-3q4-5%208%200t8%200t8%200t8%200M-12%205q4-5%208%200t8%200t8%200'/%3E%3C/g%3E%3Cg%20transform='translate(185%20210)%20rotate(0)%20scale(0.9)'%3E%3Cpath%20fill='none'%20stroke='%238a6a34'%20stroke-width='2.5'%20stroke-linecap='round'%20d='M-16-3q4-5%208%200t8%200t8%200t8%200M-12%205q4-5%208%200t8%200t8%200'/%3E%3C/g%3E%3Cg%20transform='translate(110%20225)%20rotate(15)%20scale(0.5)'%3E%3Ccircle%20fill='none'%20stroke='%238a6a34'%20stroke-width='1.6'%20cx='0'%20cy='0'%20r='15'/%3E%3Cpath%20fill='%238a6a34'%20d='M0.0%20-24.0%20L3.5%20-3.5%20L24.0%200.0%20L3.5%203.5%20L0.0%2024.0%20L-3.5%203.5%20L-24.0%200.0%20L-3.5%20-3.5Z'/%3E%3Cpath%20fill='%238a6a34'%20d='M9.2%20-9.2%20L3.5%200.0%20L9.2%209.2%20L0.0%203.5%20L-9.2%209.2%20L-3.5%200.0%20L-9.2%20-9.2%20L-0.0%20-3.5Z'/%3E%3Ccircle%20fill='%23ecd9ad'%20cx='0'%20cy='0'%20r='2.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Sea-green and turquoise on a pearl-white surface, with a soft coral for
@@ -525,14 +551,15 @@
   --card: #ffffff;
   --surface-sunken: #d9f0ee;
   --text: #0d3b3f;
-  --muted: #4c7a80;
-  --faint: #86aeb2;
+  --muted: #4a767c;
+  --faint: #62959a;
   --border: #cdeae8;
   --border-strong: #a9dbd8;
 
-  --accent: #0e8f8f;
+  --accent: #0d8383;
   --accent-hover: #0b7373;
   --accent-soft: #d3f3f0;
+  --accent-text: #0c7c7c;
   --accent-fg: #ffffff;
   --green: #1fa66b;
   --green-soft: #d3f5e4;
@@ -562,8 +589,8 @@
 
   color-scheme: light;
 
-  /* A fish, a trail of bubbles and a strand of seaweed. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='150'%20height='150'%20viewBox='0%200%20150%20150'%3E%3Cg%20fill='%230e8f8f'%20opacity='0.3'%3E%3Cellipse%20cx='30'%20cy='30'%20rx='16'%20ry='9'/%3E%3Cpath%20d='M14%2030%20L2%2022%20L2%2038%20Z'/%3E%3Ccircle%20cx='38'%20cy='27'%20r='1.6'%20fill='%23ffffff'/%3E%3Ccircle%20cx='110'%20cy='100'%20r='5'/%3E%3Ccircle%20cx='122'%20cy='112'%20r='3.5'/%3E%3Ccircle%20cx='104'%20cy='115'%20r='2.5'/%3E%3Cpath%20d='M90%2040%20q6%208%200%2016%20q-6%208%200%2016'%20stroke='%230e8f8f'%20stroke-width='3'%20fill='none'/%3E%3C/g%3E%3C/svg%3E");
+  /* Fish, bubbles, seaweed, a starfish and a shell. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.3'%3E%3Cg%20transform='translate(55%2045)%20rotate(0)%20scale(1.2)'%3E%3Cpath%20fill='%232ea3a3'%20d='M-14%200C-6-11%2010-11%2016%200C10%2011-6%2011-14%200Z'/%3E%3Cpath%20fill='%232ea3a3'%20d='M-12%200L-24-9Q-21%200-24%209Z'/%3E%3Cpath%20fill='%232ea3a3'%20d='M-2-7Q2-15%208-9Z'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='9'%20cy='-2'%20r='2.4'/%3E%3Cpath%20fill='none'%20stroke='%23eaf6f6'%20stroke-width='1.4'%20d='M3-6Q0%200%203%206'/%3E%3C/g%3E%3Cg%20transform='translate(175%20150)%20rotate(0)%20scale(0.9)'%3E%3Cg%20transform='scale(-1%201)'%3E%3Cpath%20fill='%232ea3a3'%20d='M-14%200C-6-11%2010-11%2016%200C10%2011-6%2011-14%200Z'/%3E%3Cpath%20fill='%232ea3a3'%20d='M-12%200L-24-9Q-21%200-24%209Z'/%3E%3Cpath%20fill='%232ea3a3'%20d='M-2-7Q2-15%208-9Z'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='9'%20cy='-2'%20r='2.4'/%3E%3Cpath%20fill='none'%20stroke='%23eaf6f6'%20stroke-width='1.4'%20d='M3-6Q0%200%203%206'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(200%2045)%20rotate(0)%20scale(1.0)'%3E%3Cg%20fill='none'%20stroke='%232ea3a3'%20stroke-width='1.8'%3E%3Ccircle%20cx='0'%20cy='0'%20r='6'/%3E%3Ccircle%20cx='8'%20cy='-12'%20r='4'/%3E%3Ccircle%20cx='3'%20cy='-22'%20r='2.6'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(30%20190)%20rotate(0)%20scale(1.4)'%3E%3Cg%20fill='none'%20stroke='%232ea3a3'%20stroke-width='4'%20stroke-linecap='round'%3E%3Cpath%20d='M-4%2022C-12%2012%204%204-4-6S-2-18%200-24'/%3E%3Cpath%20d='M4%2022C10%2014%200%208%207%200S6-10%2010-14'%20stroke-width='3'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(110%20120)%20rotate(15)%20scale(0.9)'%3E%3Cpath%20fill='%232ea3a3'%20stroke='%232ea3a3'%20stroke-width='4'%20stroke-linejoin='round'%20d='M0.0%20-15.0%20L4.1%20-5.7%20L14.3%20-4.6%20L6.7%202.2%20L8.8%2012.1%20L0.0%207.0%20L-8.8%2012.1%20L-6.7%202.2%20L-14.3%20-4.6%20L-4.1%20-5.7Z'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='0.0'%20cy='-9.0'%20r='1.1'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='8.6'%20cy='-2.8'%20r='1.1'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='5.3'%20cy='7.3'%20r='1.1'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='-5.3'%20cy='7.3'%20r='1.1'/%3E%3Ccircle%20fill='%23eaf6f6'%20cx='-8.6'%20cy='-2.8'%20r='1.1'/%3E%3C/g%3E%3Cg%20transform='translate(120%20215)%20rotate(-12)%20scale(0.9)'%3E%3Cpath%20fill='%232ea3a3'%20d='M0%2013L-15-3C-15-13-7-17%200-17C7-17%2015-13%2015-3Z'/%3E%3Cpath%20fill='%232ea3a3'%20d='M-6%2012L6%2012L4%2017L-4%2017Z'/%3E%3Cpath%20fill='none'%20stroke='%23eaf6f6'%20stroke-width='1.5'%20d='M0%2011L0-15M0%2011L-6-15M0%2011L6-15M0%2011L-11-9M0%2011L11-9'/%3E%3C/g%3E%3Cg%20transform='translate(225%20225)%20rotate(0)%20scale(0.8)'%3E%3Cg%20fill='none'%20stroke='%232ea3a3'%20stroke-width='1.8'%3E%3Ccircle%20cx='0'%20cy='0'%20r='6'/%3E%3Ccircle%20cx='8'%20cy='-12'%20r='4'/%3E%3Ccircle%20cx='3'%20cy='-22'%20r='2.6'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(95%2060)%20rotate(0)%20scale(0.7)'%3E%3Cg%20fill='none'%20stroke='%232ea3a3'%20stroke-width='1.8'%3E%3Ccircle%20cx='0'%20cy='0'%20r='6'/%3E%3Ccircle%20cx='8'%20cy='-12'%20r='4'/%3E%3Ccircle%20cx='3'%20cy='-22'%20r='2.6'/%3E%3C/g%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* A dark workshop bench rather than a bright one — graphite surfaces, a
@@ -586,9 +613,11 @@
   --accent-fg: #04181a;
   --green: #3ddc7a;
   --green-soft: #123a24;
+  --green-fg: #1c1f22;
   --red: #ff5555;
   --red-soft: #3a1414;
   --red-text: #ff9a9a;
+  --red-fg: #1c1f22;
 
   --shadow-sm: 0 0 0 1px rgba(41, 196, 214, 0.08), 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 0 16px rgba(41, 196, 214, 0.12), 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -613,8 +642,10 @@
   color-scheme: dark;
   font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
-  /* A gear and a bolt, cyan on graphite. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%20viewBox='0%200%20120%20120'%3E%3Cg%20fill='%2329c4d6'%20opacity='0.28'%3E%3Ccircle%20cx='30'%20cy='30'%20r='14'/%3E%3Ccircle%20cx='30'%20cy='30'%20r='6'%20fill='%231c1f22'/%3E%3Crect%20x='27'%20y='6'%20width='6'%20height='8'/%3E%3Crect%20x='27'%20y='46'%20width='6'%20height='8'/%3E%3Crect%20x='6'%20y='27'%20width='8'%20height='6'/%3E%3Crect%20x='46'%20y='27'%20width='8'%20height='6'/%3E%3Crect%20x='13'%20y='13'%20width='7'%20height='7'%20transform='rotate(45%2016.5%2016.5)'/%3E%3Crect%20x='40'%20y='13'%20width='7'%20height='7'%20transform='rotate(45%2043.5%2016.5)'/%3E%3Crect%20x='13'%20y='40'%20width='7'%20height='7'%20transform='rotate(45%2016.5%2043.5)'/%3E%3Crect%20x='40'%20y='40'%20width='7'%20height='7'%20transform='rotate(45%2043.5%2043.5)'/%3E%3Crect%20x='90'%20y='85'%20width='5'%20height='20'/%3E%3Crect%20x='80'%20y='95'%20width='20'%20height='5'/%3E%3C/g%3E%3C/svg%3E");
+  /* Gears, nuts, a wrench, circuit traces and a little robot head, cyan on
+     graphite. The holes are painted in --bg rather than cut out, which is
+     why this and the other tiles repeat each theme's --bg hex inside. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.22'%3E%3Cg%20transform='translate(50%2050)%20rotate(0)%20scale(1.3)'%3E%3Cpath%20fill='%2329c4d6'%20d='M15.9%20-1.8%20L15.9%201.8%20L12.2%202.5%20L11.4%205.2%20L13.9%207.9%20L11.8%2010.8%20L8.4%209.2%20L6.2%2010.9%20L6.6%2014.6%20L3.2%2015.7%20L1.4%2012.4%20L-1.4%2012.4%20L-3.2%2015.7%20L-6.6%2014.6%20L-6.2%2010.9%20L-8.4%209.2%20L-11.8%2010.8%20L-13.9%207.9%20L-11.4%205.2%20L-12.2%202.5%20L-15.9%201.8%20L-15.9%20-1.8%20L-12.2%20-2.5%20L-11.4%20-5.2%20L-13.9%20-7.9%20L-11.8%20-10.8%20L-8.4%20-9.2%20L-6.2%20-10.9%20L-6.6%20-14.6%20L-3.2%20-15.7%20L-1.4%20-12.4%20L1.4%20-12.4%20L3.2%20-15.7%20L6.6%20-14.6%20L6.2%20-10.9%20L8.4%20-9.2%20L11.8%20-10.8%20L13.9%20-7.9%20L11.4%20-5.2%20L12.2%20-2.5Z'/%3E%3Ccircle%20fill='%231c1f22'%20cx='0'%20cy='0'%20r='5'/%3E%3C/g%3E%3Cg%20transform='translate(80%2082)%20rotate(12)%20scale(0.7)'%3E%3Cpath%20fill='%2329c4d6'%20d='M15.8%20-2.3%20L15.8%202.3%20L11.6%203.0%20L10.3%206.1%20L12.8%209.6%20L9.6%2012.8%20L6.1%2010.3%20L3.0%2011.6%20L2.3%2015.8%20L-2.3%2015.8%20L-3.0%2011.6%20L-6.1%2010.3%20L-9.6%2012.8%20L-12.8%209.6%20L-10.3%206.1%20L-11.6%203.0%20L-15.8%202.3%20L-15.8%20-2.3%20L-11.6%20-3.0%20L-10.3%20-6.1%20L-12.8%20-9.6%20L-9.6%20-12.8%20L-6.1%20-10.3%20L-3.0%20-11.6%20L-2.3%20-15.8%20L2.3%20-15.8%20L3.0%20-11.6%20L6.1%20-10.3%20L9.6%20-12.8%20L12.8%20-9.6%20L10.3%20-6.1%20L11.6%20-3.0Z'/%3E%3Ccircle%20fill='%231c1f22'%20cx='0'%20cy='0'%20r='5'/%3E%3C/g%3E%3Cg%20transform='translate(175%2045)%20rotate(0)%20scale(1.0)'%3E%3Crect%20fill='%2329c4d6'%20x='-13'%20y='-9'%20width='26'%20height='20'%20rx='5'/%3E%3Cpath%20stroke='%2329c4d6'%20stroke-width='2'%20d='M0-9L0-16'/%3E%3Ccircle%20fill='%2329c4d6'%20cx='0'%20cy='-17'%20r='2.8'/%3E%3Crect%20fill='%2329c4d6'%20x='-16'%20y='-3'%20width='3'%20height='8'%20rx='1'/%3E%3Crect%20fill='%2329c4d6'%20x='13'%20y='-3'%20width='3'%20height='8'%20rx='1'/%3E%3Ccircle%20fill='%231c1f22'%20cx='-5'%20cy='-1'%20r='3'/%3E%3Ccircle%20fill='%231c1f22'%20cx='5'%20cy='-1'%20r='3'/%3E%3Crect%20fill='%231c1f22'%20x='-6'%20y='5'%20width='12'%20height='2.5'%20rx='1'/%3E%3C/g%3E%3Cg%20transform='translate(190%20150)%20rotate(40)%20scale(1.0)'%3E%3Cpath%20fill='%2329c4d6'%20d='M-3-10L3-10L3%2016Q3%2019%200%2019Q-3%2019-3%2016Z'/%3E%3Ccircle%20fill='%2329c4d6'%20cx='0'%20cy='-14'%20r='8'/%3E%3Cpath%20fill='%231c1f22'%20d='M-3.5-24L3.5-24L3.5-15Q0-12-3.5-15Z'/%3E%3C/g%3E%3Cg%20transform='translate(60%20170)%20rotate(0)%20scale(1.0)'%3E%3Cg%20fill='none'%20stroke='%2329c4d6'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M-22-10L-6-10L2-2L20-2'/%3E%3Cpath%20d='M-22%204L-10%204L-4%2010L14%2010'/%3E%3C/g%3E%3Cg%20fill='%2329c4d6'%3E%3Ccircle%20cx='-22'%20cy='-10'%20r='3'/%3E%3Ccircle%20cx='20'%20cy='-2'%20r='3'/%3E%3Ccircle%20cx='-22'%20cy='4'%20r='3'/%3E%3Ccircle%20cx='14'%20cy='10'%20r='3'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(130%20120)%20rotate(15)%20scale(0.9)'%3E%3Cpath%20fill='%2329c4d6'%20d='M11.0%200.0%20L5.5%209.5%20L-5.5%209.5%20L-11.0%200.0%20L-5.5%20-9.5%20L5.5%20-9.5Z'/%3E%3Ccircle%20fill='%231c1f22'%20cx='0'%20cy='0'%20r='4.5'/%3E%3C/g%3E%3Cg%20transform='translate(140%20215)%20rotate(0)%20scale(0.8)'%3E%3Cpath%20fill='%2329c4d6'%20d='M11.0%200.0%20L5.5%209.5%20L-5.5%209.5%20L-11.0%200.0%20L-5.5%20-9.5%20L5.5%20-9.5Z'/%3E%3Ccircle%20fill='%231c1f22'%20cx='0'%20cy='0'%20r='4.5'/%3E%3C/g%3E%3Cg%20transform='translate(215%20225)%20rotate(20)%20scale(0.9)'%3E%3Cpath%20fill='%2329c4d6'%20d='M15.9%20-1.8%20L15.9%201.8%20L12.2%202.5%20L11.4%205.2%20L13.9%207.9%20L11.8%2010.8%20L8.4%209.2%20L6.2%2010.9%20L6.6%2014.6%20L3.2%2015.7%20L1.4%2012.4%20L-1.4%2012.4%20L-3.2%2015.7%20L-6.6%2014.6%20L-6.2%2010.9%20L-8.4%209.2%20L-11.8%2010.8%20L-13.9%207.9%20L-11.4%205.2%20L-12.2%202.5%20L-15.9%201.8%20L-15.9%20-1.8%20L-12.2%20-2.5%20L-11.4%20-5.2%20L-13.9%20-7.9%20L-11.8%20-10.8%20L-8.4%20-9.2%20L-6.2%20-10.9%20L-6.6%20-14.6%20L-3.2%20-15.7%20L-1.4%20-12.4%20L1.4%20-12.4%20L3.2%20-15.7%20L6.6%20-14.6%20L6.2%20-10.9%20L8.4%20-9.2%20L11.8%20-10.8%20L13.9%20-7.9%20L11.4%20-5.2%20L12.2%20-2.5Z'/%3E%3Ccircle%20fill='%231c1f22'%20cx='0'%20cy='0'%20r='5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Warm neutrals and muted forest/sky tones rather than the app's cooler
@@ -628,13 +659,14 @@
   --surface-sunken: #e6e2d8;
   --text: #2e2a24;
   --muted: #6e6a60;
-  --faint: #9c988c;
+  --faint: #8e8a7c;
   --border: #ded8c8;
   --border-strong: #c7c0aa;
 
-  --accent: #4a86b0;
+  --accent: #457ca3;
   --accent-hover: #3c6f92;
   --accent-soft: #dcebf5;
+  --accent-text: #3f7195;
   --accent-fg: #ffffff;
   --green: #3f7a55;
   --green-soft: #dcebe0;
@@ -675,17 +707,19 @@
   --card: #ffffff;
   --surface-sunken: #e9e1f7;
   --text: #2c2a3d;
-  --muted: #746e94;
-  --faint: #a79fc4;
+  --muted: #706a90;
+  --faint: #8f85b4;
   --border: #ded4f2;
   --border-strong: #c7b8ea;
 
   --accent: #8a4fd6;
   --accent-hover: #7539c2;
   --accent-soft: #ece0fb;
+  --accent-text: #894ed6;
   --accent-fg: #ffffff;
   --green: #2fbf8f;
   --green-soft: #d3f5e9;
+  --green-fg: #2c2a3d;
   --red: #e2584a;
   --red-soft: #fbe0dc;
   --red-text: #8a2e22;
@@ -712,8 +746,9 @@
 
   color-scheme: light;
 
-  /* A blobby, two-eyed original creature and a drop of slime. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='130'%20viewBox='0%200%20130%20130'%3E%3Cg%20fill='%238a4fd6'%20opacity='0.3'%3E%3Cellipse%20cx='30'%20cy='34'%20rx='20'%20ry='16'/%3E%3Ccircle%20cx='60'%20cy='24'%20r='4'/%3E%3Ccircle%20cx='60'%20cy='34'%20r='3'/%3E%3Ccircle%20cx='60'%20cy='44'%20r='4'/%3E%3Ccircle%20cx='22'%20cy='28'%20r='4'%20fill='%23ffffff'/%3E%3Ccircle%20cx='38'%20cy='28'%20r='4'%20fill='%23ffffff'/%3E%3Ccircle%20cx='22'%20cy='28'%20r='2'%20fill='%232c2a3d'/%3E%3Ccircle%20cx='38'%20cy='28'%20r='2'%20fill='%232c2a3d'/%3E%3Cpath%20d='M100%2090%20q10%2010%200%2020%20q-10%20-6%200%20-20%20Z'/%3E%3C/g%3E%3C/svg%3E");
+  /* An original one-eyed creature, a three-eyed blob, a floating eyeball,
+     flasks and lightning bolts. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.3'%3E%3Cg%20transform='translate(50%2055)%20rotate(-6)%20scale(1.2)'%3E%3Cpath%20fill='%239b6ae0'%20d='M-15%2016L-15-2C-15-14-8-18%200-18C8-18%2015-14%2015-2L15%2016L10%2012L5%2016L0%2012L-5%2016L-10%2012Z'/%3E%3Cpath%20fill='%239b6ae0'%20d='M-10-14L-14-24L-5-17ZM10-14L14-24L5-17Z'/%3E%3Ccircle%20fill='%23f4f0fb'%20cx='0'%20cy='-5'%20r='7'/%3E%3Ccircle%20fill='%239b6ae0'%20cx='1.5'%20cy='-4'%20r='3.2'/%3E%3Cpath%20fill='none'%20stroke='%23f4f0fb'%20stroke-width='1.8'%20stroke-linecap='round'%20d='M-5%206Q0%209%205%206'/%3E%3C/g%3E%3Cg%20transform='translate(180%2040)%20rotate(12)%20scale(0.9)'%3E%3Cpath%20fill='none'%20stroke='%239b6ae0'%20stroke-width='2.5'%20stroke-linejoin='round'%20d='M-5-18L5-18M-3.5-18L-3.5-6L-15%2014Q-16%2017-13%2017L13%2017Q16%2017%2015%2014L3.5-6L3.5-18'/%3E%3Cpath%20fill='%239b6ae0'%20d='M-9%204L9%204L15%2014Q16%2017%2013%2017L-13%2017Q-16%2017-15%2014Z'/%3E%3Cg%20fill='none'%20stroke='%239b6ae0'%20stroke-width='1.5'%3E%3Ccircle%20cx='2'%20cy='-2'%20r='2'/%3E%3Ccircle%20cx='-1'%20cy='-10'%20r='1.5'/%3E%3Ccircle%20cx='4'%20cy='-24'%20r='2.5'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(175%20150)%20rotate(5)%20scale(1.1)'%3E%3Cpath%20fill='%239b6ae0'%20d='M-14%2012C-18%200-12-14%200-14C12-14%2018%200%2014%2012C9%2016%205%2012%200%2015C-5%2012-9%2016-14%2012Z'/%3E%3Ccircle%20fill='%23f4f0fb'%20cx='-6'%20cy='-4'%20r='3.5'/%3E%3Ccircle%20fill='%23f4f0fb'%20cx='3'%20cy='-7'%20r='2.6'/%3E%3Ccircle%20fill='%23f4f0fb'%20cx='8'%20cy='-1'%20r='3'/%3E%3Ccircle%20fill='%239b6ae0'%20cx='-5'%20cy='-3.5'%20r='1.5'/%3E%3Ccircle%20fill='%239b6ae0'%20cx='3.5'%20cy='-6.5'%20r='1.1'/%3E%3Ccircle%20fill='%239b6ae0'%20cx='8.5'%20cy='-0.5'%20r='1.3'/%3E%3C/g%3E%3Cg%20transform='translate(65%20175)%20rotate(-15)%20scale(0.9)'%3E%3Cpath%20fill='%239b6ae0'%20stroke='%239b6ae0'%20stroke-width='1.5'%20stroke-linejoin='round'%20d='M4-18L-9%203L-1%203L-5%2018L9-4L1-4Z'/%3E%3C/g%3E%3Cg%20transform='translate(118%20110)%20rotate(0)%20scale(0.9)'%3E%3Ccircle%20fill='%239b6ae0'%20cx='0'%20cy='0'%20r='11'/%3E%3Ccircle%20fill='%23f4f0fb'%20cx='2'%20cy='-1'%20r='5.5'/%3E%3Ccircle%20fill='%239b6ae0'%20cx='3'%20cy='-1'%20r='2.6'/%3E%3C/g%3E%3Cg%20transform='translate(110%20225)%20rotate(8)%20scale(0.8)'%3E%3Cpath%20fill='none'%20stroke='%239b6ae0'%20stroke-width='2.5'%20stroke-linejoin='round'%20d='M-5-18L5-18M-3.5-18L-3.5-6L-15%2014Q-16%2017-13%2017L13%2017Q16%2017%2015%2014L3.5-6L3.5-18'/%3E%3Cpath%20fill='%239b6ae0'%20d='M-9%204L9%204L15%2014Q16%2017%2013%2017L-13%2017Q-16%2017-15%2014Z'/%3E%3Cg%20fill='none'%20stroke='%239b6ae0'%20stroke-width='1.5'%3E%3Ccircle%20cx='2'%20cy='-2'%20r='2'/%3E%3Ccircle%20cx='-1'%20cy='-10'%20r='1.5'/%3E%3Ccircle%20cx='4'%20cy='-24'%20r='2.5'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(225%20220)%20rotate(20)%20scale(0.6)'%3E%3Cpath%20fill='%239b6ae0'%20stroke='%239b6ae0'%20stroke-width='1.5'%20stroke-linejoin='round'%20d='M4-18L-9%203L-1%203L-5%2018L9-4L1-4Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Olive and sand with a volcanic-gray accent for "must-do" and amber for
@@ -725,14 +760,15 @@
   --card: #fbf7ea;
   --surface-sunken: #e3dbbd;
   --text: #3a3424;
-  --muted: #756b4a;
-  --faint: #a89d75;
+  --muted: #726848;
+  --faint: #91865b;
   --border: #d8cc9e;
   --border-strong: #c0b077;
 
   --accent: #6b7a2e;
   --accent-hover: #576223;
   --accent-soft: #e2e8c4;
+  --accent-text: #616f2a;
   --accent-fg: #ffffff;
   --green: #4f8a3a;
   --green-soft: #dcecc4;
@@ -762,8 +798,8 @@
 
   color-scheme: light;
 
-  /* A three-toed footprint and a fallen leaf. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='130'%20height='130'%20viewBox='0%200%20130%20130'%3E%3Cg%20fill='%236b7a2e'%20opacity='0.3'%3E%3Cellipse%20cx='30'%20cy='40'%20rx='10'%20ry='13'/%3E%3Cellipse%20cx='16'%20cy='22'%20rx='5'%20ry='9'%20transform='rotate(-20%2016%2022)'/%3E%3Cellipse%20cx='30'%20cy='16'%20rx='5'%20ry='9'/%3E%3Cellipse%20cx='44'%20cy='22'%20rx='5'%20ry='9'%20transform='rotate(20%2044%2022)'/%3E%3Cellipse%20cx='100'%20cy='90'%20rx='9'%20ry='4'%20transform='rotate(30%20100%2090)'/%3E%3C/g%3E%3C/svg%3E");
+  /* Three-toed tracks, a volcano, ferns, a bone and a cracked egg. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.32'%3E%3Cg%20transform='translate(40%2060)%20rotate(-20)%20scale(1.0)'%3E%3Cg%20fill='%237d8a3e'%20stroke='%237d8a3e'%20stroke-width='2'%20stroke-linejoin='round'%3E%3Cpath%20d='M-4%206L-3.5-13L0-22L3.5-13L4%206Z'/%3E%3Cpath%20d='M-3.5%206L-3-7L0-15L3-7L3.5%206Z'%20transform='rotate(-34%200%208)'/%3E%3Cpath%20d='M-3.5%206L-3-7L0-15L3-7L3.5%206Z'%20transform='rotate(34%200%208)'/%3E%3Cellipse%20cx='0'%20cy='9'%20rx='6.5'%20ry='6'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(85%2025)%20rotate(-10)%20scale(0.9)'%3E%3Cg%20fill='%237d8a3e'%20stroke='%237d8a3e'%20stroke-width='2'%20stroke-linejoin='round'%3E%3Cpath%20d='M-4%206L-3.5-13L0-22L3.5-13L4%206Z'/%3E%3Cpath%20d='M-3.5%206L-3-7L0-15L3-7L3.5%206Z'%20transform='rotate(-34%200%208)'/%3E%3Cpath%20d='M-3.5%206L-3-7L0-15L3-7L3.5%206Z'%20transform='rotate(34%200%208)'/%3E%3Cellipse%20cx='0'%20cy='9'%20rx='6.5'%20ry='6'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(190%2060)%20rotate(0)%20scale(1.2)'%3E%3Cpath%20fill='%237d8a3e'%20d='M-22%2016L-6-8L-3-5L0-9L3-5L6-8L22%2016Z'/%3E%3Cg%20fill='%237d8a3e'%3E%3Ccircle%20cx='-1'%20cy='-14'%20r='3.5'/%3E%3Ccircle%20cx='4'%20cy='-19'%20r='4.5'/%3E%3Ccircle%20cx='10'%20cy='-24'%20r='3'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(60%20170)%20rotate(25)%20scale(1.2)'%3E%3Cpath%20fill='none'%20stroke='%237d8a3e'%20stroke-width='2'%20stroke-linecap='round'%20d='M0%2022Q2%200%200-22'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-7.0'%20cy='-14'%20rx='6.0'%20ry='2.4'%20transform='rotate(25%20-7.0%20-14)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='7.0'%20cy='-11'%20rx='6.0'%20ry='2.4'%20transform='rotate(-25%207.0%20-11)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-6.3'%20cy='-8'%20rx='5.4'%20ry='2.4'%20transform='rotate(25%20-6.3%20-8)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='6.3'%20cy='-5'%20rx='5.4'%20ry='2.4'%20transform='rotate(-25%206.3%20-5)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-5.6'%20cy='-2'%20rx='4.8'%20ry='2.4'%20transform='rotate(25%20-5.6%20-2)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='5.6'%20cy='1'%20rx='4.8'%20ry='2.4'%20transform='rotate(-25%205.6%201)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-4.9'%20cy='4'%20rx='4.2'%20ry='2.4'%20transform='rotate(25%20-4.9%204)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='4.9'%20cy='7'%20rx='4.2'%20ry='2.4'%20transform='rotate(-25%204.9%207)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-4.2'%20cy='10'%20rx='3.6'%20ry='2.4'%20transform='rotate(25%20-4.2%2010)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='4.2'%20cy='13'%20rx='3.6'%20ry='2.4'%20transform='rotate(-25%204.2%2013)'/%3E%3C/g%3E%3Cg%20transform='translate(160%20150)%20rotate(-25)%20scale(0.9)'%3E%3Crect%20fill='%237d8a3e'%20x='-14'%20y='-3'%20width='28'%20height='6'/%3E%3Cg%20fill='%237d8a3e'%3E%3Ccircle%20cx='-15'%20cy='-4'%20r='4.5'/%3E%3Ccircle%20cx='-15'%20cy='4'%20r='4.5'/%3E%3Ccircle%20cx='15'%20cy='-4'%20r='4.5'/%3E%3Ccircle%20cx='15'%20cy='4'%20r='4.5'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(200%20215)%20rotate(12)%20scale(0.9)'%3E%3Cpath%20fill='%237d8a3e'%20d='M0-16C8-16%2012-2%2012%205C12%2012%207%2016%200%2016C-7%2016-12%2012-12%205C-12-2-8-16%200-16Z'/%3E%3Cpath%20fill='none'%20stroke='%23efe9d6'%20stroke-width='1.6'%20stroke-linejoin='round'%20d='M-12%201L-7-3L-3%202L2-3L6%202L12-2'/%3E%3Cg%20fill='%23efe9d6'%3E%3Ccircle%20cx='-5'%20cy='-8'%20r='1.6'/%3E%3Ccircle%20cx='5'%20cy='8'%20r='2'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(120%20220)%20rotate(30)%20scale(0.8)'%3E%3Cg%20fill='%237d8a3e'%20stroke='%237d8a3e'%20stroke-width='2'%20stroke-linejoin='round'%3E%3Cpath%20d='M-4%206L-3.5-13L0-22L3.5-13L4%206Z'/%3E%3Cpath%20d='M-3.5%206L-3-7L0-15L3-7L3.5%206Z'%20transform='rotate(-34%200%208)'/%3E%3Cpath%20d='M-3.5%206L-3-7L0-15L3-7L3.5%206Z'%20transform='rotate(34%200%208)'/%3E%3Cellipse%20cx='0'%20cy='9'%20rx='6.5'%20ry='6'/%3E%3C/g%3E%3C/g%3E%3Cg%20transform='translate(135%2095)%20rotate(-35)%20scale(0.7)'%3E%3Cpath%20fill='none'%20stroke='%237d8a3e'%20stroke-width='2'%20stroke-linecap='round'%20d='M0%2022Q2%200%200-22'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-7.0'%20cy='-14'%20rx='6.0'%20ry='2.4'%20transform='rotate(25%20-7.0%20-14)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='7.0'%20cy='-11'%20rx='6.0'%20ry='2.4'%20transform='rotate(-25%207.0%20-11)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-6.3'%20cy='-8'%20rx='5.4'%20ry='2.4'%20transform='rotate(25%20-6.3%20-8)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='6.3'%20cy='-5'%20rx='5.4'%20ry='2.4'%20transform='rotate(-25%206.3%20-5)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-5.6'%20cy='-2'%20rx='4.8'%20ry='2.4'%20transform='rotate(25%20-5.6%20-2)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='5.6'%20cy='1'%20rx='4.8'%20ry='2.4'%20transform='rotate(-25%205.6%201)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-4.9'%20cy='4'%20rx='4.2'%20ry='2.4'%20transform='rotate(25%20-4.9%204)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='4.9'%20cy='7'%20rx='4.2'%20ry='2.4'%20transform='rotate(-25%204.9%207)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='-4.2'%20cy='10'%20rx='3.6'%20ry='2.4'%20transform='rotate(25%20-4.2%2010)'/%3E%3Cellipse%20fill='%237d8a3e'%20cx='4.2'%20cy='13'%20rx='3.6'%20ry='2.4'%20transform='rotate(-25%204.2%2013)'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* A dark, original "mission control" look — navy surfaces, a red primary
@@ -781,12 +817,14 @@
   --border: #232c3f;
   --border-strong: #303a50;
 
-  --accent: #d64545;
-  --accent-hover: #ef5a5a;
+  --accent: #d54141;
+  --accent-hover: #cb2d2d;
   --accent-soft: #3a1418;
+  --accent-text: #da5858;
   --accent-fg: #ffffff;
   --green: #3ddc7a;
   --green-soft: #123a24;
+  --green-fg: #0e1420;
   --red: #d64545;
   --red-soft: #3a1418;
   --red-text: #ff9a9a;
@@ -814,9 +852,9 @@
   color-scheme: dark;
   font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
-  /* A radar sweep and a few readout bars — control-room dressing, not an
-     insignia. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='140'%20height='140'%20viewBox='0%200%20140%20140'%3E%3Cg%20stroke='%238fb4e0'%20stroke-width='2'%20fill='none'%20opacity='0.28'%3E%3Ccircle%20cx='35'%20cy='35'%20r='10'/%3E%3Ccircle%20cx='35'%20cy='35'%20r='18'/%3E%3Ccircle%20cx='35'%20cy='35'%20r='26'/%3E%3Cline%20x1='35'%20y1='2'%20x2='35'%20y2='12'/%3E%3Cline%20x1='35'%20y1='58'%20x2='35'%20y2='68'/%3E%3Cline%20x1='2'%20y1='35'%20x2='12'%20y2='35'/%3E%3Cline%20x1='58'%20y1='35'%20x2='68'%20y2='35'/%3E%3C/g%3E%3Cg%20fill='%238fb4e0'%20opacity='0.28'%3E%3Ccircle%20cx='35'%20cy='35'%20r='2.5'/%3E%3Crect%20x='95'%20y='90'%20width='30'%20height='4'/%3E%3Crect%20x='95'%20y='98'%20width='20'%20height='4'/%3E%3Crect%20x='95'%20y='106'%20width='24'%20height='4'/%3E%3C/g%3E%3C/svg%3E");
+  /* A rocket, a ringed planet, a satellite, a crescent moon and stars —
+     generic space dressing, not an insignia. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.3'%3E%3Cg%20transform='translate(50%2060)%20rotate(30)%20scale(1.2)'%3E%3Cpath%20fill='%238fb4e0'%20d='M0-24C9-15%209-3%207%2010L-7%2010C-9-3-9-15%200-24Z'/%3E%3Cpath%20fill='%238fb4e0'%20d='M-8%200L-15%2012L-15%2016L-7%2012ZM8%200L15%2012L15%2016L7%2012Z'/%3E%3Cpath%20fill='%238fb4e0'%20d='M-5%2013Q0%2026%205%2013Z'/%3E%3Ccircle%20fill='%230e1420'%20cx='0'%20cy='-8'%20r='3.6'/%3E%3Cpath%20fill='none'%20stroke='%230e1420'%20stroke-width='1.4'%20d='M-7%207L7%207'/%3E%3C/g%3E%3Cg%20transform='translate(180%2055)%20rotate(0)%20scale(1.1)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='11'/%3E%3Cellipse%20fill='none'%20stroke='%230e1420'%20stroke-width='5'%20cx='0'%20cy='0'%20rx='22'%20ry='6'%20transform='rotate(-20)'/%3E%3Cellipse%20fill='none'%20stroke='%238fb4e0'%20stroke-width='2'%20cx='0'%20cy='0'%20rx='22'%20ry='6'%20transform='rotate(-20)'/%3E%3Cpath%20fill='%238fb4e0'%20d='M-11%200A11%2011%200%200%200%2011%200Z'%20transform='rotate(-20)'/%3E%3Cpath%20fill='none'%20stroke='%238fb4e0'%20stroke-width='2'%20d='M-22%200A22%206%200%200%200%2022%200'%20transform='rotate(-20)'/%3E%3C/g%3E%3Cg%20transform='translate(165%20170)%20rotate(-25)%20scale(1.0)'%3E%3Crect%20fill='%238fb4e0'%20x='-5'%20y='-5'%20width='10'%20height='10'%20rx='1.5'/%3E%3Crect%20fill='%238fb4e0'%20x='-22'%20y='-4'%20width='14'%20height='8'/%3E%3Crect%20fill='%238fb4e0'%20x='8'%20y='-4'%20width='14'%20height='8'/%3E%3Cpath%20stroke='%230e1420'%20stroke-width='1'%20d='M-15-4L-15%204M15-4L15%204'/%3E%3Cpath%20fill='none'%20stroke='%238fb4e0'%20stroke-width='1.6'%20stroke-linecap='round'%20d='M0-5L0-11M-4-14Q0-10%204-14'/%3E%3C/g%3E%3Cg%20transform='translate(55%20180)%20rotate(-20)%20scale(0.9)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='11'/%3E%3Ccircle%20fill='%230e1420'%20cx='6'%20cy='-4'%20r='10'/%3E%3C/g%3E%3Cg%20transform='translate(115%20110)%20rotate(0)%20scale(0.5)'%3E%3Cpath%20fill='%238fb4e0'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(215%20115)%20rotate(0)%20scale(0.4)'%3E%3Cpath%20fill='%238fb4e0'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(100%20230)%20rotate(0)%20scale(0.45)'%3E%3Cpath%20fill='%238fb4e0'%20d='M0-14Q2-2%2014%200Q2%202%200%2014Q-2%202-14%200Q-2-2%200-14Z'/%3E%3C/g%3E%3Cg%20transform='translate(15%20115)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='1.8'/%3E%3C/g%3E%3Cg%20transform='translate(125%2020)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='1.5'/%3E%3C/g%3E%3Cg%20transform='translate(230%20220)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='2'/%3E%3C/g%3E%3Cg%20transform='translate(95%20160)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='1.3'/%3E%3C/g%3E%3Cg%20transform='translate(235%2015)%20rotate(0)%20scale(1)'%3E%3Ccircle%20fill='%238fb4e0'%20cx='0'%20cy='0'%20r='1.3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Neutral surfaces so a mix of primary colors (the pill/chip set below)
@@ -830,16 +868,18 @@
   --surface-sunken: #e8e8e2;
   --text: #1f2430;
   --muted: #63697a;
-  --faint: #9aa0ac;
+  --faint: #878e9c;
   --border: #dcdcd4;
   --border-strong: #c4c4b8;
 
   --accent: #2e6fe0;
   --accent-hover: #2559ba;
   --accent-soft: #dbe7fb;
+  --accent-text: #286bdf;
   --accent-fg: #ffffff;
   --green: #2fae4a;
   --green-soft: #dcf5e0;
+  --green-fg: #1f2430;
   --red: #e04b3a;
   --red-soft: #fbdcd6;
   --red-text: #8a2418;
@@ -866,8 +906,9 @@
 
   color-scheme: light;
 
-  /* Four flat, rounded squares — a generic building-block motif. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%20viewBox='0%200%20120%20120'%3E%3Cg%20opacity='0.28'%3E%3Crect%20x='10'%20y='10'%20width='30'%20height='30'%20rx='6'%20fill='%232e6fe0'/%3E%3Crect%20x='46'%20y='10'%20width='30'%20height='30'%20rx='6'%20fill='%232fae4a'/%3E%3Crect%20x='10'%20y='46'%20width='30'%20height='30'%20rx='6'%20fill='%23e04b3a'/%3E%3Crect%20x='46'%20y='46'%20width='30'%20height='30'%20rx='6'%20fill='%23f2c230'/%3E%3C/g%3E%3C/svg%3E");
+  /* Plain isometric cubes in the four block colours, one pair stacked —
+     a generic building-block motif, deliberately stud-free. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='240'%20height='240'%20viewBox='0%200%20240%20240'%3E%3Cg%20opacity='0.3'%3E%3Cg%20transform='translate(45%2045)%20rotate(0)%20scale(1.2)'%3E%3Cpath%20fill='%236f9bec'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%232e6fe0'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%232458b8'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(160%2035)%20rotate(0)%20scale(0.9)'%3E%3Cpath%20fill='%23f7d86a'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%23f2c230'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%23c99c1a'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(200%20150)%20rotate(0)%20scale(1.1)'%3E%3Cpath%20fill='%2363c779'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%232fae4a'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%23248a3a'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(200%20132.4)%20rotate(0)%20scale(1.1)'%3E%3Cpath%20fill='%23ec8375'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%23e04b3a'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%23b53a2c'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(90%20135)%20rotate(0)%20scale(1.0)'%3E%3Cpath%20fill='%2363c779'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%232fae4a'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%23248a3a'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(45%20210)%20rotate(0)%20scale(0.8)'%3E%3Cpath%20fill='%23ec8375'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%23e04b3a'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%23b53a2c'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(140%20215)%20rotate(0)%20scale(1.0)'%3E%3Cpath%20fill='%23f7d86a'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%23f2c230'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%23c99c1a'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3Cg%20transform='translate(125%2090)%20rotate(0)%20scale(0.6)'%3E%3Cpath%20fill='%236f9bec'%20d='M0-12L14-5L0%202L-14-5Z'/%3E%3Cpath%20fill='%232e6fe0'%20d='M-14-5L0%202L0%2018L-14%2011Z'/%3E%3Cpath%20fill='%232458b8'%20d='M14-5L0%202L0%2018L14%2011Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* The calmest and most "grown-up" of this batch: sage, dusty blue and
@@ -879,14 +920,15 @@
   --card: #fffbf5;
   --surface-sunken: #e8ddc9;
   --text: #332f28;
-  --muted: #7a7161;
-  --faint: #a89d89;
+  --muted: #746b5c;
+  --faint: #95876f;
   --border: #ddd0b8;
   --border-strong: #c7b898;
 
-  --accent: #7c8f6e;
-  --accent-hover: #66795a;
+  --accent: #6b7b5e;
+  --accent-hover: #616f55;
   --accent-soft: #e2e8da;
+  --accent-text: #627056;
   --accent-fg: #ffffff;
   --green: #6b8f5a;
   --green-soft: #dfe8d4;
@@ -1045,7 +1087,7 @@ body {
   place-items: center;
   font-size: 0.8rem;
   font-weight: 650;
-  color: #fff;
+  color: var(--accent-fg);
   background: var(--accent);
   text-transform: uppercase;
 }
@@ -1100,7 +1142,7 @@ body {
   transition: font-variation-settings 0.15s ease;
 }
 .tabbar button.active {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .tabbar button.active .material-symbols-outlined {
   font-variation-settings: "FILL" 1, "wght" 500;
@@ -1118,7 +1160,7 @@ body {
     border-color: transparent;
     color: var(--text);
   }
-  .tabbar button.active:hover { color: var(--accent); }
+  .tabbar button.active:hover { color: var(--accent-text); }
 }
 
 .content {
@@ -1155,12 +1197,12 @@ p { color: var(--muted); margin: 0 0 12px; }
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
   margin: 22px 4px 8px;
 }
 .hint { color: var(--muted); font-size: 0.85rem; }
-.hint a { color: var(--accent); font-weight: 600; }
-.empty { color: var(--faint); padding: 14px 0; font-size: 0.9rem; }
+.hint a { color: var(--accent-text); font-weight: 600; }
+.empty { color: var(--muted); padding: 14px 0; font-size: 0.9rem; }
 
 /* ---- cards & rows ---------------------------------------------------- */
 
@@ -1307,7 +1349,7 @@ button.secondary {
 }
 button.ghost {
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: transparent;
   padding-left: 8px;
   padding-right: 8px;
@@ -1315,7 +1357,7 @@ button.ghost {
 button.danger {
   background: var(--red);
   border-color: var(--red);
-  color: #fff;
+  color: var(--red-fg);
 }
 @media (hover: hover) {
   button.danger:hover { background: var(--red); border-color: var(--red); filter: brightness(0.93); }
@@ -1606,7 +1648,7 @@ label {
 .checkbtn.done {
   background: var(--green);
   border-color: var(--green);
-  color: #fff;
+  color: var(--green-fg);
 }
 @media (hover: hover) {
   .checkbtn.done:hover { background: var(--green); border-color: var(--green); }
@@ -1996,7 +2038,7 @@ label {
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
   margin-bottom: 10px;
 }
 /* A second heading further down the footer (tech stack, after "About")
@@ -2017,7 +2059,7 @@ label {
   margin-bottom: 2px;
 }
 .welcome-footer a {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 550;
 }
 /* Set apart from the provenance lines above it: those are facts about the
@@ -2028,7 +2070,7 @@ label {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
-  color: var(--faint);
+  color: var(--muted);
   font-size: 0.82rem;
   max-width: 46em;
 }

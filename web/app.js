@@ -104,28 +104,39 @@ function labelWithCurrencyUnit(label) {
 // to the server. "" (the default) means "follow the OS", which is exactly
 // what the app did before this setting existed — see app.css, where the
 // dark tokens under prefers-color-scheme only apply to :root:not([data-theme]).
-// index.html and login.html carry a standalone copy of applyTheme() in their
-// <head>, since it has to run before first paint (like the icons-loading
-// script) and app.js isn't loaded that early; keep the three in step.
-const THEMES = [
-  "light",
-  "dark",
-  "retro",
-  "playful",
-  "hacker",
-  "space-invaders",
-  "high-contrast",
-  "fairytale-forest",
-  "pirate-map",
-  "underwater",
-  "robot-workshop",
-  "cabin",
-  "monster-lab",
-  "dino-park",
-  "mission-base",
-  "block-world",
-  "cozy-home",
+// index.html, login.html and privacy.html carry a standalone copy of
+// applyTheme() in their <head>, since it has to run before first paint (like
+// the icons-loading script) and app.js isn't loaded that early; keep all four
+// in step.
+//
+// "" is "Match device" (today's default: follow the OS), listed first as the default
+// rather than defaulting to "Light" the way CURRENCIES defaults to "None",
+// since an explicit light/dark choice here means "ignore the OS", not
+// "no preference".
+const THEME_OPTIONS = [
+  { value: "", labelKey: "settings.themeSystem" },
+  { value: "light", labelKey: "settings.themeLight" },
+  { value: "dark", labelKey: "settings.themeDark" },
+  { value: "retro", labelKey: "settings.themeRetro" },
+  { value: "playful", labelKey: "settings.themePlayful" },
+  { value: "hacker", labelKey: "settings.themeHacker" },
+  { value: "space-invaders", labelKey: "settings.themeSpaceInvaders" },
+  { value: "high-contrast", labelKey: "settings.themeHighContrast" },
+  { value: "fairytale-forest", labelKey: "settings.themeFairytaleForest" },
+  { value: "pirate-map", labelKey: "settings.themePirateMap" },
+  { value: "underwater", labelKey: "settings.themeUnderwater" },
+  { value: "robot-workshop", labelKey: "settings.themeRobotWorkshop" },
+  { value: "cabin", labelKey: "settings.themeCabin" },
+  { value: "monster-lab", labelKey: "settings.themeMonsterLab" },
+  { value: "dino-park", labelKey: "settings.themeDinoPark" },
+  { value: "mission-base", labelKey: "settings.themeMissionBase" },
+  { value: "block-world", labelKey: "settings.themeBlockWorld" },
+  { value: "cozy-home", labelKey: "settings.themeCozyHome" },
 ];
+// Derived rather than listed a second time: a theme left out of a separate
+// list would be offered in Settings but silently read back as "" by
+// getTheme().
+const THEMES = THEME_OPTIONS.map((o) => o.value).filter(Boolean);
 
 function getTheme() {
   const stored = localStorage.getItem("chores.theme");
@@ -471,31 +482,6 @@ function renderCurrencySwitcher() {
   return card;
 }
 
-// Same shape again — a device-level display preference. "" is "Match
-// device" (today's default: follow the OS), listed first as the default
-// rather than defaulting to "Light" the way CURRENCIES defaults to "None",
-// since an explicit light/dark choice here means "ignore the OS", not
-// "no preference".
-const THEME_OPTIONS = [
-  { value: "", labelKey: "settings.themeSystem" },
-  { value: "light", labelKey: "settings.themeLight" },
-  { value: "dark", labelKey: "settings.themeDark" },
-  { value: "retro", labelKey: "settings.themeRetro" },
-  { value: "playful", labelKey: "settings.themePlayful" },
-  { value: "hacker", labelKey: "settings.themeHacker" },
-  { value: "space-invaders", labelKey: "settings.themeSpaceInvaders" },
-  { value: "high-contrast", labelKey: "settings.themeHighContrast" },
-  { value: "fairytale-forest", labelKey: "settings.themeFairytaleForest" },
-  { value: "pirate-map", labelKey: "settings.themePirateMap" },
-  { value: "underwater", labelKey: "settings.themeUnderwater" },
-  { value: "robot-workshop", labelKey: "settings.themeRobotWorkshop" },
-  { value: "cabin", labelKey: "settings.themeCabin" },
-  { value: "monster-lab", labelKey: "settings.themeMonsterLab" },
-  { value: "dino-park", labelKey: "settings.themeDinoPark" },
-  { value: "mission-base", labelKey: "settings.themeMissionBase" },
-  { value: "block-world", labelKey: "settings.themeBlockWorld" },
-  { value: "cozy-home", labelKey: "settings.themeCozyHome" },
-];
 function renderThemeSwitcher() {
   const current = getTheme();
   const options = THEME_OPTIONS.map((o) => `<option value="${o.value}" ${o.value === current ? "selected" : ""}>${escapeHtml(t(o.labelKey))}</option>`).join("");

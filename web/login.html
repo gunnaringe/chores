@@ -20,10 +20,20 @@
 <script>
   // Applies a stored theme choice (Settings > Theme) before first paint —
   // a copy of the same script in index.html's <head>; see the comment
-  // there for why it's duplicated rather than shared. Keep both in step.
+  // there for why it's duplicated rather than shared. Keep all four in step.
   (function () {
     var theme = localStorage.getItem("chores.theme");
-    if (theme) document.documentElement.setAttribute("data-theme", theme);
+    if (theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      // Every theme block in app.css pins color-scheme to a single value,
+      // so still seeing the bare :root's "light dark" means app.css doesn't
+      // know this name (a renamed or removed theme). Left in place it would
+      // also switch off the system dark palette, which only applies when
+      // there's no data-theme at all.
+      if (getComputedStyle(document.documentElement).colorScheme.indexOf(" ") !== -1) {
+        document.documentElement.removeAttribute("data-theme");
+      }
+    }
     var meta = document.getElementById("theme-color-meta");
     if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
   })();

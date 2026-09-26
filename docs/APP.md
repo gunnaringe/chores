@@ -357,15 +357,27 @@ Lab**, **Dinosaur Park**, **Mission Base**, **Block World**, and **Cozy
 Home**. Like the language and currency choices, it's purely a
 `localStorage` preference on that device and never reaches the server.
 Each theme is a block of CSS custom properties in `web/app.css`
-(`:root[data-theme="..."]`); add one there and an entry in `THEME_OPTIONS`
-in `web/app.js` to add another.
+(`:root[data-theme="..."]`); add one there, with an explicit single
+`color-scheme` (the `<head>` scripts use that to tell a known theme from a
+stale one), plus an entry in `THEME_OPTIONS` in `web/app.js` and its label
+key in all four `web/i18n.js` blocks.
+
+Themes share the same accessibility bar: body text and `--muted` at 4.5:1
+against both `--bg` and `--surface`, `--faint` (icons and placeholders
+only) at 3:1, and button text at 4.5:1 on its fill. Where a theme's
+accent, green or red fill needs a dark glyph instead of white, it sets
+`--accent-fg`, `--green-fg` or `--red-fg`; where its accent is too light to
+read as link text, `--accent-text`.
 
 Most of the newer themes also set `--bg-pattern`, a repeating decorative
 background tile drawn as an inline SVG data URI rather than a separate
 asset file — consistent with everything else here being embedded at build
-time rather than fetched. Each one is an original, generic shape (a pine
-tree, a compass rose, a fish, a gear, a footprint, a radar sweep, a plain
-building block, and so on) chosen specifically to avoid any resemblance to
+time rather than fetched. Apart from Space Invaders' single pixel alien,
+each tile is 240px square with a handful of original, generic motifs (pines and toadstools, a compass rose and a dotted
+route, fish and shells, gears and a wrench, a three-toed track, a rocket
+and a ringed planet, plain isometric cubes, and so on) scattered at mixed
+sizes and angles, so the repeat reads as wallpaper rather than a grid —
+each chosen specifically to avoid any resemblance to
 a real character, franchise, or brand. It only shows in the gaps between
 cards and faintly through the translucent app bar/tab bar, never behind
 text, since cards stay opaque. High Contrast, Cabin & Outdoors, and Cozy

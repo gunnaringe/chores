@@ -28,10 +28,21 @@
   // color-scheme instead of icon glyphs. This is a standalone copy of
   // applyTheme() in app.js: that file loads too late in <body> to beat
   // paint, and login.html needs the exact same logic, so it's duplicated
-  // rather than shared. Keep all three in step.
+  // rather than shared. Keep all four copies (these three pages plus
+  // applyTheme() in app.js) in step.
   (function () {
     var theme = localStorage.getItem("chores.theme");
-    if (theme) document.documentElement.setAttribute("data-theme", theme);
+    if (theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      // Every theme block in app.css pins color-scheme to a single value,
+      // so still seeing the bare :root's "light dark" means app.css doesn't
+      // know this name (a renamed or removed theme). Left in place it would
+      // also switch off the system dark palette, which only applies when
+      // there's no data-theme at all.
+      if (getComputedStyle(document.documentElement).colorScheme.indexOf(" ") !== -1) {
+        document.documentElement.removeAttribute("data-theme");
+      }
+    }
     var meta = document.getElementById("theme-color-meta");
     if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
   })();
