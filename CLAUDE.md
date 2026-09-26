@@ -45,6 +45,7 @@ go vet ./...
 gofmt -l . | grep -v '^gen/'    # should print nothing
 go test ./...
 node --check web/app.js && node --check web/i18n.js && node --check web/sw.js
+node scripts/theme-contrast.js && node scripts/theme-patterns.js --check   # if app.css changed
 ```
 
 There is no linter beyond `go vet` and `gofmt`, no JS build step, and no
@@ -191,6 +192,43 @@ scrolling content between them — that widens into a centred desktop page above
   that adds a new icon context gets this for free; anything that hardcodes an
   icon's size in px should still expect the 1em box in that state.
 - Respect `env(safe-area-inset-*)` on anything pinned to a screen edge.
+
+## Themes
+
+Settings offers 17 themes plus "Match device". Every one is a block of
+tokens in `web/app.css`; `docs/APP.md` (Theme) has the checklist for adding
+one and the contrast bar they all meet. Three scripts make this cheap —
+use them instead of screenshotting every theme to eyeball it:
+
+- **`node scripts/theme-contrast.js`** — checks every theme's token pairs
+  (text, muted, accent, pills, the fills' `-fg` glyphs) against that bar.
+  CSS only, no browser, milliseconds. `--all` prints every ratio;
+  `--css <file>` checks another copy (e.g. `git show origin/main:web/app.css`).
+  It sees tokens, not pixels: **a rule that hardcodes a colour** (`color:
+  #fff` on a coloured fill) **is invisible to it** — that's exactly how the
+  done tick went near-invisible in the neon themes. Put glyphs on fills
+  through `--accent-fg` / `--green-fg` / `--red-fg`, and page-level accent
+  text through `--accent-text`.
+- **`node scripts/theme-patterns.js --write`** — the `--bg-pattern` tiles
+  are generated from motifs and layouts in that file (Space Invaders' alien
+  excepted). Edit there, never the data URIs. Cut-outs use the theme's
+  `--bg`, read at generation time, so **changing a theme's `--bg` means
+  re-running `--write`**; `--check` fails until you do.
+- **`.claude/skills/verify-ui/theme-preview.js`** — contact sheets, many
+  themes in one PNG. `patterns` renders the tiles straight from `app.css`
+  (no server; `--zoom` for the drawing itself), `app` screenshots the
+  running app once per theme. See the `verify-ui` skill.
+
+Cheapest loop for a palette or pattern change: `theme-contrast.js` →
+`theme-patterns.js --write` → one `theme-preview.js patterns --zoom` sheet →
+one `theme-preview.js app` sheet of just the themes you touched. That's
+two images to look at, not 18+.
+
+Two traps: the `<head>` scripts in `index.html`/`login.html`/`privacy.html`
+tell a known theme from a stale one by its computed `color-scheme`, so
+**every theme block must set a single `color-scheme`** (`light` or `dark`);
+and `THEME_OPTIONS` in `app.js` is the only theme list — `THEMES` is
+derived from it.
 
 ## Pull requests
 

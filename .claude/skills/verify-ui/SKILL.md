@@ -127,6 +127,34 @@ page.on('console', m => m.type() === 'error' && errs.push('CONSOLE: ' + m.text()
 page.on('response', r => r.status() >= 400 && errs.push(r.status() + ' ' + r.url()));
 ```
 
+## Themes: one contact sheet instead of 18 screenshots
+
+`theme-preview.js` puts many themes into a single PNG, which is far cheaper
+to look at than a shot per theme. Same `--chrome`/`--playwright` flags and
+fallbacks as `screenshot.js`.
+
+```bash
+# Background tiles straight from web/app.css — no server needed.
+node .claude/skills/verify-ui/theme-preview.js patterns --out /tmp/patterns.png
+node .claude/skills/verify-ui/theme-preview.js patterns --zoom --themes dino-park,playful --out /tmp/tiles.png
+
+# The running app, logged in as Test Parent, one phone shot per theme.
+node .claude/skills/verify-ui/theme-preview.js app --out /tmp/themes.png \
+  --themes system,dark,hacker --dark --tick --assets /tmp
+```
+
+`--zoom` shows one tile per theme at 2x and near-full opacity, for judging
+the drawing; without it you see the real, deliberately faint opacity with a
+card on top. In `app` mode, `system` is "Match device" (combine with
+`--dark` to see the OS-dark palette), `--tab` picks a tab by its `data-tab`,
+and `--tick` completes the first open task so the done tick shows. Seed
+data first. Shots are 1x on purpose — enough to judge colours and
+legibility, and much cheaper to read.
+
+Run `node scripts/theme-contrast.js` before any of this: it catches
+unreadable token pairs without a browser, so the images only need to answer
+"does it look right", not "is it readable". See `CLAUDE.md` (Themes).
+
 ## Regenerating the welcome page screenshots
 
 `web/screenshots/` holds the shots the logged-out welcome page shows, one set
