@@ -125,6 +125,16 @@
       </div>
     </section>
 
+    <section class="welcome-section">
+      <div class="card">
+        <h2 id="integrations-heading"></h2>
+        <ul class="welcome-integrations">
+          <li><a id="ha-link" href="https://github.com/gunnaringe/chores-homeassistant" rel="noopener">Home Assistant</a>: <span id="ha-body"></span></li>
+          <li><a id="kindle-link" href="https://github.com/gunnaringe/chores-kindle" rel="noopener">Kindle</a>: <span id="kindle-body"></span></li>
+        </ul>
+      </div>
+    </section>
+
     <section class="welcome-section welcome-cta">
       <h2 id="cta-heading"></h2>
       <button class="block" id="login-btn-2" onclick="location.href='/auth/login'"></button>
@@ -163,6 +173,10 @@
     text("how-heading", "login.howHeading");
     text("extras-heading", "login.extrasHeading");
     text("extras-body", "login.extrasBody");
+    text("integrations-heading", "login.integrationsHeading");
+    text("ha-body", "login.integrationHaBody");
+    text("kindle-link", "login.integrationKindleLink");
+    text("kindle-body", "login.integrationKindleBody");
     text("cta-heading", "login.ctaHeading");
     text("about-heading", "login.aboutHeading");
     text("source-link", "login.sourceLink");
