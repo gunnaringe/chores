@@ -224,8 +224,10 @@ own always-visible tab.
 Logged out, `/` serves a welcome page rather than a bare login box: what the
 app is, a three-step walkthrough, screenshots of the real screens (in
 `web/screenshots/` — English and Bokmål each have their own set; other
-languages fall back to English), and a footer pointing at the
-source and where it runs. The Log in button stays at the top, above the
+languages fall back to English), a "Works with" card linking the
+[Home Assistant integration](https://github.com/gunnaringe/chores-homeassistant)
+and the [Kindle display](https://github.com/gunnaringe/chores-kindle), and a
+footer pointing at the source and where it runs. The Log in button stays at the top, above the
 fold, exactly where it was before — someone who already uses the app should
 never have to read or scroll past any of it. A quiet second link below it,
 "Have a dashboard code?", goes straight to `/dashboard`'s key prompt (see

@@ -1985,6 +1985,18 @@ label {
   text-align: center;
 }
 
+.welcome-integrations {
+  margin: 0;
+  padding-left: 1.1em;
+}
+.welcome-integrations li + li {
+  margin-top: 6px;
+}
+.welcome-integrations a {
+  color: var(--accent);
+  font-weight: 550;
+}
+
 .welcome-footer {
   border-top: 1px solid var(--border);
   padding-top: 22px;

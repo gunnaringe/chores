@@ -39,7 +39,10 @@ it is explicitly fine.
 - gRPC and REST-ish API via Buf Connect —
   [SDK](https://buf.build/apphub/chores).
 - Change themes so that everyone in the family can get the look they want.
-- Home Assistant app (coming soon).
+- [Home Assistant integration](https://github.com/gunnaringe/chores-homeassistant):
+  todo lists, sensors and services, installable via HACS.
+- [Kindle display](https://github.com/gunnaringe/chores-kindle): a chore
+  list for an e-ink Kindle on the wall.
 
 For everything else — features, hosting, authentication, family
 membership, the kiosk dashboard, the API, deploying schema changes — see
