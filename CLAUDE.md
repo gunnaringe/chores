@@ -165,18 +165,22 @@ scrolling content between them — that widens into a centred desktop page above
   Symbols render as ligature text, so until the font loads (or if it never
   does) each glyph is its literal name — `dishwasher_gen` etc. — which will
   overflow its box and intercept clicks meant for its neighbours.
+- **The icon font is self-hosted on purpose** (`web/fonts/`, refreshed with
+  `scripts/update-icon-font.sh`). Don't bring back Google Fonts or any other
+  third-party request: the privacy policy promises none, and that is also
+  why the app needs no cookie banner.
 - **Icon glyphs stay hidden until the font is confirmed loaded.** An inline
   script in `index.html`/`login.html`'s `<head>` adds `icons-loading` to
   `<html>`, which `app.css` uses to `visibility: hidden` every
-  `.material-symbols-outlined` glyph. Without it, a slow or blocked font (ad
-  blocker, restrictive network, or just the ~2.3MB variable font not yet
-  downloaded on first visit) shows the raw ligature name the instant the HTML
+  `.material-symbols-outlined` glyph. Without it, a slow or missing font (just
+  the ~1.1MB self-hosted font in `web/fonts/` not yet downloaded on first
+  visit, or a request that failed) shows the raw ligature name the instant the HTML
   parses — worse than the overflow case above, since `overflow: hidden` alone
   just clips that text mid-word rather than hiding it.
 - **Don't decide whether that font loaded with the Font Loading API.** When
-  the Google Fonts *stylesheet* is blocked outright, no `@font-face` is ever
-  registered — and an unregistered family counts as an available *system*
-  font, so `document.fonts.load()` **resolves** and `document.fonts.check()`
+  no `@font-face` for the family is registered (app.css not loaded yet, or a
+  stale cached copy without it), an unregistered family counts as an
+  available *system* font, so `document.fonts.load()` **resolves** and `document.fonts.check()`
   returns **true**. Both report success for exactly the case that most needs
   catching, and an earlier version of this script trusted them and revealed
   the raw names on a real phone. The script instead measures a probe span:
@@ -184,8 +188,8 @@ scrolling content between them — that widens into a centred desktop page above
   60px+. It re-runs that check on `fonts.ready` and a 3s backstop, so a font
   arriving late still upgrades the page.
 - **There are two failure states, not one.** `icons-loading` is the transient
-  "don't know yet"; `icons-unavailable` is terminal, and is what a phone with
-  Google Fonts blocked ends up in permanently. It clamps every glyph to a 1em
+  "don't know yet"; `icons-unavailable` is terminal, and is where a page whose
+  font never arrives ends up. It clamps every glyph to a 1em
   box and draws a neutral placeholder, so icon-only controls stay visible and
   tappable instead of turning into blank gaps or overflowing words. Anything
   that adds a new icon context gets this for free; anything that hardcodes an

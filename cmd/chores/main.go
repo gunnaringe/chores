@@ -172,6 +172,7 @@ func main() {
 	// gate, since the welcome page needs it too) because the manifest's name
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
+	mux.HandleFunc("/material-symbols.json", web.MaterialSymbolsHandler)
 
 	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "login.html")
@@ -209,6 +210,13 @@ func notFoundPage(next http.Handler) http.Handler {
 		if _, err := fs.Stat(web.FS, name); err != nil {
 			web.RenderErrorPage(w, http.StatusNotFound, "Page not found.")
 			return
+		}
+		// Embedded files carry no modification time, so without this the
+		// browser re-downloads the ~1MB icon font on every page load (the
+		// service worker's background refresh included). Fonts change only
+		// with a release, and a week of staleness is harmless.
+		if strings.HasPrefix(name, "fonts/") {
+			w.Header().Set("Cache-Control", "public, max-age=604800")
 		}
 		next.ServeHTTP(w, r)
 	})

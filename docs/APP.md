@@ -9,14 +9,16 @@ enough — come here for anything more specific.
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
-Google's Material Symbols font is the one external dependency the app
-pulls in at runtime, from Google Fonts — everything else, including the
-icon *name* list used to search it (`web/material-symbols.json`, vendored
-from [`@material-symbols/metadata`](https://www.npmjs.com/package/@material-symbols/metadata),
-a mirror of Google's own Material Symbols codepoints), is embedded in the
-binary. That's an acceptable tradeoff here since the app already needs a
-live connection to its own backend for essentially everything; there's no
-offline mode to preserve.
+Everything the app needs is embedded in the binary, including Google's
+Material Symbols icon font (`web/fonts/`, Apache License 2.0, trimmed to the
+axes the app uses — refresh it with `scripts/update-icon-font.sh`) and the
+icon list used to search it (`web/material-symbols.json`: every icon name
+with Google's search tags, from the metadata fonts.google.com/icons itself
+uses — served gzipped by `web/material_symbols.go`). No page makes a
+request to a third party, which is what lets the privacy policy say so and
+keeps a cookie/consent banner unnecessary: the only cookies are the login
+ones, which are strictly necessary. The font used to come from Google Fonts;
+self-hosting it removed the one place visitors' IP addresses went to Google.
 
 ## Contents
 
@@ -104,9 +106,11 @@ Parents create tasks with a price, an assignment to one or more children
 (with a "select all" shortcut), and an optional icon shown next to the
 title everywhere the task appears — a
 [Material Symbols](https://fonts.google.com/icons) icon, picked by typing
-a search term (matched against the official icon names, underscores
-treated as spaces — no separate keyword/synonym list) and clicking one of
-the matches. A task predating Material Symbols becoming the only
+a search term and clicking one of the matches. The search matches the
+icon names (underscores treated as spaces) and Google's own synonyms for
+each icon ("trash" finds "delete", "laundry" finds "iron"), in English
+only; name matches rank above synonym matches, and Google's popularity
+order breaks ties. A task predating Material Symbols becoming the only
 supported icon type (an emoji or a Font Awesome icon) keeps showing its
 old icon as plain text rather than losing it, but can't be re-picked
 through this UI — editing such a task starts with no icon selected. A
@@ -239,11 +243,13 @@ log in at all.
 
 The footer also links to `/privacy.html`, a static page describing the
 author's own hosted instance's data practices (needed for the Google Play
-listing). It's deliberately not run through `i18n.js` like the rest of the
-UI — a legal document, unlike UI chrome, isn't something to machine-translate
-into `nb`/`nn`/`sv` and trust — except for the app name in its back link,
-which still calls `t("app.name")` so it matches whichever language sent you
-there.
+listing), and Settings' Feedback card links to it too, so it's reachable
+after login. It's deliberately not run through `i18n.js` like the rest of
+the UI: it holds two complete hand-written copies, English and Bokmål, and
+shows Bokmål to `nb`/`nn` users and English to everyone else (with a toggle
+between them). Change one copy and you must change the other. Only the app
+name in its back link calls `t("app.name")`, so it matches whichever
+language sent you there.
 
 Because crawlers get this page rather than the app shell, it also carries the
 link-preview (`og:`) metadata that decides what Facebook, Slack and iMessage
@@ -720,7 +726,7 @@ commit) or run it on demand with `prek run --all-files`.
 
 ## Updating the Material Symbols icon list
 
-`web/material-symbols.json` (the icon names the task icon picker's search
+`web/material-symbols.json` (the icon names and tags the task icon picker's search
 runs against — see Tasks above) is a point-in-time
 snapshot; Google adds new icons occasionally. Refresh it with:
 
@@ -744,4 +750,4 @@ diff and commit it like any other change.
 - `cmd/chores` — main entrypoint
 - `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)
 - `cmd/dbaudit` — read-only report on a database: row counts, data hazards, and per-child balances. Used to check that a migration didn't move anything (see Deploying a schema change)
-- `scripts/` — development helpers, not part of the built binary: `dev-up.sh`/`dev-down.sh` (run the app locally against devauth) and `update-material-symbols.sh` (refresh the icon name list)
+- `scripts/` — development helpers, not part of the built binary: `dev-up.sh`/`dev-down.sh` (run the app locally against devauth) and `update-material-symbols.sh` (refresh the icon list and its search tags), `update-icon-font.sh` (refresh the self-hosted icon font)

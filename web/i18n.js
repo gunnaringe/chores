@@ -93,7 +93,7 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "The server doesn't have push notifications configured.",
     "settings.notificationsDenied": "Notifications are blocked for this site — enable them in your browser's site settings to use this.",
 
-    "settings.iconsUnavailable": "Icons couldn't load, so they're showing as placeholders. An ad blocker, VPN or private DNS may be blocking fonts.googleapis.com.",
+    "settings.iconsUnavailable": "Icons couldn't load, so they're showing as placeholders. Reloading the page may help.",
 
     "settings.feedbackHeading": "Feedback",
     "settings.feedbackHint": "Do you have any ideas for new features or have found any issues?",
@@ -219,7 +219,7 @@ const TRANSLATIONS = {
     "addTask.iconLabel": "Icon (optional)",
     "addTask.iconSearchPlaceholder": "Search icons…",
     "addTask.iconNoResults": "No matching icons",
-    "addTask.iconSearchHint": "Search here only matches icon names, not synonyms.",
+    "addTask.iconSearchHint": "Search in English, e.g. “trash” or “laundry”.",
     "addTask.iconSearchLink": "Browse the full picker on fonts.google.com ↗",
     "addTask.iconClear": "Clear",
     "addTask.assignLabel": "Assign to",
@@ -416,7 +416,7 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "Serveren har ikke satt opp push-varsler.",
     "settings.notificationsDenied": "Varsler er blokkert for dette nettstedet — slå dem på i nettleserens nettstedsinnstillinger for å bruke dette.",
 
-    "settings.iconsUnavailable": "Ikonene kunne ikke lastes, så de vises som plassholdere. En annonseblokkerer, VPN eller privat DNS kan blokkere fonts.googleapis.com.",
+    "settings.iconsUnavailable": "Ikonene kunne ikke lastes, så de vises som plassholdere. Det kan hjelpe å laste siden på nytt.",
 
     "settings.feedbackHeading": "Tilbakemelding",
     "settings.feedbackHint": "Har du ideer til nye funksjoner, eller har du funnet en feil?",
@@ -542,7 +542,7 @@ const TRANSLATIONS = {
     "addTask.iconLabel": "Ikon (valgfritt)",
     "addTask.iconSearchPlaceholder": "Søk etter ikoner…",
     "addTask.iconNoResults": "Ingen ikoner funnet",
-    "addTask.iconSearchHint": "Søket her forstår bare ikonnavn, ikke synonymer.",
+    "addTask.iconSearchHint": "Søk på engelsk, f.eks. «trash» eller «laundry».",
     "addTask.iconSearchLink": "Bla i hele utvalget på fonts.google.com ↗",
     "addTask.iconClear": "Fjern",
     "addTask.assignLabel": "Tildel til",
@@ -739,7 +739,7 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "Tenaren har ikkje sett opp push-varsel.",
     "settings.notificationsDenied": "Varsel er blokkerte for denne nettstaden — slå dei på i nettlesaren sine nettstadinnstillingar for å bruke dette.",
 
-    "settings.iconsUnavailable": "Ikona kunne ikkje lastast, så dei blir viste som plasshaldarar. Ein annonseblokkerar, VPN eller privat DNS kan blokkere fonts.googleapis.com.",
+    "settings.iconsUnavailable": "Ikona kunne ikkje lastast, så dei blir viste som plasshaldarar. Det kan hjelpe å laste sida på nytt.",
 
     "settings.feedbackHeading": "Tilbakemelding",
     "settings.feedbackHint": "Har du idear til nye funksjonar, eller har du funne ein feil?",
@@ -865,7 +865,7 @@ const TRANSLATIONS = {
     "addTask.iconLabel": "Ikon (valfritt)",
     "addTask.iconSearchPlaceholder": "Søk etter ikon…",
     "addTask.iconNoResults": "Ingen ikon funne",
-    "addTask.iconSearchHint": "Søket her forstår berre ikonnamn, ikkje synonym.",
+    "addTask.iconSearchHint": "Søk på engelsk, t.d. «trash» eller «laundry».",
     "addTask.iconSearchLink": "Bla i heile utvalet på fonts.google.com ↗",
     "addTask.iconClear": "Fjern",
     "addTask.assignLabel": "Tildel til",
@@ -1062,7 +1062,7 @@ const TRANSLATIONS = {
     "settings.notificationsUnavailable": "Servern har inte konfigurerat push-aviseringar.",
     "settings.notificationsDenied": "Aviseringar är blockerade för den här webbplatsen — aktivera dem i webbläsarens webbplatsinställningar för att använda detta.",
 
-    "settings.iconsUnavailable": "Ikonerna kunde inte laddas, så de visas som platshållare. En annonsblockerare, VPN eller privat DNS kan blockera fonts.googleapis.com.",
+    "settings.iconsUnavailable": "Ikonerna kunde inte laddas, så de visas som platshållare. Det kan hjälpa att ladda om sidan.",
 
     "settings.feedbackHeading": "Feedback",
     "settings.feedbackHint": "Har du idéer till nya funktioner eller har du hittat några problem?",
@@ -1188,7 +1188,7 @@ const TRANSLATIONS = {
     "addTask.iconLabel": "Ikon (valfritt)",
     "addTask.iconSearchPlaceholder": "Sök ikoner…",
     "addTask.iconNoResults": "Inga matchande ikoner",
-    "addTask.iconSearchHint": "Sökningen här matchar bara ikonnamn, inte synonymer.",
+    "addTask.iconSearchHint": "Sök på engelska, t.ex. ”trash” eller ”laundry”.",
     "addTask.iconSearchLink": "Bläddra i hela urvalet på fonts.google.com ↗",
     "addTask.iconClear": "Rensa",
     "addTask.assignLabel": "Tilldela till",
