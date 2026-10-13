@@ -113,7 +113,6 @@ const THEMES = [
   "retro",
   "playful",
   "hacker",
-  "space-invaders",
   "high-contrast",
   "fairytale-forest",
   "pirate-map",
@@ -128,7 +127,9 @@ const THEMES = [
 ];
 
 function getTheme() {
-  const stored = localStorage.getItem("chores.theme");
+  let stored = localStorage.getItem("chores.theme");
+  // Space Invaders was folded into Hacker; carry anyone who picked it over.
+  if (stored === "space-invaders") stored = "hacker";
   return THEMES.includes(stored) ? stored : "";
 }
 function setTheme(theme) {
@@ -483,7 +484,6 @@ const THEME_OPTIONS = [
   { value: "retro", labelKey: "settings.themeRetro" },
   { value: "playful", labelKey: "settings.themePlayful" },
   { value: "hacker", labelKey: "settings.themeHacker" },
-  { value: "space-invaders", labelKey: "settings.themeSpaceInvaders" },
   { value: "high-contrast", labelKey: "settings.themeHighContrast" },
   { value: "fairytale-forest", labelKey: "settings.themeFairytaleForest" },
   { value: "pirate-map", labelKey: "settings.themePirateMap" },

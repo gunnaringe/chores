@@ -4,6 +4,24 @@
    into an ordinary centred page on a desktop viewport, rather than a desktop
    page that merely reflows. */
 
+/* VT323 (SIL OFL, see fonts/OFL-VT323.txt) for the hacker theme, self-hosted
+   so it works offline, same files as clock.apphub.casa. Its glyphs run
+   small; size-adjust scales them up. Only fetched when something uses it. */
+@font-face {
+  font-family: "VT323";
+  font-display: swap;
+  size-adjust: 135%;
+  src: url(/fonts/vt323-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "VT323";
+  font-display: swap;
+  size-adjust: 135%;
+  src: url(/fonts/vt323-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: light dark;
 
@@ -50,8 +68,8 @@
   --pill-optional-bg: #e0e7ff;
   --pill-optional-fg: #3730a3;
 
-  /* A repeating decorative background tile, off by default — playful and
-     space-invaders set it. Read by the body rule below; kept as a token
+  /* A repeating decorative background tile, off by default — playful,
+     hacker and most of the newer themes set it. Read by the body rule below; kept as a token
      rather than a per-theme body selector so themes without one don't need
      to say so. */
   --bg-pattern: none;
@@ -70,8 +88,8 @@
   font-size: 16px;
 }
 
-/* Settings offers an explicit Light/Dark/Retro/Playful/Space Invaders/High
-   Contrast choice on top of the OS-following default ("Match device"). An
+/* Settings offers an explicit Light/Dark/Retro/Playful/Hacker/High
+   Contrast/... choice on top of the OS-following default ("Match device"). An
    explicit choice is stamped as
    data-theme on <html> by applyTheme() in app.js (and, before that file
    even loads, by a standalone copy in index.html/login.html's <head> —
@@ -265,107 +283,58 @@
   --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%20viewBox='0%200%20160%20160'%3E%3Cg%20fill='%23ffb8de'%20opacity='0.55'%3E%3Ccircle%20cx='40'%20cy='42'%20r='14'/%3E%3Ccircle%20cx='29'%20cy='27'%20r='5'/%3E%3Ccircle%20cx='51'%20cy='27'%20r='5'/%3E%3Cellipse%20cx='40'%20cy='48'%20rx='4'%20ry='3'/%3E%3Cg%20transform='translate(98,8)%20scale(1.3)'%3E%3Cpath%20d='M12%2021s-8-4.5-8-11a5%205%200%200%201%208-4%205%205%200%200%201%208%204c0%206.5-8%2011-8%2011z'/%3E%3C/g%3E%3Cg%20transform='translate(6,90)%20scale(1.15)'%3E%3Cpath%20d='M12%202l2.9%206.9L22%209.3l-5.5%204.8L18.2%2022%2012%2018.3%205.8%2022l1.7-7.9L2%209.3l7.1-.4z'/%3E%3C/g%3E%3Cellipse%20cx='128'%20cy='112'%20rx='9'%20ry='12'/%3E%3Cpath%20d='M128%20124l-2%206h4z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* A CRT terminal: near-black surfaces, green-on-black text, square corners,
-   and a monospace face everywhere — the same green as .terminal-cmd's
-   fixed, theme-independent look above, so the grpcurl example on the API
-   access page reads as "at home" here instead of standing out. */
+/* A CRT terminal, the same look as the hacker theme on clock.apphub.casa:
+   pure black, phosphor-green text in the VT323 pixel face with a faint
+   glow, near-square corners, soft green glows instead of drop shadows, and
+   scan lines over everything (the rules after this block). It also took
+   over the old Space Invaders theme's pixel alien as its background tile. */
 :root[data-theme="hacker"] {
-  --bg: #0a0e0a;
-  --surface: #0d1410;
-  --card: #0d1410;
-  --surface-sunken: #0f1a12;
-  --text: #3ddc4a;
-  --muted: #4a7a52;
-  --faint: #2f5a38;
-  --border: #1c3320;
-  --border-strong: #2a4a30;
+  --bg: #000000;
+  --surface: #001a07;
+  --card: #001a07;
+  --surface-sunken: #000d03;
+  --text: #33ff66;
+  --muted: #1fae48;
+  --faint: #137a31;
+  --border: rgba(0, 255, 65, 0.28);
+  --border-strong: rgba(0, 255, 65, 0.45);
 
   --accent: #00ff41;
   --accent-hover: #33ff66;
-  --accent-soft: #103a1a;
-  --accent-fg: #04140a;
+  --accent-soft: rgba(0, 255, 65, 0.14);
+  --accent-fg: #000000;
   --green: #00ff41;
-  --green-soft: #0d2a12;
-  --red: #ff3b3b;
-  --red-soft: #2a1010;
+  --green-soft: rgba(0, 255, 65, 0.14);
+  --red: #ff4d4d;
+  --red-soft: rgba(255, 77, 77, 0.14);
   --red-text: #ff6b6b;
 
-  --shadow-sm: 0 0 0 1px rgba(61, 220, 74, 0.08), 0 1px 2px rgba(0, 0, 0, 0.6);
-  --shadow-md: 0 0 16px rgba(61, 220, 74, 0.12), 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 0 32px rgba(61, 220, 74, 0.18), 0 16px 48px rgba(0, 0, 0, 0.7);
+  --shadow-sm: 0 0 8px -4px rgba(0, 255, 65, 0.35);
+  --shadow-md: 0 0 18px -6px rgba(0, 255, 65, 0.35);
+  --shadow-lg: 0 0 32px -8px rgba(0, 255, 65, 0.45);
 
-  --r-xl: 4px;
-  --r-lg: 3px;
+  --r-xl: 2px;
+  --r-lg: 2px;
   --r-md: 2px;
   --r-sm: 2px;
 
-  --pill-parent-bg: #10241a;
-  --pill-parent-fg: #3ddc4a;
-  --pill-child-bg: #142a18;
-  --pill-child-fg: #5eff7e;
-  --pill-notcompleted-bg: #2a1010;
-  --pill-notcompleted-fg: #ff5f5f;
-  --pill-mandatory-bg: #241f10;
+  --pill-parent-bg: rgba(0, 255, 65, 0.12);
+  --pill-parent-fg: #33ff66;
+  --pill-child-bg: rgba(157, 255, 0, 0.12);
+  --pill-child-fg: #9dff00;
+  --pill-notcompleted-bg: rgba(255, 77, 77, 0.14);
+  --pill-notcompleted-fg: #ff6b6b;
+  --pill-mandatory-bg: rgba(226, 210, 74, 0.14);
   --pill-mandatory-fg: #e2d24a;
-  --pill-optional-bg: #10241f;
+  --pill-optional-bg: rgba(74, 222, 194, 0.12);
   --pill-optional-fg: #4adec2;
 
-  color-scheme: dark;
-  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-}
-
-/* An arcade cabinet: black surfaces, a cyan/magenta/invader-green palette
-   distinct from hacker's uniform green-on-black, zero radius (pixel-art
-   square edges, more literal than hacker's slightly-rounded "CRT" look),
-   and hard-edged offset shadows instead of soft blur. */
-:root[data-theme="space-invaders"] {
-  --bg: #000000;
-  --surface: #0a0a12;
-  --card: #0a0a12;
-  --surface-sunken: #12121e;
-  --text: #e8e8f0;
-  --muted: #8888a8;
-  --faint: #55557a;
-  --border: #22223a;
-  --border-strong: #33335a;
-
-  --accent: #00e5ff;
-  --accent-hover: #33ecff;
-  --accent-soft: #0a2a30;
-  --accent-fg: #001014;
-  --green: #39ff14;
-  --green-soft: #0d2a08;
-  --red: #ff2e4d;
-  --red-soft: #2a0a10;
-  --red-text: #ff6b81;
-
-  --shadow-sm: 2px 2px 0 rgba(0, 229, 255, 0.15);
-  --shadow-md: 3px 3px 0 rgba(0, 229, 255, 0.2);
-  --shadow-lg: 4px 4px 0 rgba(0, 229, 255, 0.25);
-
-  --r-xl: 0;
-  --r-lg: 0;
-  --r-md: 0;
-  --r-sm: 0;
-
-  --pill-parent-bg: #0a2a30;
-  --pill-parent-fg: #00e5ff;
-  --pill-child-bg: #0d2a08;
-  --pill-child-fg: #39ff14;
-  --pill-notcompleted-bg: #2a0a10;
-  --pill-notcompleted-fg: #ff6b81;
-  --pill-mandatory-bg: #2a2408;
-  --pill-mandatory-fg: #ffe14d;
-  --pill-optional-bg: #1a0a2a;
-  --pill-optional-fg: #cc7aff;
+  /* One pixel-grid alien, repeated, kept faint so it sits behind the scan
+     lines rather than competing with them. */
+  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='100'%20viewBox='0%200%20100%20100'%3E%3Cpath%20transform='translate(17,26)'%20fill='%2300ff41'%20opacity='0.16'%20d='M12%200%20h6%20v6%20h-6%20ZM48%200%20h6%20v6%20h-6%20ZM18%206%20h6%20v6%20h-6%20ZM42%206%20h6%20v6%20h-6%20ZM12%2012%20h6%20v6%20h-6%20ZM18%2012%20h6%20v6%20h-6%20ZM24%2012%20h6%20v6%20h-6%20ZM30%2012%20h6%20v6%20h-6%20ZM36%2012%20h6%20v6%20h-6%20ZM42%2012%20h6%20v6%20h-6%20ZM48%2012%20h6%20v6%20h-6%20ZM6%2018%20h6%20v6%20h-6%20ZM12%2018%20h6%20v6%20h-6%20ZM24%2018%20h6%20v6%20h-6%20ZM30%2018%20h6%20v6%20h-6%20ZM36%2018%20h6%20v6%20h-6%20ZM48%2018%20h6%20v6%20h-6%20ZM54%2018%20h6%20v6%20h-6%20ZM0%2024%20h6%20v6%20h-6%20ZM6%2024%20h6%20v6%20h-6%20ZM12%2024%20h6%20v6%20h-6%20ZM18%2024%20h6%20v6%20h-6%20ZM24%2024%20h6%20v6%20h-6%20ZM30%2024%20h6%20v6%20h-6%20ZM36%2024%20h6%20v6%20h-6%20ZM42%2024%20h6%20v6%20h-6%20ZM48%2024%20h6%20v6%20h-6%20ZM54%2024%20h6%20v6%20h-6%20ZM60%2024%20h6%20v6%20h-6%20ZM0%2030%20h6%20v6%20h-6%20ZM12%2030%20h6%20v6%20h-6%20ZM18%2030%20h6%20v6%20h-6%20ZM24%2030%20h6%20v6%20h-6%20ZM30%2030%20h6%20v6%20h-6%20ZM36%2030%20h6%20v6%20h-6%20ZM42%2030%20h6%20v6%20h-6%20ZM48%2030%20h6%20v6%20h-6%20ZM60%2030%20h6%20v6%20h-6%20ZM0%2036%20h6%20v6%20h-6%20ZM12%2036%20h6%20v6%20h-6%20ZM48%2036%20h6%20v6%20h-6%20ZM60%2036%20h6%20v6%20h-6%20ZM18%2042%20h6%20v6%20h-6%20ZM24%2042%20h6%20v6%20h-6%20ZM36%2042%20h6%20v6%20h-6%20ZM42%2042%20h6%20v6%20h-6%20Z'/%3E%3C/svg%3E");
 
   color-scheme: dark;
-  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-
-  /* One pixel-grid alien, repeated — the same idea as playful's tile
-     above, just a single blocky path instead of rects/curves to keep the
-     data URI shorter. */
-  --bg-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='100'%20viewBox='0%200%20100%20100'%3E%3Cpath%20transform='translate(17,26)'%20fill='%2339ff14'%20opacity='0.3'%20d='M12%200%20h6%20v6%20h-6%20ZM48%200%20h6%20v6%20h-6%20ZM18%206%20h6%20v6%20h-6%20ZM42%206%20h6%20v6%20h-6%20ZM12%2012%20h6%20v6%20h-6%20ZM18%2012%20h6%20v6%20h-6%20ZM24%2012%20h6%20v6%20h-6%20ZM30%2012%20h6%20v6%20h-6%20ZM36%2012%20h6%20v6%20h-6%20ZM42%2012%20h6%20v6%20h-6%20ZM48%2012%20h6%20v6%20h-6%20ZM6%2018%20h6%20v6%20h-6%20ZM12%2018%20h6%20v6%20h-6%20ZM24%2018%20h6%20v6%20h-6%20ZM30%2018%20h6%20v6%20h-6%20ZM36%2018%20h6%20v6%20h-6%20ZM48%2018%20h6%20v6%20h-6%20ZM54%2018%20h6%20v6%20h-6%20ZM0%2024%20h6%20v6%20h-6%20ZM6%2024%20h6%20v6%20h-6%20ZM12%2024%20h6%20v6%20h-6%20ZM18%2024%20h6%20v6%20h-6%20ZM24%2024%20h6%20v6%20h-6%20ZM30%2024%20h6%20v6%20h-6%20ZM36%2024%20h6%20v6%20h-6%20ZM42%2024%20h6%20v6%20h-6%20ZM48%2024%20h6%20v6%20h-6%20ZM54%2024%20h6%20v6%20h-6%20ZM60%2024%20h6%20v6%20h-6%20ZM0%2030%20h6%20v6%20h-6%20ZM12%2030%20h6%20v6%20h-6%20ZM18%2030%20h6%20v6%20h-6%20ZM24%2030%20h6%20v6%20h-6%20ZM30%2030%20h6%20v6%20h-6%20ZM36%2030%20h6%20v6%20h-6%20ZM42%2030%20h6%20v6%20h-6%20ZM48%2030%20h6%20v6%20h-6%20ZM60%2030%20h6%20v6%20h-6%20ZM0%2036%20h6%20v6%20h-6%20ZM12%2036%20h6%20v6%20h-6%20ZM48%2036%20h6%20v6%20h-6%20ZM60%2036%20h6%20v6%20h-6%20ZM18%2042%20h6%20v6%20h-6%20ZM24%2042%20h6%20v6%20h-6%20ZM36%2042%20h6%20v6%20h-6%20ZM42%2042%20h6%20v6%20h-6%20Z'/%3E%3C/svg%3E");
+  font-family: "VT323", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 /* Maximum legibility: pure black text on white, black borders throughout
@@ -2213,4 +2182,54 @@ html.icons-unavailable .material-symbols-outlined::before {
   border: 0.085em solid currentColor;
   border-radius: 0.22em;
   opacity: 0.45;
+}
+
+/* ---- hacker theme extras ------------------------------------------------
+   The parts of the clock.apphub.casa look that aren't just tokens. */
+/* VT323 has one weight; faux bold smears its pixels. */
+:root[data-theme="hacker"] body { text-shadow: 0 0 6px rgba(0, 255, 65, 0.45); font-synthesis: none; }
+:root[data-theme="hacker"] :is(input, select, textarea, button) { font-family: inherit; }
+/* CRT scan lines over everything, with a brief flicker every few seconds. */
+:root[data-theme="hacker"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.15) 0 1px, transparent 1px 3px);
+  animation: crt-flicker 4s infinite;
+}
+@keyframes crt-flicker {
+  0%, 95%, 97%, 100% { opacity: 1; }
+  96% { opacity: 0.8; }
+  98% { opacity: 0.85; }
+}
+/* A shell prompt and a blinking block cursor around each screen title. */
+:root[data-theme="hacker"] .screen-title { font-weight: 400; letter-spacing: 0; }
+:root[data-theme="hacker"] .screen-title::before { content: "$ "; color: var(--accent); }
+:root[data-theme="hacker"] .screen-title::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.9em;
+  margin-left: 0.15em;
+  vertical-align: -0.1em;
+  background: var(--accent);
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+/* An invader cheers instead of the party popper. */
+:root[data-theme="hacker"] .all-done-banner .material-symbols-outlined {
+  font-size: 0;
+  width: 18px;
+  height: 13px;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2066%2048'%3E%3Cpath%20d='M12%200%20h6%20v6%20h-6%20ZM48%200%20h6%20v6%20h-6%20ZM18%206%20h6%20v6%20h-6%20ZM42%206%20h6%20v6%20h-6%20ZM12%2012%20h6%20v6%20h-6%20ZM18%2012%20h6%20v6%20h-6%20ZM24%2012%20h6%20v6%20h-6%20ZM30%2012%20h6%20v6%20h-6%20ZM36%2012%20h6%20v6%20h-6%20ZM42%2012%20h6%20v6%20h-6%20ZM48%2012%20h6%20v6%20h-6%20ZM6%2018%20h6%20v6%20h-6%20ZM12%2018%20h6%20v6%20h-6%20ZM24%2018%20h6%20v6%20h-6%20ZM30%2018%20h6%20v6%20h-6%20ZM36%2018%20h6%20v6%20h-6%20ZM48%2018%20h6%20v6%20h-6%20ZM54%2018%20h6%20v6%20h-6%20ZM0%2024%20h6%20v6%20h-6%20ZM6%2024%20h6%20v6%20h-6%20ZM12%2024%20h6%20v6%20h-6%20ZM18%2024%20h6%20v6%20h-6%20ZM24%2024%20h6%20v6%20h-6%20ZM30%2024%20h6%20v6%20h-6%20ZM36%2024%20h6%20v6%20h-6%20ZM42%2024%20h6%20v6%20h-6%20ZM48%2024%20h6%20v6%20h-6%20ZM54%2024%20h6%20v6%20h-6%20ZM60%2024%20h6%20v6%20h-6%20ZM0%2030%20h6%20v6%20h-6%20ZM12%2030%20h6%20v6%20h-6%20ZM18%2030%20h6%20v6%20h-6%20ZM24%2030%20h6%20v6%20h-6%20ZM30%2030%20h6%20v6%20h-6%20ZM36%2030%20h6%20v6%20h-6%20ZM42%2030%20h6%20v6%20h-6%20ZM48%2030%20h6%20v6%20h-6%20ZM60%2030%20h6%20v6%20h-6%20ZM0%2036%20h6%20v6%20h-6%20ZM12%2036%20h6%20v6%20h-6%20ZM48%2036%20h6%20v6%20h-6%20ZM60%2036%20h6%20v6%20h-6%20ZM18%2042%20h6%20v6%20h-6%20ZM24%2042%20h6%20v6%20h-6%20ZM36%2042%20h6%20v6%20h-6%20ZM42%2042%20h6%20v6%20h-6%20Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2066%2048'%3E%3Cpath%20d='M12%200%20h6%20v6%20h-6%20ZM48%200%20h6%20v6%20h-6%20ZM18%206%20h6%20v6%20h-6%20ZM42%206%20h6%20v6%20h-6%20ZM12%2012%20h6%20v6%20h-6%20ZM18%2012%20h6%20v6%20h-6%20ZM24%2012%20h6%20v6%20h-6%20ZM30%2012%20h6%20v6%20h-6%20ZM36%2012%20h6%20v6%20h-6%20ZM42%2012%20h6%20v6%20h-6%20ZM48%2012%20h6%20v6%20h-6%20ZM6%2018%20h6%20v6%20h-6%20ZM12%2018%20h6%20v6%20h-6%20ZM24%2018%20h6%20v6%20h-6%20ZM30%2018%20h6%20v6%20h-6%20ZM36%2018%20h6%20v6%20h-6%20ZM48%2018%20h6%20v6%20h-6%20ZM54%2018%20h6%20v6%20h-6%20ZM0%2024%20h6%20v6%20h-6%20ZM6%2024%20h6%20v6%20h-6%20ZM12%2024%20h6%20v6%20h-6%20ZM18%2024%20h6%20v6%20h-6%20ZM24%2024%20h6%20v6%20h-6%20ZM30%2024%20h6%20v6%20h-6%20ZM36%2024%20h6%20v6%20h-6%20ZM42%2024%20h6%20v6%20h-6%20ZM48%2024%20h6%20v6%20h-6%20ZM54%2024%20h6%20v6%20h-6%20ZM60%2024%20h6%20v6%20h-6%20ZM0%2030%20h6%20v6%20h-6%20ZM12%2030%20h6%20v6%20h-6%20ZM18%2030%20h6%20v6%20h-6%20ZM24%2030%20h6%20v6%20h-6%20ZM30%2030%20h6%20v6%20h-6%20ZM36%2030%20h6%20v6%20h-6%20ZM42%2030%20h6%20v6%20h-6%20ZM48%2030%20h6%20v6%20h-6%20ZM60%2030%20h6%20v6%20h-6%20ZM0%2036%20h6%20v6%20h-6%20ZM12%2036%20h6%20v6%20h-6%20ZM48%2036%20h6%20v6%20h-6%20ZM60%2036%20h6%20v6%20h-6%20ZM18%2042%20h6%20v6%20h-6%20ZM24%2042%20h6%20v6%20h-6%20ZM36%2042%20h6%20v6%20h-6%20ZM42%2042%20h6%20v6%20h-6%20Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="hacker"] body::after { animation: none; }
+  /* A blinking cursor isn't motion, so keep it blinking. */
+  :root[data-theme="hacker"] .screen-title::after { animation-duration: 1s !important; }
 }

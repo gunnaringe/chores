@@ -23,6 +23,7 @@
   // there for why it's duplicated rather than shared. Keep both in step.
   (function () {
     var theme = localStorage.getItem("chores.theme");
+    if (theme === "space-invaders") theme = "hacker";
     if (theme) document.documentElement.setAttribute("data-theme", theme);
     var meta = document.getElementById("theme-color-meta");
     if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());

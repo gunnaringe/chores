@@ -355,8 +355,8 @@ and Swedish fall back to the English set (see The welcome page above).
 
 Settings offers a choice of **Match device** (the default — follows the
 OS's light/dark setting, which is all the app did before this option
-existed), **Light**, **Dark**, **Retro**, **Playful**, **Hacker**, **Space
-Invaders**, **High Contrast**, **Fairytale Forest**, **Pirate Map**,
+existed), **Light**, **Dark**, **Retro**, **Playful**, **Hacker**, **High
+Contrast**, **Fairytale Forest**, **Pirate Map**,
 **Underwater World**, **Robot Workshop**, **Cabin & Outdoors**, **Monster
 Lab**, **Dinosaur Park**, **Mission Base**, **Block World**, and **Cozy
 Home**. Like the language and currency choices, it's purely a
@@ -364,6 +364,13 @@ Home**. Like the language and currency choices, it's purely a
 Each theme is a block of CSS custom properties in `web/app.css`
 (`:root[data-theme="..."]`); add one there and an entry in `THEME_OPTIONS`
 in `web/app.js` to add another.
+
+**Hacker** is the one theme with more than tokens: it matches the hacker
+theme on clock.apphub.casa — the VT323 pixel font (self-hosted in
+`web/fonts/`), a green glow, CRT scan lines with a brief flicker, and a
+`$ ` prompt and blinking cursor on screen titles — plus a faint pixel-alien
+background tile and an alien in the all-done banner. It absorbed the old
+Space Invaders theme; a stored `space-invaders` choice is read as `hacker`.
 
 Most of the newer themes also set `--bg-pattern`, a repeating decorative
 background tile drawn as an inline SVG data URI rather than a separate
