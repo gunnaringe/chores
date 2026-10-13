@@ -828,21 +828,65 @@ function loadMaterialSymbols() {
   return materialSymbolsPromise;
 }
 
+// Hand-picked Bokmål/Nynorsk/Swedish words for the ~250 icons chores
+// actually use ("søppel" finds "delete"), fetched only for those languages —
+// English already has Google's tags. The file maps icon name to
+// [nb, nn extras, sv]; Nynorsk searches its own extras plus the Bokmål
+// words, which its readers know. Icons without an entry are still found by
+// their English name and tags. Resolves to {name: "words …"} for the
+// current language, or {} for English or on failure.
+let localIconWordsPromise = null;
+let localIconWordsLang = "";
+function loadLocalIconWords() {
+  const lang = getLang();
+  if (lang === "en") return Promise.resolve({});
+  if (!localIconWordsPromise || localIconWordsLang !== lang) {
+    localIconWordsLang = lang;
+    localIconWordsPromise = fetch("/material-symbols-i18n.json")
+      .then((res) => res.json())
+      .then((entries) => {
+        const pick = { nb: [0], nn: [1, 0], sv: [2] }[lang] || [];
+        const words = {};
+        for (const [name, perLang] of Object.entries(entries)) {
+          words[name] = pick.map((i) => perLang[i]).filter(Boolean).join(" ");
+        }
+        return words;
+      })
+      .catch(() => ({}));
+  }
+  return localIconWordsPromise;
+}
+
 // Substring search, matching each whitespace-separated search word against
 // the name (underscores as spaces, so "clean service" matches
-// "cleaning_services") or its tags. Icons whose name starts with the query
-// rank first, then ones matched on the name alone, then tag-only matches;
-// within each, Google's popularity order (the file's order) decides.
-function searchMaterialSymbols(icons, query) {
+// "cleaning_services"), the icon's words in the UI language, and Google's
+// English tags. Ranking: name starts with the query; every word starts a
+// word in the name or the UI-language words; every word appears somewhere in
+// the name; then the same with the UI-language words and finally Google's
+// tags. Within a tier Google's popularity order (the file's order) decides,
+// except that tier 1 puts name matches first and then orders UI-language
+// matches by how early they appear — those words are written most relevant
+// first, so "tvätt" ranks the laundry icon above the car wash. Word starts
+// outrank mid-word hits so that "hund" (dog) finds "pets" before
+// "t[hund]erstorm".
+function searchMaterialSymbols(icons, query, localWords = {}) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const words = q.split(/\s+/).filter(Boolean);
-  const tiers = [[], [], []];
+  const tiers = [[], [], [], [], []];
   for (const icon of icons) {
+    const local = localWords[icon.name] || "";
+    const nameStart = " " + icon.words;
+    const localStart = " " + local;
     if (icon.words.startsWith(q)) tiers[0].push(icon.name);
-    else if (words.every((w) => icon.words.includes(w))) tiers[1].push(icon.name);
-    else if (words.every((w) => icon.words.includes(w) || icon.tags.includes(w))) tiers[2].push(icon.name);
+    else if (words.every((w) => nameStart.includes(" " + w) || localStart.includes(" " + w))) {
+      tiers[1].push([icon.name, words.every((w) => nameStart.includes(" " + w)) ? -1 : local.indexOf(words[0])]);
+    } else if (words.every((w) => icon.words.includes(w))) tiers[2].push(icon.name);
+    else if (local && words.every((w) => icon.words.includes(w) || local.includes(w))) tiers[3].push(icon.name);
+    else if (words.every((w) => icon.words.includes(w) || local.includes(w) || icon.tags.includes(w))) tiers[4].push(icon.name);
   }
+  // Array.prototype.sort is stable, so popularity order survives ties.
+  tiers[1] = tiers[1].sort((a, b) => a[1] - b[1]).map(([name]) => name);
   return tiers.flat().slice(0, 60);
 }
 
@@ -1680,8 +1724,13 @@ function renderTaskForm(existingTask, cloneSource) {
   // selected, since there's no way to keep editing that value here.
   let selectedIconValue = prefill && prefill.icon && prefill.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS" ? materialIconName(prefill.icon.value) : "";
   let materialSymbols = [];
+  let localIconWords = {};
   loadMaterialSymbols().then((icons) => {
     materialSymbols = icons;
+    if (iconSearchInput.value.trim()) renderIconResults();
+  });
+  loadLocalIconWords().then((words) => {
+    localIconWords = words;
     if (iconSearchInput.value.trim()) renderIconResults();
   });
 
@@ -1710,7 +1759,7 @@ function renderTaskForm(existingTask, cloneSource) {
     // while there's actually something to show in it.
     iconResultsWrap.style.display = query.trim() ? "" : "none";
     if (!query.trim()) return;
-    const matches = searchMaterialSymbols(materialSymbols, query);
+    const matches = searchMaterialSymbols(materialSymbols, query, localIconWords);
     if (!matches.length) {
       iconResultsWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.iconNoResults"))}</p>`));
       return;

@@ -108,9 +108,15 @@ title everywhere the task appears — a
 [Material Symbols](https://fonts.google.com/icons) icon, picked by typing
 a search term and clicking one of the matches. The search matches the
 icon names (underscores treated as spaces) and Google's own synonyms for
-each icon ("trash" finds "delete", "laundry" finds "iron"), in English
-only; name matches rank above synonym matches, and Google's popularity
-order breaks ties. A task predating Material Symbols becoming the only
+each icon ("trash" finds "delete", "laundry" finds "iron"). For the
+~250 icons chores actually need, there are also hand-written Bokmål,
+Nynorsk and Swedish words (`web/material-symbols-i18n.json`, loaded only
+for those languages: "søppel" finds "delete"); any other icon is found by
+its English name and tags. Name matches rank first, then the UI language's
+words, then Google's tags, and Google's popularity order breaks ties. To
+add words for another icon, add an entry (`[nb, nn extras, sv]`, the Nynorsk
+list only holds words that differ from Bokmål); a Go test fails if an entry
+names an icon that no longer exists. A task predating Material Symbols becoming the only
 supported icon type (an emoji or a Font Awesome icon) keeps showing its
 old icon as plain text rather than losing it, but can't be re-picked
 through this UI — editing such a task starts with no icon selected. A
