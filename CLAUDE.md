@@ -32,9 +32,9 @@ you edit `proto/chores/v1/chores.proto`.
 A plain `node` is also assumed on `PATH` (mise-managed — see `mise.toml`),
 needed for `node --check` below, `scripts/update-material-symbols.sh`, and
 everything under `.claude/skills/verify-ui/`. Of those, only `screenshot.js`
-needs a real browser (Chromium + Playwright, at fixed paths only guaranteed
-in the managed Claude Code sandbox image — see the `verify-ui` skill for the
-fallback); `seed-demo-data.js` is plain `fetch()` against the Connect API and
+needs a real browser (Chromium + Playwright; `verify-ui/lib.js` finds them
+in the managed sandbox image or on a local machine — see the `verify-ui`
+skill); `seed-demo-data.js` is plain `fetch()` against the Connect API and
 needs nothing beyond Node itself.
 
 ## Verifying a change
@@ -208,24 +208,11 @@ with the `verify-ui` skill, at phone width, and include:
   is the one that silently falls back;
 - dark mode or a 320px screen when the change involves layout.
 
-GitHub has no API for attaching an image to a PR body, so push the PNGs to a
-throwaway orphan branch and embed them by raw URL — that keeps binaries out
-of `main` and out of the PR's own diff:
-
-```bash
-git worktree add --detach /tmp/prshots
-cd /tmp/prshots
-git checkout --orphan pr-assets/<topic>
-git rm -rf . >/dev/null
-cp /tmp/shots/*.png .
-git add . && git commit -m "Screenshots for <topic>"
-git push -u origin pr-assets/<topic>
-cd - && git worktree remove /tmp/prshots
-```
-
-Then reference them as
-`![](https://raw.githubusercontent.com/<owner>/<repo>/pr-assets/<topic>/<file>.png)`
-and say in the PR that the branch can be deleted once merged.
+GitHub has no API for attaching an image to a PR body, so they go on a
+throwaway orphan branch, embedded by raw URL — that keeps binaries out of
+`main` and out of the PR's own diff. `.claude/skills/verify-ui/pr-shots.sh
+<topic> <png>...` does the whole thing and prints the Markdown; say in the PR
+that the `pr-assets/<topic>` branch can be deleted once merged.
 
 ## House style
 
