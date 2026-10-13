@@ -14,22 +14,22 @@ Start the app first — see the `run-local` skill — and remember that `web/` i
 embedded at build time, so **restart the server after every frontend edit** or
 you will screenshot the old UI.
 
-Chromium and Playwright are preinstalled at these paths **in the managed
-Claude Code sandbox image**; do not run `playwright install` there.
+`lib.js` finds the browser and Playwright on its own, so no path flags are
+needed. It tries, in order:
 
-- browser: `/opt/pw-browsers/chromium-*/chrome-linux/chrome`
-- library: `/opt/node22/lib/node_modules/playwright`
+- browser: `--chrome` / `$CHORES_CHROME`, then the managed Claude Code image's
+  `/opt/pw-browsers/chromium-*/chrome-linux/chrome`, then
+  `/usr/bin/google-chrome`, `/usr/bin/chromium`, `/usr/bin/chromium-browser`
+- library: `--playwright` / `$CHORES_PLAYWRIGHT`, then the managed image's
+  `/opt/node22/lib/node_modules/playwright`, then a private copy in
+  `~/.cache/chores-verify-ui`, then whatever `require()` finds
 
-A different sandbox (or a plain local checkout) won't have these. `screenshot.js`
-fails loudly rather than guessing if the glob finds nothing — install your own
-and point it there instead:
+Don't run `playwright install` in the managed image. Anywhere else, if
+neither library is found, it prints the one-time install command (no browser
+download, it drives the system Chrome):
 
 ```bash
-npm install --prefix /tmp/pw playwright-core   # downloads no browser itself
-node .claude/skills/verify-ui/screenshot.js \
-  --chrome /usr/bin/google-chrome \            # or wherever a real Chrome/Chromium lives
-  --playwright /tmp/pw/node_modules/playwright-core \
-  --out /tmp/shots
+npm install --prefix ~/.cache/chores-verify-ui playwright-core
 ```
 
 `seed-demo-data.js` needs neither — it's plain `fetch()`, no browser involved.
@@ -62,8 +62,7 @@ this runs.
 ## Capture
 
 ```bash
-node .claude/skills/verify-ui/screenshot.js \
-  --out /tmp/shots --url http://localhost:8080/
+node .claude/skills/verify-ui/screenshot.js            # --theme hacker, --lang nb, --out, --url
 ```
 
 It logs in through devauth as Test Parent and captures every tab at phone
@@ -79,24 +78,36 @@ script that exits 0 has verified nothing about how the page looks.
 
 ## Writing your own flow
 
-Copy `screenshot.js` and edit it. The parts worth keeping:
+**Don't write a browser script from scratch.** `lib.js` already does the
+launch, the devauth login, theme/language presets, error collection
+(page errors, console errors, 4xx/5xx, and any third-party request) and
+element screenshots, so a one-off check is a few lines:
 
 ```js
-const browser = await chromium.launch({
-  executablePath: CHROME,                       // globbed, see the script
-  args: ['--proxy-server=' + process.env.HTTPS_PROXY, '--ignore-certificate-errors'],
-});
-const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+const { open } = require("/abs/path/to/.claude/skills/verify-ui/lib.js");
+(async () => {
+  const s = await open({ theme: "hacker", lang: "nb" });   // also device, viewport, colorScheme, path
+  await s.login();                                         // devauth "Test Parent"
+  await s.tab("tasks");
+  await s.page.click(".fab");
+  await s.page.fill("#task-icon-search", "trash");
+  await s.shot("icon-search", "#task-icon-results");      // element; omit the selector for the page
+  await s.done();                                          // prints errors, sets exit code
+})();
 ```
 
-Collect diagnostics on every page — silent console errors are how a broken
-render passes review:
+Write it to `/tmp` and run it with `node`. For a second viewport on the same
+login, pass `storageState: await s.storageState()` to another `open()`.
+`screenshot.js` is the longer example.
 
-```js
-page.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
-page.on('console', m => m.type() === 'error' && errs.push('CONSOLE: ' + m.text()));
-page.on('response', r => r.status() >= 400 && errs.push(r.status() + ' ' + r.url()));
+## Putting screenshots in a PR
+
+```bash
+.claude/skills/verify-ui/pr-shots.sh <topic> /tmp/shots/a.png /tmp/shots/b.png
 ```
+
+pushes them to a `pr-assets/<topic>` orphan branch (adding to it if it
+exists) and prints the `![](…)` lines to paste into the PR body.
 
 ## Regenerating the welcome page screenshots
 
