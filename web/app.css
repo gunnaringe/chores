@@ -2218,6 +2218,8 @@ html.icons-unavailable .material-symbols-outlined::before {
   animation: blink 1s steps(1) infinite;
 }
 @keyframes blink { 50% { opacity: 0; } }
+/* Terminal checkboxes are square, not round. */
+:root[data-theme="hacker"] .checkbtn { border-radius: var(--r-sm); }
 /* An invader cheers instead of the party popper. */
 :root[data-theme="hacker"] .all-done-banner .material-symbols-outlined {
   font-size: 0;
