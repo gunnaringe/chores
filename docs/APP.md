@@ -9,14 +9,16 @@ enough — come here for anything more specific.
 (The Go module is `github.com/gunnaringe/chores`, and the proto package,
 Connect service (`chores.v1.ChoresService`), and generated code all match.)
 
-Google's Material Symbols font is the one external dependency the app
-pulls in at runtime, from Google Fonts — everything else, including the
+Everything the app needs is embedded in the binary, including Google's
+Material Symbols icon font (`web/fonts/`, Apache License 2.0, trimmed to the
+axes the app uses — refresh it with `scripts/update-icon-font.sh`) and the
 icon *name* list used to search it (`web/material-symbols.json`, vendored
 from [`@material-symbols/metadata`](https://www.npmjs.com/package/@material-symbols/metadata),
-a mirror of Google's own Material Symbols codepoints), is embedded in the
-binary. That's an acceptable tradeoff here since the app already needs a
-live connection to its own backend for essentially everything; there's no
-offline mode to preserve.
+a mirror of Google's own Material Symbols codepoints). No page makes a
+request to a third party, which is what lets the privacy policy say so and
+keeps a cookie/consent banner unnecessary: the only cookies are the login
+ones, which are strictly necessary. The font used to come from Google Fonts;
+self-hosting it removed the one place visitors' IP addresses went to Google.
 
 ## Contents
 
@@ -239,11 +241,13 @@ log in at all.
 
 The footer also links to `/privacy.html`, a static page describing the
 author's own hosted instance's data practices (needed for the Google Play
-listing). It's deliberately not run through `i18n.js` like the rest of the
-UI — a legal document, unlike UI chrome, isn't something to machine-translate
-into `nb`/`nn`/`sv` and trust — except for the app name in its back link,
-which still calls `t("app.name")` so it matches whichever language sent you
-there.
+listing), and Settings' Feedback card links to it too, so it's reachable
+after login. It's deliberately not run through `i18n.js` like the rest of
+the UI: it holds two complete hand-written copies, English and Bokmål, and
+shows Bokmål to `nb`/`nn` users and English to everyone else (with a toggle
+between them). Change one copy and you must change the other. Only the app
+name in its back link calls `t("app.name")`, so it matches whichever
+language sent you there.
 
 Because crawlers get this page rather than the app shell, it also carries the
 link-preview (`og:`) metadata that decides what Facebook, Slack and iMessage

@@ -2121,6 +2121,19 @@ label {
 
 /* ---- icon font -------------------------------------------------------- */
 
+/* Google's Material Symbols Outlined (Apache License 2.0, see
+   fonts/LICENSE-material-symbols.txt), self-hosted so no page ever makes a
+   request to Google. Trimmed to the axes the app uses; refresh it with
+   scripts/update-icon-font.sh. display=block: icons are ligature text, so
+   swap would flash raw names ("expand_more") until the font lands. */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: block;
+  src: url(/fonts/material-symbols-outlined.woff2) format("woff2");
+}
+
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";
   font-weight: normal;
@@ -2149,8 +2162,8 @@ html.icons-loading .material-symbols-outlined {
   visibility: hidden;
 }
 
-/* Terminal fallback: the font is confirmed unusable — the Google Fonts
-   stylesheet was blocked outright, or the font file never arrived. Since
+/* Terminal fallback: the font is confirmed unusable — the font file
+   never arrived, or a stale app.css never declared it. Since
    Material Symbols are ligature *text*, leaving it at that paints the
    literal name ("checklist", "dishwasher_gen") at full text width, which
    overflows the tab bar and every icon button and reads as a broken page.

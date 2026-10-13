@@ -24,8 +24,19 @@
   <main class="content no-tabbar welcome">
     <div class="welcome-section" style="max-width:640px;margin:0 auto;">
       <p><a href="/">&larr; <span id="back-app-name">Chores</span></a></p>
+      <p class="hint" style="margin:0 0 8px;">
+        <a href="#" data-show-lang="nb" lang="nb">Norsk</a> ·
+        <a href="#" data-show-lang="en" lang="en">English</a>
+      </p>
+
+      <!-- Two full copies rather than i18n keys: a policy is one long
+           document, and keeping it as plain HTML keeps it readable and
+           diffable. Nynorsk users get Bokmål, Swedish users English; the
+           English copy is the one shown without JavaScript. Keep the two
+           in step. -->
+      <article lang="en" data-policy-lang="en">
       <h1>Privacy policy</h1>
-      <p><em>Last updated: 2026-09-14</em></p>
+      <p><em>Last updated: 2026-10-14</em></p>
 
       <p>
         This page describes how the operator's own instance of this app,
@@ -37,86 +48,117 @@
         Google Play listing that points at it.
       </p>
 
-      <h2>Who this is</h2>
+      <h2>Who is responsible</h2>
       <p>
-        This app is a small, self-hosted family chores and allowance
-        tracker, run by one person as a personal project. Contact:
+        This app is a small, non-commercial family chores and allowance
+        tracker, run by one private individual as a personal project. That
+        person is the data controller. Contact:
         <a href="mailto:gunnar.inge@sort.land">gunnar.inge@sort.land</a>.
       </p>
 
-      <h2>What data is collected</h2>
+      <h2>What data is stored, and why</h2>
       <ul>
         <li>
           <strong>Login identity.</strong> Logging in goes through Auth0,
-          which hands the app a name and email address for your account.
-          This app never sees or stores your password.
+          which hands the app your account ID, name and email address. These
+          are stored with your membership in a family. The app never sees or
+          stores your password.
         </li>
         <li>
-          <strong>Family data you enter.</strong> Family and child names,
-          tasks, completion history, and allowance balances — all entered
-          by a parent or child in the family. Money amounts are a made-up
-          in-app allowance, not real payments; nothing here connects to a
-          bank account or payment processor.
+          <strong>Family data you enter.</strong> Family and member names,
+          tasks, completion history, payouts and allowance balances. Money
+          amounts are a made-up in-app allowance, not real payments; nothing
+          here connects to a bank account or payment processor.
+        </li>
+        <li>
+          <strong>Invitations, kiosk dashboard keys and personal access
+          tokens</strong> you create. Access tokens are stored only as a
+          one-way hash.
         </li>
         <li>
           <strong>Push notification subscriptions.</strong> If you turn on
-          notifications, your browser registers a push subscription with
-          the server so other family members' devices can be notified when
-          a chore is completed. Notification text (a child's name and a
-          task title) is delivered through your browser's or device's push
-          service (e.g. Google's for Chrome/Android, Apple's for Safari/iOS,
-          Mozilla's for Firefox) to reach your device — the operator only
-          ever sends to that service, and never reads what it does with it
-          beyond delivery.
-        </li>
-        <li>
-          <strong>Session cookies.</strong> A login session is kept
-          server-side and referenced by a cookie in your browser, so you
-          stay logged in between visits.
+          notifications, your browser registers a push subscription with the
+          server. Notification text (a child's name and a task title) is
+          delivered through your browser's or device's push service (Google
+          for Chrome/Android, Apple for Safari/iOS, Mozilla for Firefox).
         </li>
       </ul>
       <p>
-        Your language and theme preferences are stored only in your
-        browser's local storage and never sent to the server.
+        All of this is used only to provide the app you signed up for — the
+        legal basis is performance of that service (GDPR article 6(1)(b)).
+        Children's data is there because a parent in the family chose to add
+        it.
+      </p>
+
+      <h2>Cookies and local storage</h2>
+      <p>
+        The app only uses cookies that are strictly necessary for logging in:
+        a session cookie that keeps you logged in for up to 7 days (the
+        session itself is held in the server's memory only), and two
+        short-lived cookies that exist for the 10 minutes a login takes.
+        Strictly necessary cookies don't require consent, which is why there
+        is no cookie banner.
+      </p>
+      <p>
+        Your choices of language, theme and currency, the family you last
+        viewed, and a kiosk dashboard's settings and key are stored only in
+        your browser's local storage and never sent to the server (except
+        the dashboard key, which is how a kiosk logs in).
       </p>
 
       <h2>What is not collected</h2>
       <p>
-        There are no ads, no analytics, and no tracking of any kind beyond
-        what's listed above. Your data is never sold or shared with anyone
-        outside your own family, other than the third parties named above
-        that are strictly necessary to run the service (Auth0 for login,
-        your browser's push service if you enable notifications). The app
-        also loads the Material Symbols icon font from Google Fonts, which
-        means your browser makes a request to Google's servers (and so
-        Google sees your IP address) whenever a page with icons loads.
+        There are no ads, no analytics and no tracking. The app makes no
+        requests to third parties from your browser — even the icon font is
+        served by the app itself. Your data is never sold or shared with
+        anyone outside your own family, other than the service providers
+        below that are necessary to run the service. The app itself does not
+        log IP addresses.
+      </p>
+
+      <h2>Service providers</h2>
+      <ul>
+        <li><strong>Fly.io</strong> hosts the app and its database, in Stockholm, Sweden.</li>
+        <li><strong>Auth0</strong> (by Okta) handles login, in its EU region.</li>
+        <li><strong>Your browser's push service</strong>, only if you turn on notifications.</li>
+      </ul>
+      <p>
+        Fly.io and Okta are US companies; data is stored in the EU, and their
+        data processing terms cover any transfer outside it. The hosting
+        platform may keep short-lived technical logs. The "Feedback" link in
+        Settings opens GitHub, where GitHub's own privacy policy applies.
       </p>
 
       <h2>Children's data</h2>
       <p>
-        This app is meant to be used within a family, by parents who
-        choose what information about their children — first names and
-        chore activity — to enter. It is not directed at children as its
-        primary audience, and a child only appears in it because a parent
-        or the child themself, invited into that family, put them there.
-        If you're a parent and want a child's data removed, contact the
-        operator using the details above.
+        This app is meant to be used within a family, by parents who choose
+        what information about their children — first names and chore
+        activity — to enter. It is not directed at children as its primary
+        audience, and a child only appears in it because a parent, or the
+        child themself invited into that family, put them there.
       </p>
 
-      <h2>Data retention and deletion</h2>
+      <h2>Retention and deletion</h2>
       <p>
         Detailed day-by-day task history is kept for about two months, after
         which it's compacted into a monthly total per child (the running
-        balance is preserved either way). Account and family data is kept
-        for as long as the family uses the app. To have your family's data
-        deleted entirely, contact the operator using the details above.
+        balance is preserved either way). Everything else is kept for as
+        long as the family uses the app. You can delete data yourself in
+        Settings: a parent can remove a child, leave the family, or delete
+        the whole family, which removes all its data at once. Deleted data
+        may remain in hosting backups for a few days before it's gone for
+        good. You can also ask the operator to delete it for you.
       </p>
 
-      <h2>Where data is hosted</h2>
+      <h2>Your rights</h2>
       <p>
-        The operator's instance runs on Fly.io in Stockholm, Sweden, with
-        its database on a persistent disk attached to that same machine.
-        Login is handled by Auth0's EU region.
+        You have the right to see the data stored about you, to have it
+        corrected or deleted, to get a copy of it, and to object to or
+        restrict how it's used. Email the operator at the address above. If
+        you think your data is being handled wrongly, you can complain to
+        the Norwegian Data Protection Authority
+        (<a href="https://www.datatilsynet.no/en/" rel="noopener">Datatilsynet</a>)
+        or the data protection authority where you live.
       </p>
 
       <h2>Changes to this policy</h2>
@@ -124,12 +166,160 @@
         If this policy changes, the updated version will be posted at this
         same address with a new "last updated" date.
       </p>
+      </article>
+
+      <article lang="nb" data-policy-lang="nb" hidden>
+      <h1>Personvernerklæring</h1>
+      <p><em>Sist oppdatert: 2026-10-14</em></p>
+
+      <p>
+        Denne siden beskriver hvordan operatørens egen installasjon av appen,
+        på chores.apphub.casa og ukepenger.apphub.casa, behandler dataene
+        dine. Selve appen er åpen kildekode
+        (<a href="https://github.com/gunnaringe/chores" rel="noopener">kildekode på GitHub</a>,
+        Apache License 2.0), og hvem som helst kan kjøre sin egen
+        installasjon i stedet. Denne erklæringen gjelder bare operatørens
+        egen installasjon og Google Play-oppføringen som peker til den.
+      </p>
+
+      <h2>Hvem som er ansvarlig</h2>
+      <p>
+        Appen er en liten, ikke-kommersiell app for husarbeid og ukepenger i
+        familien, drevet av én privatperson som et hobbyprosjekt. Denne
+        personen er behandlingsansvarlig. Kontakt:
+        <a href="mailto:gunnar.inge@sort.land">gunnar.inge@sort.land</a>.
+      </p>
+
+      <h2>Hvilke data som lagres, og hvorfor</h2>
+      <ul>
+        <li>
+          <strong>Innloggingsidentitet.</strong> Innlogging går via Auth0,
+          som gir appen konto-ID, navn og e-postadresse. Disse lagres sammen
+          med medlemskapet ditt i en familie. Appen ser eller lagrer aldri
+          passordet ditt.
+        </li>
+        <li>
+          <strong>Familiedata du legger inn.</strong> Navn på familien og
+          medlemmene, oppgaver, utførte oppgaver, utbetalinger og saldo.
+          Beløpene er oppdiktede ukepenger i appen, ikke ekte betalinger;
+          ingenting her er koblet til bankkonto eller betalingstjeneste.
+        </li>
+        <li>
+          <strong>Invitasjoner, dashbordnøkler og personlige
+          tilgangsnøkler</strong> du lager. Tilgangsnøkler lagres bare som en
+          enveis-hash.
+        </li>
+        <li>
+          <strong>Abonnement på varsler.</strong> Slår du på varsler,
+          registrerer nettleseren et push-abonnement hos serveren.
+          Varselteksten (et barns navn og en oppgavetittel) leveres via
+          push-tjenesten til nettleseren eller enheten din (Google for
+          Chrome/Android, Apple for Safari/iOS, Mozilla for Firefox).
+        </li>
+      </ul>
+      <p>
+        Alt dette brukes bare til å levere appen du har registrert deg for —
+        rettslig grunnlag er oppfyllelse av den tjenesten
+        (personvernforordningen artikkel 6 nr. 1 bokstav b). Data om barn er
+        der fordi en forelder i familien har valgt å legge dem inn.
+      </p>
+
+      <h2>Informasjonskapsler og lokal lagring</h2>
+      <p>
+        Appen bruker bare informasjonskapsler som er strengt nødvendige for
+        innlogging: én øktkapsel som holder deg innlogget i opptil 7 dager
+        (selve økten ligger bare i serverens minne), og to kortlivede kapsler
+        som finnes de 10 minuttene en innlogging tar. Strengt nødvendige
+        informasjonskapsler krever ikke samtykke, og derfor er det ingen
+        cookie-banner.
+      </p>
+      <p>
+        Valg av språk, tema og valuta, familien du sist så på, og
+        innstillingene og nøkkelen til et dashbord lagres bare i nettleserens
+        lokale lagring og sendes aldri til serveren (unntatt dashbordnøkkelen,
+        som er slik et dashbord logger inn).
+      </p>
+
+      <h2>Hva som ikke samles inn</h2>
+      <p>
+        Det er ingen reklame, ingen analyse og ingen sporing. Appen sender
+        ingen forespørsler til tredjeparter fra nettleseren din — selv
+        ikonfonten leveres av appen selv. Dataene dine selges eller deles
+        aldri med noen utenfor familien din, bortsett fra tjenesteleverandørene
+        under, som er nødvendige for å drive tjenesten. Appen logger ikke
+        IP-adresser.
+      </p>
+
+      <h2>Tjenesteleverandører</h2>
+      <ul>
+        <li><strong>Fly.io</strong> drifter appen og databasen, i Stockholm, Sverige.</li>
+        <li><strong>Auth0</strong> (fra Okta) håndterer innlogging, i EU-regionen sin.</li>
+        <li><strong>Push-tjenesten til nettleseren din</strong>, bare hvis du slår på varsler.</li>
+      </ul>
+      <p>
+        Fly.io og Okta er amerikanske selskaper; dataene lagres i EU, og
+        databehandleravtalene deres dekker eventuell overføring ut av EU.
+        Driftsplattformen kan ha kortlivede tekniske logger. Lenken
+        «Tilbakemelding» i Innstillinger åpner GitHub, der GitHubs egen
+        personvernerklæring gjelder.
+      </p>
+
+      <h2>Data om barn</h2>
+      <p>
+        Appen er laget for bruk i en familie, av foreldre som selv velger
+        hvilken informasjon om barna — fornavn og hva de har gjort — de vil
+        legge inn. Den er ikke først og fremst rettet mot barn, og et barn er
+        bare med fordi en forelder, eller barnet selv etter invitasjon til
+        familien, har lagt det inn.
+      </p>
+
+      <h2>Lagringstid og sletting</h2>
+      <p>
+        Detaljert historikk dag for dag beholdes i omtrent to måneder, og
+        slås deretter sammen til en månedssum per barn (saldoen beholdes
+        uansett). Alt annet beholdes så lenge familien bruker appen. Du kan
+        slette data selv i Innstillinger: en forelder kan fjerne et barn,
+        forlate familien eller slette hele familien, som fjerner alle dataene
+        på én gang. Slettede data kan ligge igjen i sikkerhetskopier hos
+        driftsplattformen i noen dager før de er borte for godt. Du kan også
+        be operatøren om å slette dem for deg.
+      </p>
+
+      <h2>Dine rettigheter</h2>
+      <p>
+        Du har rett til innsyn i dataene som er lagret om deg, til å få dem
+        rettet eller slettet, til å få en kopi av dem, og til å protestere
+        mot eller begrense bruken av dem. Send e-post til operatøren på
+        adressen over. Mener du at dataene dine behandles feil, kan du klage
+        til <a href="https://www.datatilsynet.no/" rel="noopener">Datatilsynet</a>.
+      </p>
+
+      <h2>Endringer</h2>
+      <p>
+        Hvis erklæringen endres, legges den nye versjonen ut på denne samme
+        adressen med ny «sist oppdatert»-dato.
+      </p>
+      </article>
     </div>
   </main>
 </div>
 <script src="/i18n.js"></script>
 <script>
   document.getElementById("back-app-name").textContent = t("app.name");
+  function showPolicy(lang) {
+    document.querySelectorAll("[data-policy-lang]").forEach(function (a) {
+      a.hidden = a.dataset.policyLang !== lang;
+    });
+    document.documentElement.lang = lang;
+    document.title = document.querySelector('[data-policy-lang="' + lang + '"] h1').textContent;
+  }
+  showPolicy(getLang() === "nb" || getLang() === "nn" ? "nb" : "en");
+  document.querySelectorAll("[data-show-lang]").forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      showPolicy(link.dataset.showLang);
+    });
+  });
 </script>
 </body>
 </html>

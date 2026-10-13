@@ -2967,11 +2967,14 @@ function renderSettingsTab() {
 
   // A plain link out to the repo's issue tracker — this is a hobby project
   // (see the welcome page's disclaimer), so "something's wrong, now what"
-  // has one answer: file it upstream, there's no in-app support flow.
+  // has one answer: file it upstream, there's no in-app support flow. The
+  // privacy policy rides along, so it's reachable after login too, not just
+  // from the welcome page.
   const feedbackCard = el(`
     <div class="card">
       <h2>${escapeHtml(t("settings.feedbackHeading"))}</h2>
       <p class="hint" style="margin:0;">${escapeHtml(t("settings.feedbackHint"))} <a href="https://github.com/gunnaringe/chores/issues/new" target="_blank" rel="noopener">${escapeHtml(t("settings.feedbackLink"))}</a>.</p>
+      <p class="hint" style="margin:8px 0 0;"><a href="/privacy.html">${escapeHtml(t("login.privacyLink"))}</a></p>
     </div>
   `);
   wrap.appendChild(feedbackCard);

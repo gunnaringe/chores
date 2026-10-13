@@ -1,6 +1,6 @@
 ---
 name: verify-ui
-description: Drive the Chores frontend in a real browser and capture screenshots, at phone and desktop sizes, in light and dark mode. Use to verify any change under web/ — the Go test suite covers none of the UI, and node --check only catches syntax errors. Covers the Material Symbols font stub that agent sandboxes need.
+description: Drive the Chores frontend in a real browser and capture screenshots, at phone and desktop sizes, in light and dark mode. Use to verify any change under web/ — the Go test suite covers none of the UI, and node --check only catches syntax errors.
 ---
 
 # Verifying frontend changes in a browser
@@ -29,37 +29,10 @@ npm install --prefix /tmp/pw playwright-core   # downloads no browser itself
 node .claude/skills/verify-ui/screenshot.js \
   --chrome /usr/bin/google-chrome \            # or wherever a real Chrome/Chromium lives
   --playwright /tmp/pw/node_modules/playwright-core \
-  --out /tmp/shots --assets /tmp
+  --out /tmp/shots
 ```
 
 `seed-demo-data.js` needs neither — it's plain `fetch()`, no browser involved.
-
-## Stub the icon font first
-
-`web/index.html` loads Material Symbols from `fonts.googleapis.com`, which the
-browser cannot reach from a sandbox. This matters more than it sounds:
-
-Material Symbols render as **ligature text**, so with the font missing every
-glyph draws as its literal name — `dishwasher_gen`, `expand_more` — at full
-text width. Screenshots become unreadable, *and* the overflowing text can
-intercept pointer events, so clicks fail with a confusing "element intercepts
-pointer events" timeout on a locator that is plainly visible.
-
-`curl` does have proxy access, so fetch the font once to disk and let the
-browser load it from there:
-
-```bash
-.claude/skills/verify-ui/fetch-icon-font.sh /tmp
-```
-
-That writes `ms.css` + `ms.woff2` and is safe to re-run. It is a script rather
-than a one-line `curl` because Google content-negotiates on the User-Agent:
-anything it doesn't recognise as a modern browser gets legacy per-weight
-`.ttf` faces instead of the single variable `.woff2`, and the extraction then
-silently finds nothing. The script pins a full UA and fails loudly if it gets
-the legacy response anyway.
-
-`screenshot.js` picks the stub up automatically.
 
 ## Seed data first
 
@@ -89,9 +62,8 @@ this runs.
 ## Capture
 
 ```bash
-.claude/skills/verify-ui/fetch-icon-font.sh /tmp          # once per container
 node .claude/skills/verify-ui/screenshot.js \
-  --out /tmp/shots --assets /tmp --url http://localhost:8080/
+  --out /tmp/shots --url http://localhost:8080/
 ```
 
 It logs in through devauth as Test Parent and captures every tab at phone
@@ -115,7 +87,6 @@ const browser = await chromium.launch({
   args: ['--proxy-server=' + process.env.HTTPS_PROXY, '--ignore-certificate-errors'],
 });
 const ctx = await browser.newContext({ ...devices['iPhone 13'] });
-await stubFonts(ctx);                           // always, before newPage()
 ```
 
 Collect diagnostics on every page — silent console errors are how a broken

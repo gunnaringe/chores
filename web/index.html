@@ -17,8 +17,6 @@
      visible copy below is filled in by i18n.js at runtime and is empty as
      far as a scraper is concerned. -->
 <!-- og:meta -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="/app.css" />
 <meta name="theme-color" content="#f2f3f7" id="theme-color-meta" />
 <script>
@@ -37,15 +35,11 @@
     if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
   })();
 </script>
-<!-- display=block: Material Symbols are rendered as ligature text, so the
-     default swap behaviour flashes raw names ("expand_more") until the font
-     lands. Blocking briefly shows nothing instead of showing nonsense —
-     but only once this stylesheet itself has loaded and registered the
-     font-face; until then the browser doesn't know to block at all. The
-     script below covers that gap. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=block" />
+<!-- The icon font is self-hosted and declared in app.css (font-display:
+     block); preloading it starts the ~1MB download before app.css is parsed. -->
+<link rel="preload" href="/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin />
 <script>
-  // Belt-and-braces for the font-display:block above. Material Symbols are
+  // Belt-and-braces for the font-display:block in app.css. Material Symbols are
   // ligature *text*: an icon is the literal word "edit_note" until the font
   // arrives and collapses it to one glyph. So a font that never arrives
   // doesn't degrade to a missing icon, it degrades to that word, at full
@@ -53,9 +47,9 @@
   // its neighbours. icons-loading (see app.css) hides glyphs until we know
   // which case we're in; icons-unavailable is the terminal fallback.
   //
-  // Deciding that needs a measurement, not the Font Loading API. When the
-  // Google Fonts stylesheet is blocked outright (ad blocker, filtering DNS,
-  // captive network) no @font-face is ever registered — and an unregistered
+  // Deciding that needs a measurement, not the Font Loading API. When no
+  // @font-face for the family is registered (app.css not loaded yet, or
+  // an old cached copy from before the font was self-hosted), an unregistered
   // family counts as an available *system* font, so fonts.load() resolves
   // and fonts.check() returns true while every icon would still paint as
   // its name. Both report success for the one case that most needs

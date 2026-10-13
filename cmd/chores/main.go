@@ -210,6 +210,13 @@ func notFoundPage(next http.Handler) http.Handler {
 			web.RenderErrorPage(w, http.StatusNotFound, "Page not found.")
 			return
 		}
+		// Embedded files carry no modification time, so without this the
+		// browser re-downloads the ~1MB icon font on every page load (the
+		// service worker's background refresh included). Fonts change only
+		// with a release, and a week of staleness is harmless.
+		if strings.HasPrefix(name, "fonts/") {
+			w.Header().Set("Cache-Control", "public, max-age=604800")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
