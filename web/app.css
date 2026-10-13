@@ -1572,14 +1572,18 @@ label {
 .all-done-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border-radius: var(--r-md);
   background: var(--green-soft);
   color: var(--green);
+  font-size: 0.85rem;
   font-weight: 650;
+  white-space: nowrap;
 }
+.all-done-banner .material-symbols-outlined { font-size: 18px; }
+.all-done-banner > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 
 /* The "Must do" / "Can do" heading above each group of today's tasks. Tighter
    than a standalone .section-label because it sits between rows inside a card,
