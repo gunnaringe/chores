@@ -806,44 +806,44 @@ function taskIconHtml(task) {
   return `<span class="task-icon"><span class="material-symbols-outlined">${escapeHtml(name)}</span></span>`;
 }
 
-// The full official Material Symbols icon name list, fetched lazily and
-// cached here — see loadMaterialSymbolNames. Search matches against these
-// names directly (see searchMaterialSymbols) rather than a hand-authored
-// keyword/synonym mapping — the vendored source (see
-// scripts/update-material-symbols.sh) is just a name-to-version map with no
-// synonyms in it, and fonts.google.com/icons' own richer search (e.g.
-// "trash" finding "delete") isn't published data anywhere we could vendor.
-// The task form links out to that page instead, for anyone who knows what
-// they want but not what Google calls it.
-let materialSymbolNamesPromise = null;
-function loadMaterialSymbolNames() {
-  if (!materialSymbolNamesPromise) {
-    materialSymbolNamesPromise = fetch("/material-symbols.json")
+// The Material Symbols icon list with Google's search tags (synonyms —
+// "trash" finds "delete"), fetched lazily and cached here. Each entry in
+// the file is "name tag tag …", sorted most popular first; see
+// scripts/update-material-symbols.sh for where it comes from and how the
+// tags are pruned. Tags are English only, like Google's own search.
+let materialSymbolsPromise = null;
+function loadMaterialSymbols() {
+  if (!materialSymbolsPromise) {
+    materialSymbolsPromise = fetch("/material-symbols.json")
       .then((res) => res.json())
+      .then((entries) =>
+        entries.map((entry) => {
+          const space = entry.indexOf(" ");
+          const name = space === -1 ? entry : entry.slice(0, space);
+          return { name, words: name.replace(/_/g, " "), tags: space === -1 ? "" : entry.slice(space + 1) };
+        })
+      )
       .catch(() => []);
   }
-  return materialSymbolNamesPromise;
+  return materialSymbolsPromise;
 }
 
-// Substring search over the official icon names, matching each whitespace-
-// separated search word against the name with underscores treated as
-// spaces (so "clean service" matches "cleaning_services"). Prefix matches
-// on the full query sort first, then shorter (more specific) names.
-function searchMaterialSymbols(names, query) {
+// Substring search, matching each whitespace-separated search word against
+// the name (underscores as spaces, so "clean service" matches
+// "cleaning_services") or its tags. Icons whose name starts with the query
+// rank first, then ones matched on the name alone, then tag-only matches;
+// within each, Google's popularity order (the file's order) decides.
+function searchMaterialSymbols(icons, query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const words = q.split(/\s+/).filter(Boolean);
-  const matches = names.filter((name) => {
-    const haystack = name.replace(/_/g, " ");
-    return words.every((w) => haystack.includes(w));
-  });
-  matches.sort((a, b) => {
-    const aStarts = a.replace(/_/g, " ").startsWith(q) ? 0 : 1;
-    const bStarts = b.replace(/_/g, " ").startsWith(q) ? 0 : 1;
-    if (aStarts !== bStarts) return aStarts - bStarts;
-    return a.length - b.length || a.localeCompare(b);
-  });
-  return matches.slice(0, 60);
+  const tiers = [[], [], []];
+  for (const icon of icons) {
+    if (icon.words.startsWith(q)) tiers[0].push(icon.name);
+    else if (words.every((w) => icon.words.includes(w))) tiers[1].push(icon.name);
+    else if (words.every((w) => icon.words.includes(w) || icon.tags.includes(w))) tiers[2].push(icon.name);
+  }
+  return tiers.flat().slice(0, 60);
 }
 
 // Creates a family and binds the caller as its founding parent via
@@ -1679,9 +1679,9 @@ function renderTaskForm(existingTask, cloneSource) {
   // supported type (emoji, Font Awesome) starts this form with no icon
   // selected, since there's no way to keep editing that value here.
   let selectedIconValue = prefill && prefill.icon && prefill.icon.type === "ICON_TYPE_MATERIAL_SYMBOLS" ? materialIconName(prefill.icon.value) : "";
-  let materialSymbolNames = [];
-  loadMaterialSymbolNames().then((names) => {
-    materialSymbolNames = names;
+  let materialSymbols = [];
+  loadMaterialSymbols().then((icons) => {
+    materialSymbols = icons;
     if (iconSearchInput.value.trim()) renderIconResults();
   });
 
@@ -1710,7 +1710,7 @@ function renderTaskForm(existingTask, cloneSource) {
     // while there's actually something to show in it.
     iconResultsWrap.style.display = query.trim() ? "" : "none";
     if (!query.trim()) return;
-    const matches = searchMaterialSymbols(materialSymbolNames, query);
+    const matches = searchMaterialSymbols(materialSymbols, query);
     if (!matches.length) {
       iconResultsWrap.appendChild(el(`<p class="empty" style="margin:0;">${escapeHtml(t("addTask.iconNoResults"))}</p>`));
       return;

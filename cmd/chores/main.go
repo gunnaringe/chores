@@ -172,6 +172,7 @@ func main() {
 	// gate, since the welcome page needs it too) because the manifest's name
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
+	mux.HandleFunc("/material-symbols.json", web.MaterialSymbolsHandler)
 
 	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "login.html")
