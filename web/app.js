@@ -1230,22 +1230,29 @@ function renderDashboardBar() {
 // parent's Today tab (and the kiosk, which renders the same view) and by a
 // child's own screen — the two had drifted into duplicate copies of the same
 // markup and the same complete/uncomplete handler.
-function renderOccurrenceRow(occ, childId, opts) {
+//
+// The description sits on its own line, clamped to two lines so a long one
+// can't take over a card; tapping the text shows all of it. A done row is
+// dimmed and struck through so what's left stands out at a glance.
+function renderOccurrenceRow(occ, childId) {
   const done = !!occ.completedAt;
-  const showDescription = !!(opts && opts.showDescription);
-  const description = showDescription && occ.description ? " — " + escapeHtml(occ.description) : "";
   const row = el(`
-    <div class="row">
+    <div class="row occurrence-row${done ? " done" : ""}">
       <div class="task-row-main">
         ${taskIconHtml(occ)}
         <div class="task-row-text">
           <div class="task-title">${escapeHtml(occ.title)}</div>
-          <div class="task-meta">${formatAmount(occ.amount)}${description}</div>
+          <div class="task-meta">${formatAmount(occ.amount)}</div>
+          ${occ.description ? `<div class="task-desc">${escapeHtml(occ.description)}</div>` : ""}
         </div>
       </div>
       <button class="checkbtn ${done ? "done" : "todo"}" aria-pressed="${done}" title="${escapeHtml(done ? t("childTasks.markNotDone") : t("childTasks.markDone"))}"><span class="material-symbols-outlined">check</span></button>
     </div>
   `);
+  const desc = row.querySelector(".task-desc");
+  if (desc) {
+    row.querySelector(".task-row-text").addEventListener("click", () => desc.classList.toggle("expanded"));
+  }
   row.querySelector("button").addEventListener("click", () =>
     withError(async () => {
       const req = { taskId: occ.taskId, childId, dueDate: occ.dueDate };
@@ -1256,16 +1263,31 @@ function renderOccurrenceRow(occ, childId, opts) {
   return row;
 }
 
+// A cheer once a child's required chores for today are all ticked off —
+// "all done" if nothing at all is left, "must-dos done" if optional ones
+// still are. Null while anything required is open, and for a day where the
+// only tasks are optional ones nobody has touched (nothing was required, so
+// there's nothing to celebrate yet).
+function allDoneBanner(occurrences) {
+  const required = occurrences.filter((o) => !isOptionalTask(o));
+  const allDone = occurrences.length && occurrences.every((o) => o.completedAt);
+  if (!allDone && !(required.length && required.every((o) => o.completedAt))) return null;
+  const text = allDone ? t("today.allDone") : t("today.mustDoDone");
+  return el(`<div class="all-done-banner"><span class="material-symbols-outlined">celebration</span><span>${escapeHtml(text)}</span></div>`);
+}
+
 // Appends today's tasks under a "Must do" / "Can do" heading each, so what a
 // child actually has to get done reads apart from what's optional extra —
 // previously the two were one undifferentiated list and the distinction only
 // existed as a pill in the parent's task editor.
-function appendOccurrenceSections(container, occurrences, childId, opts) {
+function appendOccurrenceSections(container, occurrences, childId) {
+  const banner = allDoneBanner(occurrences);
+  if (banner) container.appendChild(banner);
   groupOccurrencesByClassification(occurrences).forEach((group) => {
     container.appendChild(
       el(`<div class="section-label occurrence-group">${escapeHtml(group.label)}</div>`)
     );
-    group.items.forEach((occ) => container.appendChild(renderOccurrenceRow(occ, childId, opts)));
+    group.items.forEach((occ) => container.appendChild(renderOccurrenceRow(occ, childId)));
   });
 }
 
@@ -1373,7 +1395,7 @@ function renderChildOccurrences() {
     card.appendChild(el(`<p class="empty">${escapeHtml(t("childTasks.empty"))}</p>`));
     return card;
   }
-  appendOccurrenceSections(card, mine, state.userId, { showDescription: true });
+  appendOccurrenceSections(card, mine, state.userId);
   return card;
 }
 

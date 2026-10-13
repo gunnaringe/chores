@@ -1546,6 +1546,41 @@ label {
 .task-row-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .task-row-text { min-width: 0; }
 
+/* A task's description under today's row — two lines at most until tapped,
+   so one long description can't push the rest of the list off screen. */
+.task-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 4px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  cursor: pointer;
+}
+.task-desc.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
+
+/* A ticked-off row recedes so what's still open reads first. Only the text
+   and icon fade — the green tick stays at full strength. */
+.occurrence-row.done .task-row-main { opacity: 0.55; }
+.occurrence-row.done .task-title { text-decoration: line-through; }
+
+/* Shown above the list once a child's required chores are all done. */
+.all-done-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--green-soft);
+  color: var(--green);
+  font-weight: 650;
+}
+
 /* The "Must do" / "Can do" heading above each group of today's tasks. Tighter
    than a standalone .section-label because it sits between rows inside a card,
    not between cards — and the first one shouldn't push the list away from the

@@ -171,6 +171,8 @@ const TRANSLATIONS = {
     "today.progress": "{done} of {total} done",
     "today.mustDo": "Must do",
     "today.canDo": "Can do",
+    "today.allDone": "All done for today!",
+    "today.mustDoDone": "Must-dos done — the rest is a bonus",
 
     "childTasks.heading": "Today's tasks",
     "childTasks.empty": "No tasks scheduled for today.",
@@ -493,6 +495,8 @@ const TRANSLATIONS = {
     "today.progress": "{done} av {total} gjort",
     "today.mustDo": "Må gjøre",
     "today.canDo": "Kan gjøre",
+    "today.allDone": "Alt er gjort i dag!",
+    "today.mustDoDone": "Må gjøre er ferdig — resten er bonus",
 
     "childTasks.heading": "Dagens oppgaver",
     "childTasks.empty": "Ingen oppgaver planlagt i dag.",
@@ -815,6 +819,8 @@ const TRANSLATIONS = {
     "today.progress": "{done} av {total} gjort",
     "today.mustDo": "Må gjere",
     "today.canDo": "Kan gjere",
+    "today.allDone": "Alt er gjort i dag!",
+    "today.mustDoDone": "Må gjere er ferdig — resten er bonus",
 
     "childTasks.heading": "Dagens oppgåver",
     "childTasks.empty": "Ingen oppgåver planlagde i dag.",
@@ -1137,6 +1143,8 @@ const TRANSLATIONS = {
     "today.progress": "{done} av {total} gjorda",
     "today.mustDo": "Måste göra",
     "today.canDo": "Kan göra",
+    "today.allDone": "Allt klart för idag!",
+    "today.mustDoDone": "Måste göra är klart — resten är bonus",
 
     "childTasks.heading": "Dagens uppgifter",
     "childTasks.empty": "Inga uppgifter schemalagda idag.",
