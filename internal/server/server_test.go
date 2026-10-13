@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
 
@@ -567,7 +566,7 @@ func TestTaskAssignment(t *testing.T) {
 	// Occurrences are generated per assigned child: with both kids in the
 	// family but the task assigned to only one, exactly one occurrence
 	// should come back for today, for that child.
-	today := scheduling.FormatDate(time.Now())
+	today := scheduling.FormatDate(nowUTC())
 	occResp, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, StartDate: today, EndDate: today,
 	}))
@@ -961,7 +960,7 @@ func TestChildSummary_EarnedThisWeek(t *testing.T) {
 		t.Fatalf("CreateTask: %v", err)
 	}
 
-	monday := mondayOfWeek(time.Now())
+	monday := mondayOfWeek(nowUTC())
 	inWeek := scheduling.FormatDate(monday)
 	beforeWeek := scheduling.FormatDate(monday.AddDate(0, 0, -1)) // last Sunday: the prior week
 
@@ -1583,7 +1582,7 @@ func TestDashboardKey_ReadsAndCompletesTasksForTheWholeFamily(t *testing.T) {
 		t.Fatalf("expected summaries for both children, got %+v", summaries.Msg.Summaries)
 	}
 
-	today := scheduling.FormatDate(time.Now())
+	today := scheduling.FormatDate(nowUTC())
 	occ, err := s.ListTaskOccurrences(dashCtx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{StartDate: today, EndDate: today}))
 	if err != nil {
 		t.Fatalf("ListTaskOccurrences via dashboard: %v", err)

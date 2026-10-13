@@ -172,9 +172,8 @@ func main() {
 	// gate, since the welcome page needs it too) because the manifest's name
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
-	mux.HandleFunc("/material-symbols.json", web.MaterialSymbolsHandler)
 
-	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", authMgr.Gate(notFoundPage(web.GzipStatic(http.FileServerFS(web.FS))), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "login.html")
 	})))
 
@@ -212,10 +211,11 @@ func notFoundPage(next http.Handler) http.Handler {
 			return
 		}
 		// Embedded files carry no modification time, so without this the
-		// browser re-downloads the ~1MB icon font on every page load (the
-		// service worker's background refresh included). Fonts change only
-		// with a release, and a week of staleness is harmless.
-		if strings.HasPrefix(name, "fonts/") {
+		// browser re-downloads the ~1MB icon font and the 540KB icon search
+		// list on every page load (the service worker's background refresh
+		// included). They change only with a release, and a week of
+		// staleness is harmless.
+		if strings.HasPrefix(name, "fonts/") || strings.HasPrefix(name, "material-symbols") {
 			w.Header().Set("Cache-Control", "public, max-age=604800")
 		}
 		next.ServeHTTP(w, r)

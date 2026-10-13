@@ -47,6 +47,12 @@ go test ./...
 node --check web/app.js && node --check web/i18n.js && node --check web/sw.js
 ```
 
+**Server code reads the clock only through `nowUTC()`** (`internal/server/server.go`),
+and tests compute "today" with it too, never `time.Now()`. CI reruns the server
+tests with `CHORES_TEST_SHIFT_DAYS=1100`, moving that clock three years ahead,
+so a test that only passes before one of its fixed dates fails immediately.
+Run the same locally when touching dates: `CHORES_TEST_SHIFT_DAYS=1100 go test -count=1 ./internal/server/`.
+
 There is no linter beyond `go vet` and `gofmt`, no JS build step, and no
 frontend test runner. `node --check` catches syntax errors and nothing else,
 so **any frontend change needs to be exercised in a real browser** — see the

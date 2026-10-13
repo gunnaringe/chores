@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"connectrpc.com/connect"
 
@@ -21,7 +20,7 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	}
 	dueDate := req.Msg.GetDueDate()
 	if dueDate == "" {
-		dueDate = scheduling.FormatDate(time.Now())
+		dueDate = scheduling.FormatDate(nowUTC())
 	} else if _, err := scheduling.ParseDate(dueDate); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid due_date: %w", err))
 	}

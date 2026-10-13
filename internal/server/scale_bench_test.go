@@ -64,7 +64,7 @@ func seedScale(t *testing.T, p scaleParams) scaleFixture {
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := nowUTC().Format(time.RFC3339)
 	insFam, _ := tx.Prepare(`INSERT INTO families (id, name, created_at) VALUES (?, ?, ?)`)
 	insUser, _ := tx.Prepare(`INSERT INTO users (id, family_id, name, role, created_at, auth_subject, email) VALUES (?, ?, ?, ?, ?, ?, '')`)
 	insTask, _ := tx.Prepare(`INSERT INTO tasks (id, family_id, title, description, price_cents, schedule, active, created_at, icon_type, icon_value, repeat_mode, days_of_week, repeat_interval_weeks, start_date)
@@ -74,7 +74,7 @@ func seedScale(t *testing.T, p scaleParams) scaleFixture {
 		VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, ?)`)
 
 	// Tasks are backdated so their whole history is legitimately due.
-	taskCreated := time.Now().UTC().AddDate(0, 0, -p.daysOfHistory-1).Format(time.RFC3339)
+	taskCreated := nowUTC().AddDate(0, 0, -p.daysOfHistory-1).Format(time.RFC3339)
 
 	var midFamily, midChild string
 	rows := 0
@@ -102,7 +102,7 @@ func seedScale(t *testing.T, p scaleParams) scaleFixture {
 		}
 
 		for d := 0; d < p.daysOfHistory; d++ {
-			date := time.Now().UTC().AddDate(0, 0, -d).Format("2006-01-02")
+			date := nowUTC().AddDate(0, 0, -d).Format("2006-01-02")
 			for ci, ch := range children {
 				for k := 0; k < p.completionsPerDay && k < len(tasks); k++ {
 					insOcc.Exec(
@@ -174,7 +174,7 @@ func TestScale_ReadPaths(t *testing.T) {
 				_, err := f.s.ListChildSummaries(f.ctx, connect.NewRequest(&v1.ListChildSummariesRequest{FamilyId: f.familyID}))
 				return err
 			})
-			today := time.Now().UTC().Format("2006-01-02")
+			today := nowUTC().Format("2006-01-02")
 			timeCall(t, "ListTaskOccurrences (Today, 1 day)", 20, func() error {
 				_, err := f.s.ListTaskOccurrences(f.ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 					FamilyId: f.familyID, StartDate: today, EndDate: today,
@@ -200,7 +200,7 @@ func TestScale_ReadPaths(t *testing.T) {
 // Throughput across families, which is where the single connection shows up.
 func TestScale_Concurrency(t *testing.T) {
 	f := seedScale(t, scaleParams{families: 500, childrenPerFam: 3, tasksPerFam: 6, daysOfHistory: 365, completionsPerDay: 4})
-	today := time.Now().UTC().Format("2006-01-02")
+	today := nowUTC().Format("2006-01-02")
 
 	for _, workers := range []int{1, 8, 32} {
 		const perWorker = 15
