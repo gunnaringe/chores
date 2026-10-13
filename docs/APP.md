@@ -157,7 +157,10 @@ every month) for anything the other two can't express.
 A parent gets five tabs, in this order: **Today**, **History**, **Tasks**,
 **Balance**, **Settings**. Today is a daily dashboard: for each child, today's tasks and
 their completion status, what they've earned today, and their outstanding
-balance — all at a glance. History is a browsable log of every completion,
+balance — all at a glance. Each task row carries its description (clamped
+to two lines; tap to read the rest), done rows are dimmed and struck
+through, and a banner cheers once a child's must-dos are all done — the
+same rows a child sees on their own Today tab and the kiosk shows. History is a browsable log of every completion,
 grouped into Today / Yesterday / Earlier this week / Later — the "Later"
 group loads a page at a time as you ask for more, rather than pulling a
 whole retained window up front — plus a search box that matches by task

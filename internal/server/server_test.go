@@ -629,6 +629,10 @@ func TestTaskRepeatModes(t *testing.T) {
 	if got := once.Msg.Task.GetSchedule().GetOnce().GetDate(); got != "2026-09-15" {
 		t.Fatalf("expected the one-off date to round-trip, got %q", got)
 	}
+	// Occurrences never predate the task's own creation, so pin that before
+	// the date under test — otherwise this starts failing once real time
+	// passes 2026-09-15.
+	backdateTask(t, s, once.Msg.Task.Id, "2026-08-01T00:00:00Z")
 	occ, err := s.ListTaskOccurrences(ctx, connect.NewRequest(&v1.ListTaskOccurrencesRequest{
 		FamilyId: fam.Msg.Family.Id, StartDate: "2026-09-01", EndDate: "2026-09-30",
 	}))
