@@ -295,7 +295,9 @@
   --surface-sunken: #000d03;
   --text: #33ff66;
   --muted: #1fae48;
-  --faint: #137a31;
+  /* Brighter than clock.apphub.casa's #137a31: section labels use it at
+     small sizes, and that only reached 3.9:1 on black. This is 5.9:1. */
+  --faint: #1a9c40;
   --border: rgba(0, 255, 65, 0.28);
   --border-strong: rgba(0, 255, 65, 0.45);
 
@@ -2233,6 +2235,11 @@ html.icons-unavailable .material-symbols-outlined::before {
 @keyframes blink { 50% { opacity: 0; } }
 /* Terminal checkboxes are square, not round. */
 :root[data-theme="hacker"] .checkbtn { border-radius: var(--r-sm); }
+/* So are the pill-shaped controls: the user chip, chips, the add button,
+   and the desktop tab bar. Avatars stay round; they're faces, not controls. */
+:root[data-theme="hacker"] :is(.chip, .toggle-chip, .pill, .fab, .tabbar-inner, .tabbar button) {
+  border-radius: var(--r-md);
+}
 /* An invader cheers instead of the party popper. */
 :root[data-theme="hacker"] .all-done-banner .material-symbols-outlined {
   font-size: 0;
