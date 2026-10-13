@@ -111,26 +111,20 @@ exists) and prints the `![](…)` lines to paste into the PR body.
 
 ## Regenerating the welcome page screenshots
 
-`web/screenshots/` holds the shots the logged-out welcome page shows, one set
-per language (`today-en.webp`, `today-nb.webp`, …). They are real captures of
-a seeded family, so they have to be regenerated whenever the screens in them
-change — and both languages, since the task titles in them are seeded data,
-not UI strings.
+`web/screenshots/` holds the shots the logged-out welcome page shows
+(`today-en.webp`, `today-nb.webp`, …). They're real captures, so regenerate
+them whenever Today, Tasks or Balance changes:
 
-There is **no image tooling in this sandbox** (no ImageMagick, no sharp, no
-pngquant), so re-encode through Chromium itself. `canvas.toDataURL("image/webp", 0.88)`
-turns a ~110 KB PNG capture into a ~47 KB WebP with no visible loss at the
-size the page displays:
-
-```js
-const c = document.createElement("canvas");
-c.width = img.naturalWidth; c.height = img.naturalHeight;
-c.getContext("2d").drawImage(img, 0, 0);
-return c.toDataURL("image/webp", 0.88);   // then base64-decode and write
+```bash
+scripts/dev-up.sh --fresh
+node .claude/skills/verify-ui/welcome-shots.js
 ```
 
-Capture at a 390x720 viewport with `deviceScaleFactor: 2`, not `fullPage` —
-the page frames them as phones.
+It seeds one demo family per language (task titles are data, not UI
+strings), captures at 390x720 and 2x, re-encodes to WebP through Chromium's
+canvas (there's no image tooling in the sandbox), and deletes each family
+again. Edit the `LANGS` table in it to change what's shown, then read the
+files back before committing.
 
 ## Reading the results
 

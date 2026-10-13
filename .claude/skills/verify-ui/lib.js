@@ -119,6 +119,8 @@ function watch(page, label) {
 //   colorScheme  "light" | "dark"
 //   theme        a data-theme value ("hacker", "dark", …), preset in localStorage
 //   lang         "en" | "nb" | "nn" | "sv", preset in localStorage
+//   storage      other localStorage keys to preset, e.g. {"chores.currency": "NOK"}
+//   context      extra Playwright context options, e.g. {deviceScaleFactor: 2}
 //   storageState reuse another session's login (from s.storageState())
 //   label        prefix for error lines, default the device/viewport
 //   path         where to go first, default "/"
@@ -138,12 +140,15 @@ async function open(opts = {}) {
     ...base,
     ...(opts.colorScheme ? { colorScheme: opts.colorScheme } : {}),
     ...(opts.storageState ? { storageState: opts.storageState } : {}),
+    ...(opts.context || {}),
   });
-  if (opts.theme || opts.lang) {
-    await ctx.addInitScript(([theme, lang]) => {
-      if (theme) localStorage.setItem("chores.theme", theme);
-      if (lang) localStorage.setItem("chores.lang", lang);
-    }, [opts.theme || "", opts.lang || ""]);
+  const storage = { ...(opts.storage || {}) };
+  if (opts.theme) storage["chores.theme"] = opts.theme;
+  if (opts.lang) storage["chores.lang"] = opts.lang;
+  if (Object.keys(storage).length) {
+    await ctx.addInitScript((entries) => {
+      for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v);
+    }, storage);
   }
   const page = await ctx.newPage();
   watch(page, opts.label || opts.device || (opts.viewport ? `${opts.viewport.width}px` : "phone"));
@@ -216,4 +221,42 @@ async function done() {
   }
 }
 
-module.exports = { open, done, URL, OUT };
+// A logged-in Connect API client, for flows that seed their own data:
+//   const api = await apiLogin();
+//   const { family } = await api.call("CreateFamily", { name: "Test" });
+// Logs in as devauth's Test Parent, the same identity open().login() uses,
+// so whatever it creates shows up in the browser session. Plain fetch(), no
+// browser — see seed-demo-data.js for the longer explanation of the hops.
+async function apiLogin(sub = "devauth|local-parent") {
+  const base = URL.replace(/\/$/, "");
+  const jar = new Map();
+  const cookie = () => [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
+  const hop = async (url) => {
+    const res = await fetch(url, { redirect: "manual", headers: { Cookie: cookie() } });
+    for (const raw of res.headers.getSetCookie()) {
+      const pair = raw.split(";", 1)[0];
+      const eq = pair.indexOf("=");
+      jar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
+    const location = res.headers.get("location");
+    if (!location) throw new Error(`expected a redirect from ${url}, got ${res.status}`);
+    return new globalThis.URL(location, url);
+  };
+  const authorize = await hop(`${base}/auth/login`);
+  authorize.searchParams.set("identity", sub);
+  await hop(await hop(authorize));
+  if (!jar.has("chores_session")) throw new Error("devauth login produced no chores_session cookie");
+  return {
+    async call(method, req) {
+      const res = await fetch(`${base}/chores.v1.ChoresService/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: cookie() },
+        body: JSON.stringify(req || {}),
+      });
+      if (!res.ok) throw new Error(`${method} failed: ${res.status} ${await res.text()}`);
+      return res.json();
+    },
+  };
+}
+
+module.exports = { open, done, apiLogin, URL, OUT };
