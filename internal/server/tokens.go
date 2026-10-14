@@ -85,9 +85,7 @@ func (s *Server) PersonalTokenOrAuth(authMgr *auth.Manager, next http.Handler) h
 		}
 		identity, ok := s.identityForPersonalAccessToken(r.Context(), token)
 		if !ok {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"code":"unauthenticated","message":"invalid personal access token"}`))
+			auth.WriteUnauthenticated(w, r, "invalid personal access token")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(auth.NewContextWithIdentity(r.Context(), identity)))

@@ -105,9 +105,7 @@ func (s *Server) DashboardOrAuth(authMgr *auth.Manager, next http.Handler) http.
 			if key := r.Header.Get(DashboardKeyHeader); key != "" {
 				familyID, ok := s.familyIDForDashboardKey(key)
 				if !ok {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusUnauthorized)
-					_, _ = w.Write([]byte(`{"code":"unauthenticated","message":"invalid dashboard key"}`))
+					auth.WriteUnauthenticated(w, r, "invalid dashboard key")
 					return
 				}
 				next.ServeHTTP(w, r.WithContext(newContextWithDashboardFamily(r.Context(), familyID)))
