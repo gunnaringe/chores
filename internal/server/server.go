@@ -73,7 +73,10 @@ func newID() string {
 // lexicographic ordering matches chronological ordering and comparisons
 // (e.g. "completed_at >= ?") work directly in SQL.
 
-func nowUTC() time.Time {
+// nowUTC is the server's only clock. A variable so tests can move it (see
+// TestMain in server_test.go) — anything here that needs "now" goes through
+// it rather than calling time.Now() directly.
+var nowUTC = func() time.Time {
 	return time.Now().UTC()
 }
 

@@ -98,6 +98,15 @@ function labelWithCurrencyUnit(label) {
   return symbol ? `${label} (${symbol})` : label;
 }
 
+// Deployment settings from the server (see web/client_config.go). Fetched
+// once at startup without blocking anything: nothing on the first screen
+// needs it, only the API example in Settings, long after this resolves.
+let clientConfig = {};
+fetch("/client-config.json")
+  .then((res) => res.json())
+  .then((c) => (clientConfig = c))
+  .catch(() => {});
+
 // ---- theme (device-level display preference) ---------------------------
 //
 // Same shape as currency and language: a client-only preference, never sent
@@ -3544,7 +3553,11 @@ function renderPersonalAccessTokensSection() {
     // target is host:port, so the port is spelled out explicitly here
     // rather than relying on grpcurl's own default-to-443 behavior.
     const locationPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
-    const hostAndPort = `${window.location.hostname}:${locationPort}`;
+    // The server can name a separate gRPC host (the grpc-host flag), for a
+    // deployment whose proxy can't carry gRPC: the hosted instance's
+    // Cloudflare answers gRPC with a 525, so grpcurl goes to a DNS-only name.
+    const grpcHost = clientConfig.grpcHost;
+    const hostAndPort = grpcHost ? (grpcHost.includes(":") ? grpcHost : `${grpcHost}:443`) : `${window.location.hostname}:${locationPort}`;
     // One argument per line (\-continued, same as a shell would read it
     // back) rather than one crammed line — both more readable and more
     // "terminal-like" than a single-line field, and it's how a real

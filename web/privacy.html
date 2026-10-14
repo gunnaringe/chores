@@ -119,13 +119,14 @@
       <h2>Service providers</h2>
       <ul>
         <li><strong>Fly.io</strong> hosts the app and its database, in Stockholm, Sweden.</li>
+        <li><strong>Cloudflare</strong> sits in front of the app as a proxy: all traffic passes through it on the way to Fly.io, so it sees your IP address and the requests your browser makes. It doesn't set cookies here.</li>
         <li><strong>Auth0</strong> (by Okta) handles login, in its EU region.</li>
         <li><strong>Your browser's push service</strong>, only if you turn on notifications.</li>
       </ul>
       <p>
-        Fly.io and Okta are US companies; data is stored in the EU, and their
-        data processing terms cover any transfer outside it. The hosting
-        platform may keep short-lived technical logs. The "Feedback" link in
+        Fly.io, Cloudflare and Okta are US companies; data is stored in the
+        EU, and their data processing terms cover any transfer outside it.
+        Fly.io and Cloudflare may keep short-lived technical logs. The "Feedback" link in
         Settings opens GitHub, where GitHub's own privacy policy applies.
       </p>
 
@@ -253,13 +254,14 @@
       <h2>Tjenesteleverandører</h2>
       <ul>
         <li><strong>Fly.io</strong> drifter appen og databasen, i Stockholm, Sverige.</li>
+        <li><strong>Cloudflare</strong> står foran appen som mellomledd: all trafikk går gjennom Cloudflare på vei til Fly.io, så Cloudflare ser IP-adressen din og forespørslene nettleseren gjør. Cloudflare setter ingen informasjonskapsler her.</li>
         <li><strong>Auth0</strong> (fra Okta) håndterer innlogging, i EU-regionen sin.</li>
         <li><strong>Push-tjenesten til nettleseren din</strong>, bare hvis du slår på varsler.</li>
       </ul>
       <p>
-        Fly.io og Okta er amerikanske selskaper; dataene lagres i EU, og
-        databehandleravtalene deres dekker eventuell overføring ut av EU.
-        Driftsplattformen kan ha kortlivede tekniske logger. Lenken
+        Fly.io, Cloudflare og Okta er amerikanske selskaper; dataene lagres i
+        EU, og databehandleravtalene deres dekker eventuell overføring ut av
+        EU. Fly.io og Cloudflare kan ha kortlivede tekniske logger. Lenken
         «Tilbakemelding» i Innstillinger åpner GitHub, der GitHubs egen
         personvernerklæring gjelder.
       </p>

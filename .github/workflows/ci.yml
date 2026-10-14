@@ -19,3 +19,9 @@ jobs:
           go-version-file: go.mod
       - run: go build ./...
       - run: go test ./...
+      # Again with the server's clock three years ahead, so a test that only
+      # passes while today is before one of its fixed dates fails now rather
+      # than on that date (see TestMain in internal/server/main_test.go).
+      - run: go test -count=1 ./internal/server/
+        env:
+          CHORES_TEST_SHIFT_DAYS: "1100"

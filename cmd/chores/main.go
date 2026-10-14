@@ -44,6 +44,7 @@ func loadConfig() *koanf.Koanf {
 	fs.String("auth0-client-id", "", "Auth0 application client ID (env: AUTH0_CLIENT_ID)")
 	fs.String("auth0-client-secret", "", "Auth0 application client secret (env: AUTH0_CLIENT_SECRET)")
 	fs.String("default-lang-hosts", "", `hostnames that default to a language other than English, as comma-separated host=lang pairs, e.g. "ukepenger.example=nb" — sets both the link preview a crawler reads and the UI language a first-time visitor gets (env: DEFAULT_LANG_HOSTS)`)
+	fs.String("grpc-host", "", `host[:port] that the API example in Settings tells gRPC clients (grpcurl) to use, when it isn't the web app's own — e.g. a DNS-only hostname that bypasses a proxy which can't carry gRPC. Empty means the same host as the page (env: GRPC_HOST)`)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("parse flags: %v", err)
 	}
@@ -53,6 +54,7 @@ func loadConfig() *koanf.Koanf {
 		"AUTH0_CLIENT_ID":     "auth0-client-id",
 		"AUTH0_CLIENT_SECRET": "auth0-client-secret",
 		"DEFAULT_LANG_HOSTS":  "default-lang-hosts",
+		"GRPC_HOST":           "grpc-host",
 	}
 	mapEnvKey := func(s string) string { return envKeys[s] }
 
@@ -172,7 +174,7 @@ func main() {
 	// gate, since the welcome page needs it too) because the manifest's name
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
-	mux.HandleFunc("/material-symbols.json", web.MaterialSymbolsHandler)
+	mux.Handle("/client-config.json", web.ClientConfigHandler(cfg.String("grpc-host")))
 
 	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "login.html")
@@ -211,12 +213,24 @@ func notFoundPage(next http.Handler) http.Handler {
 			web.RenderErrorPage(w, http.StatusNotFound, "Page not found.")
 			return
 		}
-		// Embedded files carry no modification time, so without this the
-		// browser re-downloads the ~1MB icon font on every page load (the
-		// service worker's background refresh included). Fonts change only
-		// with a release, and a week of staleness is harmless.
-		if strings.HasPrefix(name, "fonts/") {
-			w.Header().Set("Cache-Control", "public, max-age=604800")
+		// Embedded files carry no modification time, so without these
+		// headers nothing can revalidate them, and Cloudflare (which
+		// proxies the hosted instance) falls back to its own default edge
+		// TTL for .js/.css — long enough to hand out the previous
+		// release's app.js after a deploy. The ETag lets a browser or
+		// Cloudflare revalidate with a cheap 304. The app shell must
+		// always revalidate (no-cache); the service worker already keeps
+		// it offline. The icon font and the 540KB icon search list change
+		// so rarely that a week of staleness is harmless and worth the
+		// saved downloads.
+		h := w.Header()
+		if tag := web.ETag(name); tag != "" {
+			h.Set("ETag", tag)
+		}
+		if strings.HasPrefix(name, "fonts/") || strings.HasPrefix(name, "material-symbols") {
+			h.Set("Cache-Control", "public, max-age=604800")
+		} else {
+			h.Set("Cache-Control", "no-cache")
 		}
 		next.ServeHTTP(w, r)
 	})

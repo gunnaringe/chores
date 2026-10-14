@@ -234,7 +234,7 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if time.Now().After(expiresAt) {
+	if nowUTC().After(expiresAt) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("invitation has expired"))
 	}
 

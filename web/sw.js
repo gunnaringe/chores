@@ -12,7 +12,7 @@
 //
 // v16: prices and amounts became a Money message, the repeat fields became
 // a Schedule oneof, and completions folded into occurrences.
-const CACHE_NAME = "chores-shell-v35";
+const CACHE_NAME = "chores-shell-v36";
 const PRECACHE_URLS = [
   "/app.js",
   "/app.css",
@@ -55,6 +55,7 @@ function isDynamic(pathname) {
   return (
     pathname === "/" ||
     pathname === "/manifest.webmanifest" ||
+    pathname === "/client-config.json" || // deployment settings, may change on restart
     pathname.startsWith("/chores.v1.ChoresService/") ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/invite/")
