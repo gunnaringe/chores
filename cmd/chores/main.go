@@ -44,6 +44,7 @@ func loadConfig() *koanf.Koanf {
 	fs.String("auth0-client-id", "", "Auth0 application client ID (env: AUTH0_CLIENT_ID)")
 	fs.String("auth0-client-secret", "", "Auth0 application client secret (env: AUTH0_CLIENT_SECRET)")
 	fs.String("default-lang-hosts", "", `hostnames that default to a language other than English, as comma-separated host=lang pairs, e.g. "ukepenger.example=nb" — sets both the link preview a crawler reads and the UI language a first-time visitor gets (env: DEFAULT_LANG_HOSTS)`)
+	fs.String("grpc-host", "", `host[:port] that the API example in Settings tells gRPC clients (grpcurl) to use, when it isn't the web app's own — e.g. a DNS-only hostname that bypasses a proxy which can't carry gRPC. Empty means the same host as the page (env: GRPC_HOST)`)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("parse flags: %v", err)
 	}
@@ -53,6 +54,7 @@ func loadConfig() *koanf.Koanf {
 		"AUTH0_CLIENT_ID":     "auth0-client-id",
 		"AUTH0_CLIENT_SECRET": "auth0-client-secret",
 		"DEFAULT_LANG_HOSTS":  "default-lang-hosts",
+		"GRPC_HOST":           "grpc-host",
 	}
 	mapEnvKey := func(s string) string { return envKeys[s] }
 
@@ -172,6 +174,7 @@ func main() {
 	// gate, since the welcome page needs it too) because the manifest's name
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
+	mux.Handle("/client-config.json", web.ClientConfigHandler(cfg.String("grpc-host")))
 
 	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "login.html")

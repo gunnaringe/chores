@@ -342,11 +342,16 @@ handled by Auth0's EU region (see Authentication below). The welcome page
 states the same three facts for anyone visiting the running app, not just
 anyone reading this file.
 
-Two things follow from the proxy. **gRPC has to be enabled in Cloudflare**
-(Network → gRPC); without it Cloudflare answers every `application/grpc`
-request (grpcurl, the API example in Settings) with its own 403 page, while
-the browser's Connect JSON calls still get through, so nothing else looks
-broken. And **Cloudflare caches `.js`/`.css` by default**, which after a
+Two things follow from the proxy. **gRPC doesn't go through Cloudflare.**
+With Cloudflare's gRPC setting off it answers every `application/grpc`
+request with its own 403 page; with it on, with Full (strict) TLS and HTTP/2
+to origin, it still fails with a 525 (TLS handshake to the origin failed),
+most likely because Fly's shared IPv4 needs SNI. The browser's Connect JSON
+calls are unaffected, so nothing else looks broken. gRPC clients therefore
+use `api.chores.apphub.casa`, a **DNS-only** CNAME to
+`sortland-chores.fly.dev` with its own Fly certificate; `GRPC_HOST` in
+`fly.toml` (the `-grpc-host` flag) makes the grpcurl example in Settings
+show that name. And **Cloudflare caches `.js`/`.css` by default**, which after a
 deploy could serve the previous release's `app.js` to the new page. So
 every embedded file is sent with an ETag, and the app shell with
 `Cache-Control: no-cache` (see `notFoundPage` in `cmd/chores/main.go`), so

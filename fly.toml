@@ -11,6 +11,8 @@ primary_region = "arn"
 # browser-chosen UI; a name the app has no translations for fails startup.
 [env]
   DEFAULT_LANG_HOSTS = "ukepenger.apphub.casa=nb"
+  # gRPC through Cloudflare fails (525), so grpcurl uses a DNS-only name.
+  GRPC_HOST = "api.chores.apphub.casa"
 
 [[mounts]]
   source = "chores_data"

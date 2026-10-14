@@ -55,6 +55,7 @@ function isDynamic(pathname) {
   return (
     pathname === "/" ||
     pathname === "/manifest.webmanifest" ||
+    pathname === "/client-config.json" || // deployment settings, may change on restart
     pathname.startsWith("/chores.v1.ChoresService/") ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/invite/")
