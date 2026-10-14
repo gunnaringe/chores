@@ -173,7 +173,7 @@ func main() {
 	// is localized per request — see web/manifest.go.
 	mux.HandleFunc("/manifest.webmanifest", web.ManifestHandler)
 
-	mux.Handle("/", authMgr.Gate(notFoundPage(web.GzipStatic(http.FileServerFS(web.FS))), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", authMgr.Gate(notFoundPage(http.FileServerFS(web.FS)), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "login.html")
 	})))
 

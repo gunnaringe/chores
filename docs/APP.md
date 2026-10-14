@@ -14,9 +14,9 @@ Material Symbols icon font (`web/fonts/`, Apache License 2.0, trimmed to the
 axes the app uses — refresh it with `scripts/update-icon-font.sh`) and the
 icon list used to search it (`web/material-symbols.json`: every icon name
 with Google's search tags, from the metadata fonts.google.com/icons itself
-uses). Embedded text assets (JS, CSS, JSON, HTML, SVG) are served gzipped
-by `web/gzip.go`, compressed once per file on first request, since nothing
-in front of the app compresses responses. No page makes a
+uses). The app doesn't compress responses itself: Fly's proxy already
+serves them Brotli-compressed, which beats anything done here, and a
+response compressed by the app would just be passed through as is. No page makes a
 request to a third party, which is what lets the privacy policy say so and
 keeps a cookie/consent banner unnecessary: the only cookies are the login
 ones, which are strictly necessary. The font used to come from Google Fonts;
