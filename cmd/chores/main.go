@@ -210,13 +210,24 @@ func notFoundPage(next http.Handler) http.Handler {
 			web.RenderErrorPage(w, http.StatusNotFound, "Page not found.")
 			return
 		}
-		// Embedded files carry no modification time, so without this the
-		// browser re-downloads the ~1MB icon font and the 540KB icon search
-		// list on every page load (the service worker's background refresh
-		// included). They change only with a release, and a week of
-		// staleness is harmless.
+		// Embedded files carry no modification time, so without these
+		// headers nothing can revalidate them, and Cloudflare (which
+		// proxies the hosted instance) falls back to its own default edge
+		// TTL for .js/.css — long enough to hand out the previous
+		// release's app.js after a deploy. The ETag lets a browser or
+		// Cloudflare revalidate with a cheap 304. The app shell must
+		// always revalidate (no-cache); the service worker already keeps
+		// it offline. The icon font and the 540KB icon search list change
+		// so rarely that a week of staleness is harmless and worth the
+		// saved downloads.
+		h := w.Header()
+		if tag := web.ETag(name); tag != "" {
+			h.Set("ETag", tag)
+		}
 		if strings.HasPrefix(name, "fonts/") || strings.HasPrefix(name, "material-symbols") {
-			w.Header().Set("Cache-Control", "public, max-age=604800")
+			h.Set("Cache-Control", "public, max-age=604800")
+		} else {
+			h.Set("Cache-Control", "no-cache")
 		}
 		next.ServeHTTP(w, r)
 	})

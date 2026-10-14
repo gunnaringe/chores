@@ -335,12 +335,23 @@ None of this is required to run the app — `fly.toml` and the deploy setup
 are specific to the author's own instance, kept here for reference rather
 than as something this repo expects you to reuse. That instance is a single
 Fly.io machine (`primary_region = "arn"`, i.e. Stockholm) with its SQLite
-database on a persistent volume, reachable through Cloudflare DNS (DNS only
-— Fly's own edge terminates TLS, Cloudflare doesn't proxy the traffic),
-with login
+database on a persistent volume, behind Cloudflare's proxy (the
+records are orange-clouded: Cloudflare terminates TLS for visitors and
+forwards to Fly's edge), with login
 handled by Auth0's EU region (see Authentication below). The welcome page
 states the same three facts for anyone visiting the running app, not just
 anyone reading this file.
+
+Two things follow from the proxy. **gRPC has to be enabled in Cloudflare**
+(Network → gRPC); without it Cloudflare answers every `application/grpc`
+request (grpcurl, the API example in Settings) with its own 403 page, while
+the browser's Connect JSON calls still get through, so nothing else looks
+broken. And **Cloudflare caches `.js`/`.css` by default**, which after a
+deploy could serve the previous release's `app.js` to the new page. So
+every embedded file is sent with an ETag, and the app shell with
+`Cache-Control: no-cache` (see `notFoundPage` in `cmd/chores/main.go`), so
+Cloudflare revalidates instead of guessing. Compression needs nothing from
+the app: Fly and Cloudflare both serve Brotli.
 
 ## Language
 
@@ -623,8 +634,8 @@ that negotiates h2 with the client but falls back to HTTP/1.1 for its own
 connection to the origin will deliver an HTTP/2 request onto a connection
 that can't parse it, which surfaces as a blunt "505 HTTP Version Not
 Supported" rather than anything naming the real cause. On the author's own
-Fly.io instance (see Hosting above — Cloudflare there is DNS only, so
-fly-proxy is the only other hop) this needed two settings in `fly.toml`'s
+Fly.io instance (see Hosting above; Cloudflare's own hop additionally
+needs its gRPC setting turned on) this needed two settings in `fly.toml`'s
 `[http_service]`, one per leg: `tls_options.alpn = ["h2", "http/1.1"]` so
 fly-proxy's edge offers h2 to external clients at all (otherwise ALPN falls
 back to http/1.1 regardless of what the app supports), and
