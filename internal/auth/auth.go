@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"connectrpc.com/connect"
 	"golang.org/x/oauth2"
 
 	"github.com/gunnaringe/chores/web"
@@ -399,6 +400,24 @@ func (m *Manager) MeHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// WriteUnauthenticated rejects an API request in whatever protocol it was
+// made with: Connect JSON for the browser (the same {"code":"unauthenticated"}
+// body with a 401 as always), and a real gRPC Unauthenticated status for
+// grpcurl and other gRPC clients. A bare HTTP 401 isn't something gRPC
+// clients understand — grpcurl reported it as "server closed the stream
+// without sending trailers", which says nothing about a missing token.
+func WriteUnauthenticated(w http.ResponseWriter, r *http.Request, message string) {
+	ew := connect.NewErrorWriter()
+	if ew.IsSupported(r) {
+		_ = ew.Write(w, r, connect.NewError(connect.CodeUnauthenticated, errors.New(message)))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	body, _ := json.Marshal(map[string]string{"code": "unauthenticated", "message": message})
+	_, _ = w.Write(body)
+}
+
 // RequireAuth protects the API: unauthenticated requests get a 401 instead
 // of reaching the RPC layer. Authenticated requests carry their Identity in
 // context (see FromContext).
@@ -406,9 +425,7 @@ func (m *Manager) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s, ok := m.sessionFromRequest(r)
 		if !ok {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"code":"unauthenticated","message":"login required"}`))
+			WriteUnauthenticated(w, r, "login required")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), s.Identity)))
