@@ -146,9 +146,10 @@ name. The manifest is JSON served by Go and the UI is JS, so there is no shared
 definition to point at — change one and you must change the other.
 
 Only English and Bokmål have their own welcome-page screenshots
-(`web/screenshots/`); Nynorsk and Swedish fall back to the English set via
-`login.html`'s `onerror` handler rather than needing every language covered
-before it can ship.
+(`web/screenshots/`); `login.html` shows Nynorsk readers the Bokmål set and
+Swedish readers the English one. Regenerate all of them with
+`.claude/skills/verify-ui/welcome-shots.js` (on a fresh dev database)
+whenever Today, Tasks or Balance changes.
 
 ## CSS
 
@@ -165,8 +166,8 @@ scrolling content between them — that widens into a centred desktop page above
 - **Tap targets are 44px minimum.**
 - **Screenshots on the welcome page live in `web/screenshots/`**, one set per
   language (`<screen>-<lang>.webp`), embedded like every other asset. There is
-  no image tooling in the sandbox — regenerate and re-encode them through
-  Chromium; the `verify-ui` skill has the recipe.
+  no image tooling in the sandbox; `.claude/skills/verify-ui/welcome-shots.js`
+  seeds a demo family, captures and re-encodes them through Chromium.
 - **Any fixed-size icon container must set `overflow: hidden`.** Material
   Symbols render as ligature text, so until the font loads (or if it never
   does) each glyph is its literal name — `dishwasher_gen` etc. — which will

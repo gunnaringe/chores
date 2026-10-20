@@ -222,22 +222,25 @@
     }
 
     // Screenshots exist per language, since every word in them is UI text.
-    // Only English and Norwegian Bokmål have a dedicated set today — any
-    // other language falls back to English via the onerror handler below
-    // rather than needing every language covered before it can ship.
+    // Only English and Bokmål have a set (regenerate them with
+    // .claude/skills/verify-ui/welcome-shots.js). Nynorsk readers get the
+    // Bokmål set, everyone else English — picked here rather than by
+    // requesting a missing file and falling back, which cost a 404 per
+    // screenshot on every visit. The onerror fallback stays as a safety net.
     const SHOTS = [
       { file: "today", caption: "login.shotToday" },
       { file: "tasks", caption: "login.shotTasks" },
       { file: "balance", caption: "login.shotBalance" },
     ];
     const lang = getLang();
+    const shotLang = { en: "en", nb: "nb", nn: "nb" }[lang] || "en";
     const shots = document.getElementById("shots");
     for (const shot of SHOTS) {
       const figure = document.createElement("figure");
       figure.className = "shot";
 
       const img = document.createElement("img");
-      img.src = `/screenshots/${shot.file}-${lang}.webp`;
+      img.src = `/screenshots/${shot.file}-${shotLang}.webp`;
       img.alt = t(shot.caption);
       img.loading = "lazy";
       img.decoding = "async";

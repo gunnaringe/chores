@@ -238,8 +238,9 @@ own always-visible tab.
 
 Logged out, `/` serves a welcome page rather than a bare login box: what the
 app is, a three-step walkthrough, screenshots of the real screens (in
-`web/screenshots/` — English and Bokmål each have their own set; other
-languages fall back to English), a "Works with" card linking the
+`web/screenshots/` — English and Bokmål each have their own set; Nynorsk shows
+the Bokmål one and Swedish the English one; regenerate them with
+`.claude/skills/verify-ui/welcome-shots.js`), a "Works with" card linking the
 [Home Assistant integration](https://github.com/gunnaringe/chores-homeassistant)
 and the [Kindle display](https://github.com/gunnaringe/chores-kindle), and a
 footer pointing at the source and where it runs. The Log in button stays at the top, above the
@@ -379,7 +380,7 @@ those names are declared twice — `app.name` in `web/i18n.js` and `appNames`
 in `web/manifest.go` — and have to be kept in step.
 
 Only English and Bokmål have their own welcome-page screenshots — Nynorsk
-and Swedish fall back to the English set (see The welcome page above).
+uses the Bokmål set and Swedish the English one (see The welcome page above).
 
 ## Theme
 
