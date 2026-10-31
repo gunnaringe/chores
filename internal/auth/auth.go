@@ -85,7 +85,15 @@ type Manager struct {
 	issuerBase string
 	oauthCfg   oauth2.Config
 	sessions   SessionStore
+
+	// httpClient makes the calls to the identity provider during login
+	// (token exchange, userinfo). The server's own timeouts don't cover time
+	// spent inside a handler, so without this a hung provider would hang
+	// every login with it.
+	httpClient *http.Client
 }
+
+const providerTimeout = 10 * time.Second
 
 func NewManager(cfg Config) (*Manager, error) {
 	if cfg.Domain == "" || cfg.ClientID == "" || cfg.ClientSecret == "" {
@@ -99,6 +107,7 @@ func NewManager(cfg Config) (*Manager, error) {
 	m := &Manager{
 		issuerBase: issuerBase,
 		sessions:   sessions,
+		httpClient: &http.Client{Timeout: providerTimeout},
 		oauthCfg: oauth2.Config{
 			ClientID:     cfg.ClientID,
 			ClientSecret: cfg.ClientSecret,
@@ -289,7 +298,7 @@ func (m *Manager) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*user
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := m.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +358,7 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	exchangeCfg := m.oauthCfg
 	exchangeCfg.RedirectURL = redirectURI(r)
-	token, err := exchangeCfg.Exchange(r.Context(), code)
+	token, err := exchangeCfg.Exchange(context.WithValue(r.Context(), oauth2.HTTPClient, m.httpClient), code)
 	if err != nil {
 		log.Printf("auth0 token exchange failed: %v", err)
 		web.RenderErrorPage(w, http.StatusBadGateway, "Login failed.")
@@ -359,6 +368,14 @@ func (m *Manager) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := m.fetchUserInfo(r.Context(), token)
 	if err != nil {
 		log.Printf("auth0 userinfo fetch failed: %v", err)
+		web.RenderErrorPage(w, http.StatusBadGateway, "Login failed.")
+		return
+	}
+
+	// Sub is what every membership check matches on, so a provider that
+	// leaves it out would make every such login the same person.
+	if info.Sub == "" {
+		log.Printf("auth0 userinfo had no sub")
 		web.RenderErrorPage(w, http.StatusBadGateway, "Login failed.")
 		return
 	}
