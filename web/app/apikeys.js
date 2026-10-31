@@ -218,15 +218,12 @@ function renderCreateCard() {
           ).join("")}
         </div>
       </div>
-      <details class="more-options">
-        <summary>${escapeHtml(t("apiTokens.moreOptions"))}</summary>
-        <div class="field">
-          <label for="new-token-expiry">${escapeHtml(t("apiTokens.expiryLabel"))}</label>
-          <select id="new-token-expiry">
-            ${EXPIRY_DAYS.map((d) => `<option value="${d}">${escapeHtml(t(`apiTokens.expiry.${d}`))}</option>`).join("")}
-          </select>
-        </div>
-      </details>
+      <div class="field">
+        <label for="new-token-expiry">${escapeHtml(t("apiTokens.expiryLabel"))}</label>
+        <select id="new-token-expiry">
+          ${EXPIRY_DAYS.map((d) => `<option value="${d}">${escapeHtml(t(`apiTokens.expiry.${d}`))}</option>`).join("")}
+        </select>
+      </div>
       <button type="button" id="create-token-btn">${escapeHtml(t("apiTokens.createBtn"))}</button>
     </div>
   `);
