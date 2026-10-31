@@ -241,7 +241,12 @@ CREATE TABLE IF NOT EXISTS personal_access_tokens (
     identity_email TEXT NOT NULL DEFAULT '',
     token_hash TEXT NOT NULL UNIQUE,
     created_at TEXT NOT NULL,
-    last_used_at TEXT
+    last_used_at TEXT,
+    -- Space-separated permission names (internal/server/tokenperms.go).
+    -- NULL only for a token created before permissions existed.
+    permissions TEXT,
+    -- NULL = never expires.
+    expires_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_auth_subject ON personal_access_tokens(auth_subject);
 

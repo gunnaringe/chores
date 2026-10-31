@@ -10,7 +10,8 @@ import { renderAddTaskFab, renderTaskSheet, renderTasksManagementTab, resetTasks
 import { renderHistoryTab, resetHistoryUiState } from "./history.js";
 import { renderAccountingTab, resetBalanceUiState } from "./balance.js";
 import { resetFamilyUiState } from "./family.js";
-import { renderSettingsTab, resetSettingsUiState } from "./settings.js";
+import { renderSettingsTab } from "./settings.js";
+import { apiKeysPageOpen, renderApiKeysPage, resetApiKeysUiState } from "./apikeys.js";
 import { renderDashboardKeyPrompt, renderDashboardSettingsScreen, renderDashboardTodayView } from "./dashboard.js";
 
 export function renderLangSwitcher() {
@@ -141,7 +142,7 @@ function resetTransientUiState() {
   resetHistoryUiState();
   resetBalanceUiState();
   resetFamilyUiState();
-  resetSettingsUiState();
+  resetApiKeysUiState();
 }
 
 function renderTabBar(defs, activeKey) {
@@ -251,9 +252,13 @@ export function render() {
   const main = el(`<main class="content"></main>`);
   const viewingAs = renderViewingAsNotice();
   if (viewingAs) main.appendChild(viewingAs);
-  main.appendChild(el(`<h1 class="screen-title">${escapeHtml(defs.find((d) => d.key === activeTab).label)}</h1>`));
+  // The API keys page is a page within Settings with its own title and a
+  // back button, rather than a tab of its own.
+  const apiKeysPage = activeTab === "settings" && apiKeysPageOpen();
+  if (!apiKeysPage) main.appendChild(el(`<h1 class="screen-title">${escapeHtml(defs.find((d) => d.key === activeTab).label)}</h1>`));
 
-  if (activeTab === "settings") main.appendChild(renderSettingsTab());
+  if (apiKeysPage) main.appendChild(renderApiKeysPage());
+  else if (activeTab === "settings") main.appendChild(renderSettingsTab());
   else if (!parentMode) main.appendChild(renderChildTasksTab());
   else if (activeTab === "home") main.appendChild(renderTodayTab());
   else if (activeTab === "history") main.appendChild(renderHistoryTab());

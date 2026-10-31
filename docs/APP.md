@@ -626,18 +626,38 @@ per-device and never touch the server.
 Two ways exist to call the Connect API from outside the browser, and they're
 deliberately different shapes for deliberately different jobs.
 
-**Personal access tokens** (Settings → API access) authenticate as a login
-identity — the same access that identity's own browser session has, in
-every family it belongs to, unrestricted by role. "Create token" returns
-the raw bearer value exactly once; it's never shown or recoverable again
-(only its SHA-256 hash is stored), so losing it means revoking it and
-creating another. Send it as `Authorization: Bearer chorespat_...`; every
-RPC accepts it exactly where it would accept a session cookie. A token
-isn't deleted when the login it belongs to is later removed from every
-family it was bound to — it simply stops being useful, the same as a
-lingering session cookie for that identity would, since every permission
-check still runs normally against whatever (if anything) that identity is
-still bound to.
+**Personal access tokens** — "API keys" in the UI (Settings → API access →
+Manage API keys, its own page) — authenticate as a login identity, in every
+family it belongs to, but only for the permissions the key was created with:
+
+| Permission | Allows |
+| --- | --- |
+| Read | every `List*`/`Get*` RPC and `GetMyMembership` |
+| Tick off tasks | `CompleteTask`, `UncompleteTask` |
+| Manage tasks | `CreateTask`, `UpdateTask`, `DeleteTask` |
+| Manage children | `CreateUser`, `RemoveChild` |
+| Payouts | `CreatePayout` |
+| Family admin | creating, renaming and deleting families, the kiosk key, invitations, `UpdateUser`, `LeaveFamily` |
+
+A new key gets Read and Tick off tasks unless the request names others.
+No key can ever manage keys, accept an invitation or subscribe to push —
+those stay browser-only. The check runs before the request reaches the
+service (`internal/server/tokenperms.go`), and a refusal is
+`PermissionDenied` naming the missing permission. Inside a permitted RPC
+the normal role checks still apply: a key can never do more than its
+login can. Keys made before permissions existed keep every permission
+above and are marked "Full access" on the page so they can be replaced.
+
+A key can have an optional expiry (none by default); an expired key gets
+`Unauthenticated` with "personal access token has expired".
+
+"Create key" returns the raw bearer value exactly once; it's never shown or
+recoverable again (only its SHA-256 hash is stored), so losing it means
+revoking it and creating another. Send it as `Authorization: Bearer
+chorespat_...`. A key isn't deleted when the login it belongs to is later
+removed from every family — it simply stops being useful, since every
+membership check still runs against whatever that identity is still bound
+to.
 
 **gRPC server reflection** (`connectrpc.com/grpcreflect`, wired in
 `cmd/chores/main.go`) lets a schema-aware client — `grpcurl`, `grpcui`,
@@ -803,7 +823,7 @@ diff and commit it like any other change.
 - `gen/` — generated protobuf + Connect Go code (checked in, regenerate with `buf generate`)
 - `internal/db` — SQLite schema and connection setup
 - `internal/scheduling` — cron-expression date matching for recurring tasks
-- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `monthly.go` (per-child month-by-month earnings), `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending, `dashboard.go` for the kiosk key, and `tokens.go` for personal access tokens
+- `internal/server` — Connect service implementation, split by concern: `authz.go` (membership/role checks), `tasks.go`, `occurrences.go`, `completions.go`, `accounting.go`, `monthly.go` (per-child month-by-month earnings), `payouts.go`, `families.go`, `users.go`, `invitations.go`, `retention.go`, `convert.go` (API types <-> storage), plus `push.go` for VAPID key setup and Web Push sending, `dashboard.go` for the kiosk key, `tokens.go` for personal access tokens and `tokenperms.go` for their per-RPC permissions
 - `internal/auth` — the OAuth2/OIDC login gating the app
 - `web/` — embedded static frontend (vanilla HTML/CSS/JS, calls the Connect API directly via JSON); `web/i18n.js` holds the English/Norwegian translation strings, and `web/qrcode.js` is a vendored client-side QR encoder (see Kiosk dashboard)
 - `cmd/chores` — main entrypoint

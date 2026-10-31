@@ -74,6 +74,10 @@ real browser** — see the `verify-ui` skill.
   not later in the same one.
 - **Sessions live in the `sessions` table** (`internal/auth/sessions.go`),
   hashed like personal access tokens; a restart doesn't log anyone out.
+- **A new RPC must be classified for API keys.** Add it to
+  `tokenMethodPermission` (`internal/server/tokenperms.go`) or to
+  `tokenNeverAllowed` in its test; `TestTokenMethodPermission_CoversEveryRPC`
+  fails until you do, and a key can't call an unlisted RPC.
 - **Never make an outbound request to a user-supplied URL with
   `http.DefaultClient`.** Push endpoints go through `s.pushClient`
   (`pushsafety.go`), which refuses non-public addresses at dial time; reuse
@@ -110,7 +114,8 @@ you need:
 | `history.js` | History tab |
 | `balance.js` | Balance tab |
 | `family.js` | family management inside Settings |
-| `settings.js` | Settings tab, kiosk dashboard key, personal access tokens |
+| `settings.js` | Settings tab, kiosk dashboard key |
+| `apikeys.js` | the API keys page (personal access tokens), opened from Settings |
 | `push.js` | Web Push subscription glue |
 | `dashboard.js` | the kiosk at `/dashboard` |
 
