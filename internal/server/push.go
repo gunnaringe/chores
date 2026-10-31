@@ -99,12 +99,15 @@ func (s *Server) SubscribeToPush(ctx context.Context, req *connect.Request[v1.Su
 	// Those keys live only in the browser that created the subscription,
 	// so the same device switching account (or family) still works, while
 	// someone who merely learned the endpoint URL can't redirect another
-	// family's device to their own notifications.
+	// family's device to their own notifications. The one exception is the
+	// same user re-registering with fresh keys, which is just a refresh.
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO push_subscriptions (id, user_id, family_id, endpoint, p256dh, auth, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT (endpoint) DO UPDATE SET user_id = excluded.user_id, family_id = excluded.family_id
-		 WHERE push_subscriptions.p256dh = excluded.p256dh AND push_subscriptions.auth = excluded.auth`,
+		 ON CONFLICT (endpoint) DO UPDATE SET user_id = excluded.user_id, family_id = excluded.family_id,
+		   p256dh = excluded.p256dh, auth = excluded.auth
+		 WHERE (push_subscriptions.p256dh = excluded.p256dh AND push_subscriptions.auth = excluded.auth)
+		    OR push_subscriptions.user_id = excluded.user_id`,
 		newID(), userID, user.FamilyId, sub.GetEndpoint(), sub.GetP256Dh(), sub.GetAuth(), formatTime(nowUTC()),
 	)
 	if err != nil {

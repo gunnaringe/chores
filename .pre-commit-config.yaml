@@ -32,4 +32,4 @@ repos:
         description: Syntax-only check — catches parse errors, nothing about runtime/rendering behavior (see the verify-ui skill for that).
         entry: node --check
         language: system
-        files: ^web/(app|i18n|sw)\.js$
+        files: ^web/[^/]+\.js$

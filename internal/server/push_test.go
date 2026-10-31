@@ -235,6 +235,13 @@ func TestPushSubscription_ScopedToItsOwnerAcrossFamilies(t *testing.T) {
 		t.Fatalf("subscription moved to %s, want %s", owner, aliceUser)
 	}
 
+	// Alice refreshing her own subscription's keys is allowed.
+	refreshed := &v1.PushSubscription{Endpoint: sub.Endpoint, P256Dh: "alice-key-2", Auth: "alice-auth-2"}
+	if _, err := s.SubscribeToPush(alice, connect.NewRequest(&v1.SubscribeToPushRequest{UserId: aliceUser, Subscription: refreshed})); err != nil {
+		t.Fatalf("own key refresh: %v", err)
+	}
+	sub = refreshed
+
 	// The same browser (same keys) signing in to another account still
 	// moves the subscription, as it always could.
 	if _, err := s.SubscribeToPush(mallory, connect.NewRequest(&v1.SubscribeToPushRequest{UserId: malloryUser, Subscription: sub})); err != nil {
