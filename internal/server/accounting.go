@@ -203,6 +203,11 @@ func (s *Server) ListChildSummaries(ctx context.Context, req *connect.Request[v1
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		if _, ok := dashboardFamilyFromContext(ctx); ok {
+			// The kiosk shows names and balances; a leaked dashboard key
+			// shouldn't also hand out the children's login emails.
+			u.Email = ""
+		}
 		children = append(children, u)
 	}
 

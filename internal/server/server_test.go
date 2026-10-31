@@ -1846,3 +1846,41 @@ func TestTaskClassification(t *testing.T) {
 		}
 	}
 }
+
+// TestDashboardKey_DoesNotRevealEmails: the kiosk needs names and balances,
+// not the login emails of the children it lists.
+func TestDashboardKey_DoesNotRevealEmails(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|dashboard-email-tester")
+	fam, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "The Mailers"}))
+	if err != nil {
+		t.Fatalf("CreateFamily: %v", err)
+	}
+	child, err := s.CreateUser(ctx, connect.NewRequest(&v1.CreateUserRequest{FamilyId: fam.Msg.Family.Id, Name: "Kid", Role: v1.UserRole_USER_ROLE_CHILD}))
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if _, err := s.db.Exec(`UPDATE users SET email = 'kid@example.com' WHERE id = ?`, child.Msg.User.Id); err != nil {
+		t.Fatalf("set email: %v", err)
+	}
+	setup, err := s.SetupDashboard(ctx, connect.NewRequest(&v1.SetupDashboardRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("SetupDashboard: %v", err)
+	}
+
+	asParent, err := s.ListChildSummaries(ctx, connect.NewRequest(&v1.ListChildSummariesRequest{FamilyId: fam.Msg.Family.Id}))
+	if err != nil {
+		t.Fatalf("ListChildSummaries as parent: %v", err)
+	}
+	if got := asParent.Msg.Summaries[0].Child.Email; got != "kid@example.com" {
+		t.Fatalf("parent should still see the email, got %q", got)
+	}
+
+	asKiosk, err := s.ListChildSummaries(dashboardTestContext(t, s, setup.Msg.DashboardKey), connect.NewRequest(&v1.ListChildSummariesRequest{}))
+	if err != nil {
+		t.Fatalf("ListChildSummaries as kiosk: %v", err)
+	}
+	if got := asKiosk.Msg.Summaries[0].Child.Email; got != "" {
+		t.Fatalf("kiosk got a child's email: %q", got)
+	}
+}

@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -92,20 +93,31 @@ func (s *Server) PersonalTokenOrAuth(authMgr *auth.Manager, next http.Handler) h
 	})
 }
 
+// tokenTouchInterval is how stale last_used_at may get before a request
+// rewrites it. The Home Assistant integration and the Kindle poll with a
+// token every few seconds to minutes, and touching it on every call would
+// make each of those reads take the single write connection. Settings only
+// shows "last used" as a rough "is this still in use", so an hour is plenty.
+const tokenTouchInterval = time.Hour
+
 func (s *Server) identityForPersonalAccessToken(ctx context.Context, token string) (auth.Identity, bool) {
 	var id, authSubject, name, email string
+	var lastUsedAt sql.NullString
 	err := s.ro.QueryRowContext(ctx, `
-		SELECT id, auth_subject, identity_name, identity_email
+		SELECT id, auth_subject, identity_name, identity_email, last_used_at
 		FROM personal_access_tokens WHERE token_hash = ?
-	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email)
+	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email, &lastUsedAt)
 	if err != nil {
 		return auth.Identity{}, false
 	}
-	// Best-effort: a failed touch shouldn't fail the request it's riding
-	// along with, and losing one update doesn't matter for what this is
-	// used for (rough "is this still in use" visibility in Settings).
-	if _, err := s.db.ExecContext(ctx, `UPDATE personal_access_tokens SET last_used_at = ? WHERE id = ?`, formatTime(nowUTC()), id); err != nil {
-		log.Printf("touch personal access token %s: %v", id, err)
+	now := nowUTC()
+	if !lastUsedAt.Valid || lastUsedAt.String < formatTime(now.Add(-tokenTouchInterval)) {
+		// Best-effort: a failed touch shouldn't fail the request it's riding
+		// along with, and losing one update doesn't matter for what this is
+		// used for.
+		if _, err := s.db.ExecContext(ctx, `UPDATE personal_access_tokens SET last_used_at = ? WHERE id = ?`, formatTime(now), id); err != nil {
+			log.Printf("touch personal access token %s: %v", id, err)
+		}
 	}
 	return auth.Identity{Sub: authSubject, Name: name, Email: email}, true
 }

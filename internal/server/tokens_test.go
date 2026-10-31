@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -360,5 +361,49 @@ func TestDashboardOrAuth_AcceptsPersonalAccessToken(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 via DashboardOrAuth with a personal access token and no cookie, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestPersonalAccessToken_TouchIsThrottled: integrations poll with a token,
+// and rewriting last_used_at on every call would make each poll take the
+// single write connection — so it's only rewritten once it's stale.
+func TestPersonalAccessToken_TouchIsThrottled(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|pat-touch")
+	created, err := s.CreatePersonalAccessToken(ctx, connect.NewRequest(&v1.CreatePersonalAccessTokenRequest{Name: "poller"}))
+	if err != nil {
+		t.Fatalf("CreatePersonalAccessToken: %v", err)
+	}
+	lastUsed := func() string {
+		t.Helper()
+		var v string
+		if err := s.db.QueryRow(`SELECT last_used_at FROM personal_access_tokens WHERE id = ?`, created.Msg.Token.Id).Scan(&v); err != nil {
+			t.Fatalf("read last_used_at: %v", err)
+		}
+		return v
+	}
+	setLastUsed := func(at time.Time) {
+		t.Helper()
+		if _, err := s.db.Exec(`UPDATE personal_access_tokens SET last_used_at = ? WHERE id = ?`, formatTime(at), created.Msg.Token.Id); err != nil {
+			t.Fatalf("set last_used_at: %v", err)
+		}
+	}
+
+	recent := nowUTC().Add(-time.Minute)
+	setLastUsed(recent)
+	if _, ok := s.identityForPersonalAccessToken(context.Background(), created.Msg.Secret); !ok {
+		t.Fatal("token should resolve")
+	}
+	if got := lastUsed(); got != formatTime(recent) {
+		t.Fatalf("a recent last_used_at was rewritten: got %s, want %s", got, formatTime(recent))
+	}
+
+	stale := nowUTC().Add(-2 * tokenTouchInterval)
+	setLastUsed(stale)
+	if _, ok := s.identityForPersonalAccessToken(context.Background(), created.Msg.Secret); !ok {
+		t.Fatal("token should resolve")
+	}
+	if got := lastUsed(); got == formatTime(stale) {
+		t.Fatal("a stale last_used_at was not rewritten")
 	}
 }
