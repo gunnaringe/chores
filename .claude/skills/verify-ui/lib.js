@@ -104,10 +104,13 @@ function watch(page, label) {
   });
   // The app makes no third-party requests (the privacy policy promises it),
   // so any request leaving the app's origin is a regression worth flagging.
+  // devauth is the login's own hop, not a third party: :9999 for dev-up.sh,
+  // or wherever CHORES_DEVAUTH_URL says (scripts/e2e.sh runs it on :9998).
   const origin = new globalThis.URL(URL).origin;
+  const devauth = new globalThis.URL(process.env.CHORES_DEVAUTH_URL || "http://localhost:9999").origin;
   page.on("request", (r) => {
     const u = r.url();
-    if (/^https?:/.test(u) && new globalThis.URL(u).origin !== origin && !u.includes("localhost:9999")) {
+    if (/^https?:/.test(u) && ![origin, devauth].includes(new globalThis.URL(u).origin)) {
       errors.push(`[${label}] THIRD-PARTY REQUEST ${u}`);
     }
   });

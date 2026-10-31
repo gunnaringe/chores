@@ -25,3 +25,22 @@ jobs:
       - run: go test -count=1 ./internal/server/
         env:
           CHORES_TEST_SHIFT_DAYS: "1100"
+
+  # The browser smoke test (scripts/e2e.sh): log in, tick a chore off,
+  # check the balance and the kiosk view, with any console error — a
+  # Content-Security-Policy violation included — failing the run. The
+  # runner image ships Google Chrome; lib.js finds it at
+  # /usr/bin/google-chrome, so only playwright-core needs installing (no
+  # browser download).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --prefix ~/.cache/chores-verify-ui playwright-core@1.56.1
+      - run: scripts/e2e.sh

@@ -16,15 +16,15 @@ it). A `SessionStart` hook in `.claude/hooks/` warms the Go caches.
 
 ## Toolchain
 
-**`mise` is not installed in agent sandboxes, and every Makefile target shells
-through `mise exec --`.** So `make run`, `make dev` and `make devauth` all fail
-with `mise: not found` (exit 2). Use `scripts/dev-up.sh` / `scripts/dev-down.sh`
-instead — plain shell, no mise, and they handle the process-group teardown this
-repo's `go run` setup otherwise makes easy to get wrong (`--fresh` wipes the
-dev database first). See the `run-local` skill.
-`.claude/skills/verify-ui/seed-demo-data.js` (or `make test-data`, for anyone
-who does have `mise`) then seeds a family, children, a task, and completions
-spanning several months to test against.
+`mise` is not installed in agent sandboxes; the Makefile uses it when it's
+there and plain `go`/`node` from `PATH` when it isn't, so every `make` target
+works either way. To run the app, still use `scripts/dev-up.sh` /
+`scripts/dev-down.sh` rather than `make dev`: they handle the process-group
+teardown this repo's `go run` setup otherwise makes easy to get wrong
+(`--fresh` wipes the dev database first). See the `run-local` skill.
+`make test-data` (`.claude/skills/verify-ui/seed-demo-data.js`) then seeds
+a family, children, a task, and completions spanning several months to test
+against.
 
 `go` is on `PATH`. `buf` is not: `gen/` is checked in, so you only need buf if
 you edit `proto/chores/v1/chores.proto`.
@@ -40,12 +40,14 @@ needs nothing beyond Node itself.
 ## Verifying a change
 
 ```bash
-go build ./...
-go vet ./...
-gofmt -l . | grep -v '^gen/'    # should print nothing
-go test ./...
-node --check web/app.js && node --check web/i18n.js && node --check web/sw.js
+make check       # go build, go vet, gofmt, go test, node --check web/*.js
+scripts/e2e.sh   # browser smoke test on its own ports and a throwaway DB
 ```
+
+`scripts/e2e.sh` (`e2e/smoke.js`) logs in, ticks a chore off, checks the
+balance and the kiosk, and fails on any console error. It runs in CI; run it
+yourself after any frontend change, alongside looking at the screens you
+touched (`verify-ui`). Add to it when you add a flow every family depends on.
 
 **Server code reads the clock only through `nowUTC()`** (`internal/server/server.go`),
 and tests compute "today" with it too, never `time.Now()`. CI reruns the server
@@ -54,11 +56,40 @@ so a test that only passes before one of its fixed dates fails immediately.
 Run the same locally when touching dates: `CHORES_TEST_SHIFT_DAYS=1100 go test -count=1 ./internal/server/`.
 
 There is no linter beyond `go vet` and `gofmt`, no JS build step, and no
-frontend test runner. `node --check` catches syntax errors and nothing else,
-so **any frontend change needs to be exercised in a real browser** — see the
-`verify-ui` skill. Rendering bugs here are invisible to the Go test suite.
+frontend unit tests. `node --check` catches syntax errors and the smoke test
+covers one path, so **any frontend change still needs to be looked at in a
+real browser** — see the `verify-ui` skill.
+
+## The server
+
+- **Reads go through `s.ro`, writes and transactions through `s.db`.**
+  `s.db` is the single write connection; `s.ro` is a read-only pool
+  (`db.OpenReader`). Anything that can run inside a transaction takes a
+  `querier` instead of either, because a read on `s.ro` can't see the
+  transaction's uncommitted writes and one on `s.db` deadlocks against it.
+- **`boundUserInFamily` is cached per request** (`withMembershipCache`, set
+  up in `DashboardOrAuth`). A role change is visible from the next request,
+  not later in the same one.
+- **Sessions live in the `sessions` table** (`internal/auth/sessions.go`),
+  hashed like personal access tokens; a restart doesn't log anyone out.
+- **Never make an outbound request to a user-supplied URL with
+  `http.DefaultClient`.** Push endpoints go through `s.pushClient`
+  (`pushsafety.go`), which refuses non-public addresses at dial time; reuse
+  it for anything similar.
 
 ## The frontend
+
+**No inline script, anywhere.** Every response carries a
+Content-Security-Policy with `script-src 'self'` (`web/security.go`), so an
+inline `<script>` block or an `onclick=`/`onerror=`-style attribute is
+silently blocked in the browser. Page code lives in files (`theme.js` and
+`icon-probe.js` in `<head>`, `boot.js`, `login.js`, `privacy.js`); wire
+events with `addEventListener` or delegation — for a read-only field that
+selects its value on click, just add `data-select-on-click`.
+`web/security_test.go` fails on inline script in the pages, `app.js` and
+the error page; anything new you embed needs adding to the `//go:embed`
+line in `web/assets.go` and, if it's part of the shell, `PRECACHE_URLS` in
+`web/sw.js`. Inline *styles* are allowed.
 
 `web/` is vanilla HTML/CSS/JS with no framework and no build step. `web/app.js`
 is a single file: a `state` object plus `render()`, which tears down and
@@ -98,7 +129,8 @@ these are deliberately not persisted or reacted to elsewhere.
 `resetTransientUiState()` clears them on navigation; add new ones there too.
 
 **Bump `CACHE_NAME` in `web/sw.js`** whenever you change a precached shell asset
-(`app.js`, `app.css`, `i18n.js`, `login.html`, the manifest, the icons). The
+(`app.js`, `app.css`, `i18n.js`, `login.html`, the page scripts, the manifest,
+the icons). The
 service worker is cache-first, so without a bump returning users get one stale
 load of the old UI.
 
@@ -176,8 +208,11 @@ scrolling content between them — that widens into a centred desktop page above
   `scripts/update-icon-font.sh`). Don't bring back Google Fonts or any other
   third-party request: the privacy policy promises none, and that is also
   why the app needs no cookie banner.
-- **Icon glyphs stay hidden until the font is confirmed loaded.** An inline
-  script in `index.html`/`login.html`'s `<head>` adds `icons-loading` to
+- **The icon font has one weight (400).** Weight is the expensive axis: a
+  second one more than doubles the file. Mark state with `FILL` instead.
+- **Icon glyphs stay hidden until the font is confirmed loaded.**
+  `web/icon-probe.js`, a blocking script in `index.html`/`login.html`'s
+  `<head>`, adds `icons-loading` to
   `<html>`, which `app.css` uses to `visibility: hidden` every
   `.material-symbols-outlined` glyph. Without it, a slow or missing font (just
   the ~460KB self-hosted font in `web/fonts/` not yet downloaded on first

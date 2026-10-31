@@ -315,6 +315,16 @@ the child's name and the task title. A subscription the push service
 reports as gone (the browser unsubscribed, or it expired) is cleaned up
 automatically on the next send attempt.
 
+The subscription's endpoint is a URL the browser hands over, and the server
+POSTs to it, so it's checked (see `internal/server/pushsafety.go`): it must
+be `https://`, and the push client refuses to connect to any loopback,
+private, link-local or CGNAT address, checked on the resolved address at
+connect time, so DNS can't point it inward later. Deliveries time out after
+10 seconds and don't follow redirects. Moving an existing endpoint to
+another user needs that subscription's keys too, which only the browser
+that created it has, and unsubscribing only removes your own subscription
+or one in a family you parent.
+
 This needs a real service worker, which requires either `https://` or
 `http://localhost` — it won't work over a plain HTTP LAN address.
 
@@ -358,6 +368,19 @@ every embedded file is sent with an ETag, and the app shell with
 `Cache-Control: no-cache` (see `notFoundPage` in `cmd/chores/main.go`), so
 Cloudflare revalidates instead of guessing. Compression needs nothing from
 the app: Fly and Cloudflare both serve Brotli.
+
+Security headers come from the app rather than the proxy, so a self-hosted
+instance gets them too (`web/security.go`): a Content-Security-Policy with
+`script-src 'self'` (no inline script or `on*=` handlers anywhere; a test
+in `web/security_test.go` enforces it), `frame-ancestors 'none'` everywhere
+but the kiosk `/dashboard` (which may sit in a Home Assistant iframe),
+`nosniff`, a Referrer-Policy, and HSTS over HTTPS. The server also bounds
+how long a client may take to send headers or sit idle, and caps a Connect
+request body at 1MB.
+
+SQLite runs with one write connection (writes and every transaction) and a
+read-only pool of four for plain reads, so a list request never queues
+behind somebody else's write (`db.Open` / `db.OpenReader`).
 
 ## Language
 
@@ -481,10 +504,12 @@ that one identity, same as the old single-identity behavior).
 
 Login uses the standard OAuth2 Authorization Code flow: `/auth/login`
 redirects to Auth0, `/auth/callback` exchanges the code and fetches the
-profile from Auth0's `/userinfo` endpoint, and a session is kept in-memory
-(no JWT verification needed since tokens never leave the server). Sessions
-don't survive a server restart. `/auth/logout` clears the session and signs
-out of Auth0 too.
+profile from Auth0's `/userinfo` endpoint, and a session is stored in the
+`sessions` table (no JWT verification needed since tokens never leave the
+server). Only a SHA-256 of the cookie token is stored, so a copy of the
+database can't be replayed as a login, and sessions survive restarts and
+deploys; expired ones are swept on the next login. `/auth/logout` clears
+the session and signs out of Auth0 too.
 
 The `redirect_uri` sent to Auth0 is derived from the incoming request's
 own hostname rather than a fixed config value, so the same deployment
@@ -730,7 +755,8 @@ buf push
 Three GitHub Actions workflows run on every PR into `main`:
 
 - **CI** (`.github/workflows/ci.yml`) — `go build ./...` and
-  `go test ./...`. Also runs on pushes to `main` as a safety net.
+  `go test ./...`, plus the browser smoke test (`scripts/e2e.sh`, see
+  below). Also runs on pushes to `main` as a safety net.
 - **Buf** (`.github/workflows/buf.yml`) — lints and format-checks
   `proto/chores/v1/chores.proto` and runs breaking-change detection against
   the PR's base branch, via the single unified `bufbuild/buf-action`. On a
@@ -747,7 +773,15 @@ Three GitHub Actions workflows run on every PR into `main`:
 in `CLAUDE.md` — `gofmt`, `go vet`, `buf lint`, `node --check` on the web
 JS files — rather than introducing a linter this repo doesn't otherwise
 use. Install it locally with `prek install` (git hook, runs on every
-commit) or run it on demand with `prek run --all-files`.
+commit) or run it on demand with `prek run --all-files`. `make check` runs
+the same checks plus the unit tests without prek.
+
+`scripts/e2e.sh` (or `make e2e`) builds the app and devauth, starts them on
+their own ports (:8081, :9998) with a throwaway database, and runs
+`e2e/smoke.js` in Chromium: welcome and privacy pages, log in, tick a
+chore off on Today, check it survives a reload and shows in the balance,
+then untick it from the kiosk dashboard. Any console error fails the run,
+which is what catches a script the Content-Security-Policy blocks.
 
 ## Updating the Material Symbols icon list
 
@@ -775,4 +809,5 @@ diff and commit it like any other change.
 - `cmd/chores` — main entrypoint
 - `cmd/devauth` — tiny local OAuth2 test identity provider (see Authentication)
 - `cmd/dbaudit` — read-only report on a database: row counts, data hazards, and per-child balances. Used to check that a migration didn't move anything (see Deploying a schema change)
-- `scripts/` — development helpers, not part of the built binary: `dev-up.sh`/`dev-down.sh` (run the app locally against devauth) and `update-material-symbols.sh` (refresh the icon list and its search tags), `update-icon-font.sh` (refresh the self-hosted icon font)
+- `e2e/` — the browser smoke test, run by `scripts/e2e.sh`
+- `scripts/` — development helpers, not part of the built binary: `dev-up.sh`/`dev-down.sh` (run the app locally against devauth), `e2e.sh` (the browser smoke test) and `update-material-symbols.sh` (refresh the icon list and its search tags), `update-icon-font.sh` (refresh the self-hosted icon font)
