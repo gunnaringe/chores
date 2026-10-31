@@ -648,6 +648,17 @@ the normal role checks still apply: a key can never do more than its
 login can. Keys made before permissions existed keep every permission
 above and are marked "Full access" on the page so they can be replaced.
 
+The Settings card for API keys says how many unexpired keys exist, so
+anyone looking at Settings can see that something outside the app can act
+as this login, with one line of advice: replace Full access keys first,
+then revoke expired ones, otherwise revoke unused ones.
+
+A key acts in every family its login belongs to, including ones joined
+later, unless it's limited to specific ones when created (the page offers
+this to a login in more than one family). A limited key is refused in any
+other family (`requireRole`), sees only its families in `ListFamilies` and
+`GetMyMembership`, and can't create a family.
+
 A key can have an optional expiry (none by default); an expired key gets
 `Unauthenticated` with "personal access token has expired".
 

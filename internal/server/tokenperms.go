@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -183,4 +184,28 @@ func permissionLabel(p v1.TokenPermission) string {
 		return "Family admin"
 	}
 	return p.String()
+}
+
+// A token can also be limited to some of its login's families. The limit
+// rides in the request context, set by PersonalTokenOrAuth; nothing is set
+// for a session or an unlimited token, which act in every family.
+type tokenFamiliesKey struct{}
+
+func withTokenFamilies(ctx context.Context, familyIDs []string) context.Context {
+	if len(familyIDs) == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, tokenFamiliesKey{}, familyIDs)
+}
+
+// tokenFamilyLimit returns the families a token-authenticated request is
+// limited to, and false when it isn't limited.
+func tokenFamilyLimit(ctx context.Context) ([]string, bool) {
+	ids, ok := ctx.Value(tokenFamiliesKey{}).([]string)
+	return ids, ok
+}
+
+func tokenAllowsFamily(ctx context.Context, familyID string) bool {
+	ids, limited := tokenFamilyLimit(ctx)
+	return !limited || slices.Contains(ids, familyID)
 }

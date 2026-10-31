@@ -67,13 +67,28 @@ function triggerLoad() {
     });
 }
 
-// The entry point in Settings: a short description and a button, since the
-// keys themselves need more room than a Settings card gives them.
+// The entry point in Settings: a button, since the keys themselves need
+// more room than a Settings card gives them. When keys exist it says how
+// many, so someone glancing at Settings sees that something outside the
+// app can act as them, plus one piece of advice — the most pressing one.
 export function renderApiKeysSettingsCard() {
+  if (state.personalAccessTokens === null) triggerLoad();
+  const keys = state.personalAccessTokens || [];
+  const now = new Date();
+  const expired = keys.filter((k) => k.expiresAt && new Date(k.expiresAt) <= now);
+  const active = keys.length - expired.length;
+  let summary = "";
+  if (active) {
+    const advice = keys.some((k) => k.legacy) ? "apiTokens.adviceLegacy" : expired.length ? "apiTokens.adviceExpired" : "apiTokens.adviceDefault";
+    summary = `<p class="key-count">${escapeHtml(t(active === 1 ? "apiTokens.activeOne" : "apiTokens.activeMany", { count: active }))}</p>
+      <p class="hint">${escapeHtml(t(advice))}</p>`;
+  } else if (expired.length) {
+    summary = `<p class="hint">${escapeHtml(t("apiTokens.adviceExpired"))}</p>`;
+  }
   const card = el(`
     <div class="card">
       <h2>${escapeHtml(t("apiTokens.heading"))}</h2>
-      <p class="hint">${escapeHtml(t("apiTokens.settingsDesc"))}</p>
+      ${summary || `<p class="hint">${escapeHtml(t("apiTokens.settingsDesc"))}</p>`}
       <button type="button" class="secondary">${escapeHtml(t("apiTokens.open"))}</button>
     </div>
   `);
@@ -134,6 +149,50 @@ function renderNewSecret() {
   return card;
 }
 
+// The login's families, for picking which ones a key may act in.
+function myFamilies() {
+  return ((state.membership && state.membership.memberships) || []).map((m) => m.family);
+}
+
+// A family the login has since left is no longer in membership; it's just
+// left out of the names, since the key can't act there anyway.
+function familyNames(ids) {
+  return myFamilies()
+    .filter((f) => ids.includes(f.id))
+    .map((f) => f.name)
+    .join(", ");
+}
+
+// "All families" (the default, which also covers families joined later)
+// or any set of specific ones — picking a family turns "All" off, and
+// clearing the last one turns it back on, so the chips never say "none".
+// Only shown to a login in more than one family.
+function renderFamilyPicker() {
+  const families = myFamilies();
+  if (families.length < 2) return null;
+  const field = el(`
+    <div class="field">
+      <label>${escapeHtml(t("apiTokens.familiesLabel"))}</label>
+      <div class="chip-group">
+        <label class="toggle-chip"><input type="checkbox" data-family-all checked />${escapeHtml(t("apiTokens.allFamilies"))}</label>
+        ${families.map((f) => `<label class="toggle-chip"><input type="checkbox" data-family-id="${escapeHtml(f.id)}" />${escapeHtml(f.name)}</label>`).join("")}
+      </div>
+    </div>
+  `);
+  const all = field.querySelector("[data-family-all]");
+  const specific = [...field.querySelectorAll("[data-family-id]")];
+  all.addEventListener("change", () => {
+    if (all.checked) specific.forEach((c) => (c.checked = false));
+    else if (!specific.some((c) => c.checked)) all.checked = true;
+  });
+  specific.forEach((c) =>
+    c.addEventListener("change", () => {
+      all.checked = !specific.some((x) => x.checked);
+    })
+  );
+  return field;
+}
+
 function formatDate(ts) {
   return new Date(ts).toLocaleDateString(localeTag());
 }
@@ -166,6 +225,7 @@ function renderKeyList() {
             <div class="task-title">${escapeHtml(tok.name)}</div>
             <div class="task-meta">${escapeHtml(meta.join(" · "))}</div>
             <div class="key-perms">${perms}</div>
+            ${tok.familyIds && tok.familyIds.length ? `<div class="task-meta">${escapeHtml(t("apiTokens.onlyFamilies", { families: familyNames(tok.familyIds) }))}</div>` : ""}
             ${tok.legacy ? `<div class="task-meta">${escapeHtml(t("apiTokens.legacyHint"))}</div>` : ""}
           </div>
         </div>
@@ -218,18 +278,20 @@ function renderCreateCard() {
           ).join("")}
         </div>
       </div>
-      <details class="more-options">
-        <summary>${escapeHtml(t("apiTokens.moreOptions"))}</summary>
-        <div class="field">
-          <label for="new-token-expiry">${escapeHtml(t("apiTokens.expiryLabel"))}</label>
-          <select id="new-token-expiry">
-            ${EXPIRY_DAYS.map((d) => `<option value="${d}">${escapeHtml(t(`apiTokens.expiry.${d}`))}</option>`).join("")}
-          </select>
-        </div>
-      </details>
+      <div class="field" id="new-token-families-slot"></div>
+      <div class="field">
+        <label for="new-token-expiry">${escapeHtml(t("apiTokens.expiryLabel"))}</label>
+        <select id="new-token-expiry">
+          ${EXPIRY_DAYS.map((d) => `<option value="${d}">${escapeHtml(t(`apiTokens.expiry.${d}`))}</option>`).join("")}
+        </select>
+      </div>
       <button type="button" id="create-token-btn">${escapeHtml(t("apiTokens.createBtn"))}</button>
     </div>
   `);
+  const slot = card.querySelector("#new-token-families-slot");
+  const picker = renderFamilyPicker();
+  if (picker) slot.replaceWith(picker);
+  else slot.remove();
   card.querySelector("#create-token-btn").addEventListener("click", () =>
     withError(async () => {
       const name = card.querySelector("#new-token-name").value.trim();
@@ -239,6 +301,9 @@ function renderCreateCard() {
       // what the form shows, so it's refused here rather than sent.
       if (!permissions.length) throw new Error(t("apiTokens.permissionRequired"));
       const req = { name, permissions };
+      // Nothing sent means every family; only a narrowed choice is sent.
+      const picked = [...card.querySelectorAll("[data-family-id]:checked")].map((c) => c.dataset.familyId);
+      if (picked.length) req.familyIds = picked;
       const days = card.querySelector("#new-token-expiry").value;
       if (days !== "never") req.expiresAt = new Date(Date.now() + Number(days) * 86400000).toISOString();
       const resp = await call("CreatePersonalAccessToken", req);
