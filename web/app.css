@@ -1067,14 +1067,17 @@ body {
 }
 .tabbar button .material-symbols-outlined {
   font-size: 23px;
-  font-variation-settings: "FILL" 0, "wght" 400;
+  font-variation-settings: "FILL" 0;
   transition: font-variation-settings 0.15s ease;
 }
 .tabbar button.active {
   color: var(--accent);
 }
+/* Fill alone marks the active tab. A heavier weight looked marginally
+   bolder, but supporting a second weight more than doubles the icon font
+   (scripts/update-icon-font.sh). */
 .tabbar button.active .material-symbols-outlined {
-  font-variation-settings: "FILL" 1, "wght" 500;
+  font-variation-settings: "FILL" 1;
 }
 .tabbar button .tab-label {
   max-width: 100%;
@@ -2131,7 +2134,7 @@ label {
 @font-face {
   font-family: "Material Symbols Outlined";
   font-style: normal;
-  font-weight: 400 500;
+  font-weight: 400;
   font-display: block;
   src: url(/fonts/material-symbols-outlined.woff2) format("woff2");
 }
