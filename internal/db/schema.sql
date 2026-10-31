@@ -244,3 +244,16 @@ CREATE TABLE IF NOT EXISTS personal_access_tokens (
     last_used_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_auth_subject ON personal_access_tokens(auth_subject);
+
+-- Login sessions (see internal/auth.SQLSessionStore). Kept here rather than
+-- in memory so a restart or deploy doesn't log everyone out. Only a hash of
+-- the cookie token is stored, like personal_access_tokens.token_hash.
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    auth_subject TEXT NOT NULL,
+    identity_name TEXT NOT NULL DEFAULT '',
+    identity_email TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);

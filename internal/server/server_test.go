@@ -42,12 +42,20 @@ func backdateTask(t *testing.T, s *Server, taskID, createdAt string) {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	conn, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	path := filepath.Join(t.TempDir(), "test.db")
+	conn, err := db.Open(path)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { conn.Close() })
-	return New(conn)
+	// The real read pool, not nil: tests then catch a read that lands on
+	// it while it should have seen a write that isn't committed yet.
+	reader, err := db.OpenReader(path)
+	if err != nil {
+		t.Fatalf("open reader: %v", err)
+	}
+	t.Cleanup(func() { reader.Close() })
+	return New(conn, reader)
 }
 
 func withIdentity(sub string) context.Context {

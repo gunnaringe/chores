@@ -25,6 +25,10 @@ func Open(path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
+	// One connection: SQLite has a single writer anyway, and serializing
+	// writes here instead of in SQLite means a writer waits in Go's pool
+	// rather than failing with SQLITE_BUSY. Plain reads go to the separate
+	// pool from OpenReader, so they never queue behind a write.
 	conn.SetMaxOpenConns(1)
 
 	if _, err := conn.Exec(schema); err != nil {
@@ -34,6 +38,31 @@ func Open(path string) (*sql.DB, error) {
 	if err := migrate(conn); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("migrate schema: %w", err)
+	}
+	return conn, nil
+}
+
+// readerConns is how many reads OpenReader's pool runs at once. WAL lets
+// any number of readers proceed alongside the writer; a handful is plenty
+// for a family app and keeps the per-connection page cache bounded.
+const readerConns = 4
+
+// OpenReader opens a read-only pool on a database Open has already set up.
+// query_only rather than mode=ro: a WAL reader still needs to write the
+// -shm index, which mode=ro forbids whenever the file is not already open
+// elsewhere. busy_timeout covers the brief moments a checkpoint holds the
+// WAL index.
+func OpenReader(path string) (*sql.DB, error) {
+	dsn := fmt.Sprintf("file:%s?_pragma=query_only(1)&_pragma=busy_timeout(5000)", path)
+	conn, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite reader: %w", err)
+	}
+	conn.SetMaxOpenConns(readerConns)
+	conn.SetMaxIdleConns(readerConns)
+	if err := conn.Ping(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("open sqlite reader: %w", err)
 	}
 	return conn, nil
 }

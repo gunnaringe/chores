@@ -395,7 +395,7 @@ func occurrenceFromTask(t *v1.Task, childID, childName, dueDate string) *v1.Task
 // included, for schedule expansion. Unlike ListTasks it carries no
 // authorization of its own — callers have already established membership.
 func (s *Server) listTasksForOccurrences(ctx context.Context, familyID string) ([]*v1.Task, error) {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT `+taskColumns+` FROM tasks WHERE family_id = ? ORDER BY created_at`,
 		familyID,
 	)
@@ -432,7 +432,7 @@ func (s *Server) listTasksForOccurrences(ctx context.Context, familyID string) (
 // search spanning "all time").
 func (s *Server) occurrenceFloorDate(ctx context.Context, familyID string) (string, error) {
 	var floor sql.NullString
-	if err := s.db.QueryRowContext(ctx, `
+	if err := s.ro.QueryRowContext(ctx, `
 		SELECT MIN(d) FROM (
 			SELECT SUBSTR(created_at, 1, 10) AS d FROM tasks WHERE family_id = ?
 			UNION ALL
@@ -467,7 +467,7 @@ func (s *Server) listStoredOccurrences(ctx context.Context, familyID, startDate,
 	// one screen then grows with how long the family has been using the
 	// app. The caller discards out-of-range rows anyway, so this is the
 	// same result for strictly less work.
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT `+occurrenceColumns+` FROM task_occurrences
 		 WHERE family_id = ? AND due_date >= ? AND due_date <= ?`,
 		familyID, startDate, endDate,

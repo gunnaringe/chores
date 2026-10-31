@@ -49,7 +49,7 @@ func (s *Server) ListMonthlyEarnings(ctx context.Context, req *connect.Request[v
 func (s *Server) monthlyEarnings(ctx context.Context, childID string, now time.Time) ([]*v1.MonthlyEarning, error) {
 	totals := map[string]int64{}
 
-	live, err := s.db.QueryContext(ctx, `
+	live, err := s.ro.QueryContext(ctx, `
 		SELECT strftime('%Y-%m', due_date), SUM(amount_cents)
 		FROM task_occurrences
 		WHERE child_id = ? AND completed_at IS NOT NULL
@@ -71,7 +71,7 @@ func (s *Server) monthlyEarnings(ctx context.Context, childID string, now time.T
 		return nil, err
 	}
 
-	compacted, err := s.db.QueryContext(ctx,
+	compacted, err := s.ro.QueryContext(ctx,
 		`SELECT year_month, earned_cents FROM child_monthly_earnings WHERE child_id = ?`,
 		childID,
 	)

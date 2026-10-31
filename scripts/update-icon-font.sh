@@ -6,10 +6,12 @@
 #
 #   scripts/update-icon-font.sh
 #
-# Only the axes the app actually uses are kept (opsz 24, GRAD 0, wght
-# 400–500, FILL 0–1: see the .tabbar icon rules in web/app.css), which
-# roughly halves the file compared to the full variable font. Every icon is
-# kept, since the task icon picker offers all of them.
+# Only the axes the app actually uses are kept (opsz 24, GRAD 0, wght 400,
+# FILL 0–1: see the .tabbar icon rules in web/app.css), about a fifth of the
+# full variable font: ~460KB instead of ~2.4MB. Weight is the expensive
+# axis — allowing 400–500 alone takes it to ~1.1MB — so think twice before
+# using a second weight anywhere. Every icon is kept, since the task icon
+# picker offers all of them.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,7 +21,7 @@ dest="$repo_root/web/fonts"
 # as a modern browser gets legacy per-weight .ttf faces instead of the
 # single variable .woff2.
 UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-API='https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400..500,0..1,0&display=block'
+API='https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block'
 
 font_url="$(curl -fsS -A "$UA" "$API" | grep -o 'https://[^)]*\.woff2' | head -1)"
 if [ -z "$font_url" ]; then

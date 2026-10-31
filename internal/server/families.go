@@ -66,7 +66,7 @@ func (s *Server) ListFamilies(ctx context.Context, _ *connect.Request[v1.ListFam
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT f.id, f.name, f.created_at FROM families f
 		 JOIN users u ON u.family_id = f.id
 		 WHERE u.auth_subject = ?
@@ -98,7 +98,7 @@ func (s *Server) ListFamilies(ctx context.Context, _ *connect.Request[v1.ListFam
 func (s *Server) getFamily(ctx context.Context, familyID string) (*v1.Family, error) {
 	var f v1.Family
 	var createdAt string
-	err := s.db.QueryRowContext(ctx, `SELECT id, name, created_at FROM families WHERE id = ?`, familyID).
+	err := s.ro.QueryRowContext(ctx, `SELECT id, name, created_at FROM families WHERE id = ?`, familyID).
 		Scan(&f.Id, &f.Name, &createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("family not found"))

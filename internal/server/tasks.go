@@ -41,7 +41,7 @@ func (s *Server) validateChildIDs(ctx context.Context, familyID string, childIDs
 	}
 	for _, id := range childIDs {
 		var role, fid string
-		err := s.db.QueryRowContext(ctx, `SELECT role, family_id FROM users WHERE id = ?`, id).Scan(&role, &fid)
+		err := s.ro.QueryRowContext(ctx, `SELECT role, family_id FROM users WHERE id = ?`, id).Scan(&role, &fid)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("child %q not found", id)
 		}
@@ -72,7 +72,7 @@ func (s *Server) setTaskAssignments(ctx context.Context, q querier, taskID strin
 }
 
 func (s *Server) taskChildIDs(ctx context.Context, taskID string) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT child_id FROM task_assignments WHERE task_id = ?`, taskID)
+	rows, err := s.ro.QueryContext(ctx, `SELECT child_id FROM task_assignments WHERE task_id = ?`, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *Server) taskChildIDs(ctx context.Context, taskID string) ([]string, err
 // taskAssignmentsByFamily batches the per-task child-id lookup for
 // ListTasks, instead of one query per task.
 func (s *Server) taskAssignmentsByFamily(ctx context.Context, familyID string) (map[string][]string, error) {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT ta.task_id, ta.child_id FROM task_assignments ta
 		 JOIN tasks t ON t.id = ta.task_id
 		 WHERE t.family_id = ?`,
@@ -323,7 +323,7 @@ func scanTask(row rowScanner) (*v1.Task, error) {
 // against. Occurrence expansion, which does need deleted tasks, goes
 // through listTasksForOccurrences instead.
 func (s *Server) getTask(ctx context.Context, taskID string) (*v1.Task, error) {
-	row := s.db.QueryRowContext(ctx,
+	row := s.ro.QueryRowContext(ctx,
 		`SELECT `+taskColumns+` FROM tasks WHERE id = ? AND deleted_at IS NULL`,
 		taskID,
 	)
@@ -350,7 +350,7 @@ func (s *Server) ListTasks(ctx context.Context, req *connect.Request[v1.ListTask
 	if err := s.requireMembership(ctx, familyID); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT `+taskColumns+` FROM tasks WHERE family_id = ? AND deleted_at IS NULL ORDER BY created_at`,
 		familyID,
 	)

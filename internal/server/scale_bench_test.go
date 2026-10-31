@@ -58,6 +58,11 @@ func seedScale(t *testing.T, p scaleParams) scaleFixture {
 		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() { conn.Close() })
+	reader, err := db.OpenReader(path)
+	if err != nil {
+		t.Fatalf("open reader: %v", err)
+	}
+	t.Cleanup(func() { reader.Close() })
 
 	start := time.Now()
 	tx, err := conn.Begin()
@@ -130,7 +135,7 @@ func seedScale(t *testing.T, p scaleParams) scaleFixture {
 		p.families, rows, float64(fi.Size())/(1<<20), time.Since(start).Round(time.Millisecond))
 
 	return scaleFixture{
-		s:        New(conn),
+		s:        New(conn, reader),
 		ctx:      auth.NewContextWithIdentity(context.Background(), auth.Identity{Sub: "auth0|par-" + fmt.Sprintf("%06d", p.families/2), Name: "Parent"}),
 		familyID: midFamily,
 		childID:  midChild,

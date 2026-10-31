@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,17 +16,31 @@ import (
 
 type Server struct {
 	choresv1connect.UnimplementedChoresServiceHandler
+	// db is the single write connection (see db.Open); every write and
+	// every transaction goes through it. ro is the read-only pool from
+	// db.OpenReader for plain reads outside a transaction, so a list RPC
+	// never waits for someone else's write to finish.
 	db *sql.DB
+	ro *sql.DB
 
 	// VAPID keypair used to sign Web Push messages. Empty when key setup
 	// failed (see ensureVAPIDKeys), in which case push notifications are
 	// silently unavailable rather than fatal to the rest of the app.
 	vapidPublicKey  string
 	vapidPrivateKey string
+
+	// pushClient delivers Web Push messages; see pushsafety.go for why it
+	// is not http.DefaultClient.
+	pushClient *http.Client
 }
 
-func New(db *sql.DB) *Server {
-	s := &Server{db: db}
+// New builds the service on a write connection and a read pool. reader may
+// be nil, in which case reads share the write connection.
+func New(db, reader *sql.DB) *Server {
+	if reader == nil {
+		reader = db
+	}
+	s := &Server{db: db, ro: reader, pushClient: newPushHTTPClient()}
 	if err := s.ensureVAPIDKeys(); err != nil {
 		log.Printf("push notifications disabled: %v", err)
 	}
@@ -39,8 +54,9 @@ func New(db *sql.DB) *Server {
 // connection (see db.Open), so a transaction holds the *only* connection
 // for its lifetime. A helper that reached for s.db while a transaction was
 // open would block until the request's context expired rather than fail,
-// which is why anything callable from inside a transaction takes a querier
-// instead.
+// and one that read through s.ro would not see the transaction's own
+// uncommitted writes — which is why anything callable from inside a
+// transaction takes a querier instead.
 type querier interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)

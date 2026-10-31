@@ -39,7 +39,7 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 	}
 
 	var childFamilyID, childName string
-	if err := s.db.QueryRowContext(ctx, `SELECT family_id, name FROM users WHERE id = ? AND role = 'child'`, childID).Scan(&childFamilyID, &childName); err != nil {
+	if err := s.ro.QueryRowContext(ctx, `SELECT family_id, name FROM users WHERE id = ? AND role = 'child'`, childID).Scan(&childFamilyID, &childName); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("child not found"))
 		}
@@ -76,7 +76,7 @@ func (s *Server) CompleteTask(ctx context.Context, req *connect.Request[v1.Compl
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("complete task: %w", err))
 	}
 
-	row := s.db.QueryRowContext(ctx,
+	row := s.ro.QueryRowContext(ctx,
 		`SELECT `+occurrenceColumns+` FROM task_occurrences WHERE task_id = ? AND child_id = ? AND due_date = ?`,
 		taskID, childID, dueDate,
 	)

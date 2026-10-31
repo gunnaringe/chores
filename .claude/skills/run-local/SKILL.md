@@ -1,16 +1,18 @@
 ---
 name: run-local
-description: Start the Chores app locally with the devauth test identity provider and log in as a test parent or child. Use when you need the app actually running — to exercise a change by hand, reproduce a bug, drive it in a browser, or hit the Connect API. Covers the Makefile/mise trap and the go:embed restart rule.
+description: Start the Chores app locally with the devauth test identity provider and log in as a test parent or child. Use when you need the app actually running — to exercise a change by hand, reproduce a bug, drive it in a browser, or hit the Connect API. Covers the dev scripts and the go:embed restart rule.
 ---
 
 # Running Chores locally
 
-## Do not use `make`
+## Use the scripts, not `make dev`
 
-Every Makefile target shells through `mise exec --`, and `mise` is not
-installed in agent sandboxes. `make run`, `make dev` and `make devauth` all
-fail with `mise: not found`. Use `scripts/dev-up.sh` / `scripts/dev-down.sh`
-instead (below) — plain shell, no mise involved.
+The Makefile works without `mise` (it falls back to `go` on `PATH`), but
+`make dev` runs both servers under one `go run` with a shell trap, which
+leaves orphans behind when an agent's command times out. Use
+`scripts/dev-up.sh` / `scripts/dev-down.sh` instead (below). For a
+self-contained check that needs no running server at all, use
+`scripts/e2e.sh`.
 
 ## Start it
 

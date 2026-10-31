@@ -2343,12 +2343,12 @@ function renderFamilyTab() {
             <div class="field">
               <label>${escapeHtml(t("invitations.linkLabel"))}</label>
               <div class="input-row">
-                <input type="text" readonly value="${escapeHtml(acceptUrl)}" onclick="this.select()" />
+                <input type="text" readonly value="${escapeHtml(acceptUrl)}" data-select-on-click />
                 <button type="button" class="secondary btn-icon" data-copy="url" title="${escapeHtml(t("invitations.copyLink"))}" aria-label="${escapeHtml(t("invitations.copyLink"))}"><span class="material-symbols-outlined">content_copy</span></button>
               </div>
               <label style="margin-top:6px;">${escapeHtml(t("invitations.codeLabel"))}</label>
               <div class="input-row">
-                <input type="text" readonly value="${escapeHtml(pendingInvite.token)}" onclick="this.select()" />
+                <input type="text" readonly value="${escapeHtml(pendingInvite.token)}" data-select-on-click />
                 <button type="button" class="secondary btn-icon" data-copy="code" title="${escapeHtml(t("invitations.copyCode"))}" aria-label="${escapeHtml(t("invitations.copyCode"))}"><span class="material-symbols-outlined">content_copy</span></button>
               </div>
             </div>
@@ -2806,6 +2806,15 @@ setInterval(autoRefreshTick, AUTO_REFRESH_MS);
 // Also catch up immediately when the tab regains focus after being hidden
 // long enough that a tick would otherwise have fired while backgrounded
 // (browsers throttle/suspend timers in hidden tabs).
+// Read-only fields holding something to copy (invite links, dashboard
+// keys, tokens) select their whole value on click. Delegated from here
+// rather than an inline handler attribute: the Content-Security-Policy
+// (web/security.go) blocks inline handlers.
+document.addEventListener("click", (e) => {
+  const field = e.target.closest?.("[data-select-on-click]");
+  if (field) field.select();
+});
+
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAutoRefreshAt >= AUTO_REFRESH_MS) {
     autoRefreshTick();
@@ -3344,14 +3353,14 @@ function renderDashboardSettingsSection() {
         <div class="field">
           <label>${escapeHtml(t("dashboard.urlLabel"))}</label>
           <div class="input-row">
-            <input type="text" readonly value="${escapeHtml(url)}" onclick="this.select()" />
+            <input type="text" readonly value="${escapeHtml(url)}" data-select-on-click />
             <button type="button" class="secondary btn-icon" data-copy="url" title="${escapeHtml(t("dashboard.copyUrl"))}" aria-label="${escapeHtml(t("dashboard.copyUrl"))}"><span class="material-symbols-outlined">content_copy</span></button>
           </div>
         </div>
         <div class="field">
           <label>${escapeHtml(t("dashboard.keyLabel"))}</label>
           <div class="input-row">
-            <input type="text" readonly value="${escapeHtml(state.dashboardConfig.dashboardKey)}" onclick="this.select()" />
+            <input type="text" readonly value="${escapeHtml(state.dashboardConfig.dashboardKey)}" data-select-on-click />
             <button type="button" class="secondary btn-icon" data-copy="key" title="${escapeHtml(t("dashboard.copyKey"))}" aria-label="${escapeHtml(t("dashboard.copyKey"))}"><span class="material-symbols-outlined">content_copy</span></button>
           </div>
         </div>
@@ -3448,7 +3457,7 @@ function renderTerminalCommandField(label, cmd, hint) {
     <div class="field" style="margin-top:16px;">
       <label>${escapeHtml(label)}</label>
       <div class="input-row">
-        <textarea class="terminal-cmd" readonly rows="${rows}" onclick="this.select()"></textarea>
+        <textarea class="terminal-cmd" readonly rows="${rows}" data-select-on-click></textarea>
         <button type="button" class="secondary btn-icon" data-copy="usage" title="${escapeHtml(t("apiTokens.copyUsage"))}" aria-label="${escapeHtml(t("apiTokens.copyUsage"))}"><span class="material-symbols-outlined">content_copy</span></button>
       </div>
       <p class="hint" style="margin:6px 0 0;">${escapeHtml(hint)}</p>
@@ -3473,7 +3482,7 @@ function renderPersonalAccessTokensSection() {
       <div class="field" style="margin-bottom:16px;">
         <label>${escapeHtml(t("apiTokens.secretLabel"))}</label>
         <div class="input-row">
-          <input type="text" readonly value="${escapeHtml(newPersonalAccessTokenSecret)}" onclick="this.select()" />
+          <input type="text" readonly value="${escapeHtml(newPersonalAccessTokenSecret)}" data-select-on-click />
           <button type="button" class="secondary btn-icon" data-copy="secret" title="${escapeHtml(t("apiTokens.copySecret"))}" aria-label="${escapeHtml(t("apiTokens.copySecret"))}"><span class="material-symbols-outlined">content_copy</span></button>
         </div>
         <p class="hint" style="margin:6px 0 0;color:var(--red);">${escapeHtml(t("apiTokens.secretWarning"))}</p>
