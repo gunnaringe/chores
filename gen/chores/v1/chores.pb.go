@@ -4746,8 +4746,11 @@ type PersonalAccessToken struct {
 	// reports every permission and legacy = true.
 	Permissions []TokenPermission `protobuf:"varint,5,rep,packed,name=permissions,proto3,enum=chores.v1.TokenPermission" json:"permissions,omitempty"`
 	// Unset if the token never expires.
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	Legacy        bool                   `protobuf:"varint,7,opt,name=legacy,proto3" json:"legacy,omitempty"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Legacy    bool                   `protobuf:"varint,7,opt,name=legacy,proto3" json:"legacy,omitempty"`
+	// The families the token may act in. Empty means every family the login
+	// is bound to, including ones it joins later.
+	FamilyIds     []string `protobuf:"bytes,8,rep,name=family_ids,json=familyIds,proto3" json:"family_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4831,13 +4834,23 @@ func (x *PersonalAccessToken) GetLegacy() bool {
 	return false
 }
 
+func (x *PersonalAccessToken) GetFamilyIds() []string {
+	if x != nil {
+		return x.FamilyIds
+	}
+	return nil
+}
+
 type CreatePersonalAccessTokenRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Empty means the defaults: READ and TICK_CHORES.
 	Permissions []TokenPermission `protobuf:"varint,2,rep,packed,name=permissions,proto3,enum=chores.v1.TokenPermission" json:"permissions,omitempty"`
 	// Optional; unset means the token never expires.
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Optional; empty means every family, including ones joined later.
+	// Each must be a family the caller is bound to.
+	FamilyIds     []string `protobuf:"bytes,4,rep,name=family_ids,json=familyIds,proto3" json:"family_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4889,6 +4902,13 @@ func (x *CreatePersonalAccessTokenRequest) GetPermissions() []TokenPermission {
 func (x *CreatePersonalAccessTokenRequest) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *CreatePersonalAccessTokenRequest) GetFamilyIds() []string {
+	if x != nil {
+		return x.FamilyIds
 	}
 	return nil
 }
@@ -5401,7 +5421,7 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\x17SubscribeToPushResponse\"8\n" +
 	"\x1aUnsubscribeFromPushRequest\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\"\x1d\n" +
-	"\x1bUnsubscribeFromPushResponse\"\xc3\x02\n" +
+	"\x1bUnsubscribeFromPushResponse\"\xe2\x02\n" +
 	"\x13PersonalAccessToken\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
@@ -5412,12 +5432,16 @@ const file_chores_v1_chores_proto_rawDesc = "" +
 	"\vpermissions\x18\x05 \x03(\x0e2\x1a.chores.v1.TokenPermissionR\vpermissions\x129\n" +
 	"\n" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x16\n" +
-	"\x06legacy\x18\a \x01(\bR\x06legacy\"\xaf\x01\n" +
+	"\x06legacy\x18\a \x01(\bR\x06legacy\x12\x1d\n" +
+	"\n" +
+	"family_ids\x18\b \x03(\tR\tfamilyIds\"\xce\x01\n" +
 	" CreatePersonalAccessTokenRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
 	"\vpermissions\x18\x02 \x03(\x0e2\x1a.chores.v1.TokenPermissionR\vpermissions\x129\n" +
 	"\n" +
-	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"q\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1d\n" +
+	"\n" +
+	"family_ids\x18\x04 \x03(\tR\tfamilyIds\"q\n" +
 	"!CreatePersonalAccessTokenResponse\x124\n" +
 	"\x05token\x18\x01 \x01(\v2\x1e.chores.v1.PersonalAccessTokenR\x05token\x12\x16\n" +
 	"\x06secret\x18\x02 \x01(\tR\x06secret\"!\n" +

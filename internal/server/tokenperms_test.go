@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/gunnaringe/chores/gen/chores/v1"
+	"github.com/gunnaringe/chores/gen/chores/v1/choresv1connect"
 )
 
 // tokenNeverAllowed are the RPCs deliberately left out of
@@ -175,6 +176,88 @@ func TestTokenPermissions_RejectsUnknownPermission(t *testing.T) {
 	ctx := withIdentity("auth0|perm-unknown")
 	_, err := s.CreatePersonalAccessToken(ctx, connect.NewRequest(&v1.CreatePersonalAccessTokenRequest{
 		Name: "bad", Permissions: []v1.TokenPermission{v1.TokenPermission_TOKEN_PERMISSION_UNSPECIFIED},
+	}))
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("got %v, want InvalidArgument", err)
+	}
+}
+
+// callWithTokenBody is callWithToken with the real service behind it, so
+// the family checks inside the RPCs run too.
+func callWithTokenBody(t *testing.T, s *Server, secret, method, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	_, handler := choresv1connect.NewChoresServiceHandler(s, JSONCodecOption())
+	req := httptest.NewRequest(http.MethodPost, choresServicePrefix+method, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+secret)
+	rec := httptest.NewRecorder()
+	s.DashboardOrAuth(testAuthManager(t), handler).ServeHTTP(rec, req)
+	return rec
+}
+
+func TestTokenFamilies_LimitToSomeFamilies(t *testing.T) {
+	s := newTestServer(t)
+	ctx := withIdentity("auth0|perm-families")
+	famA, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "A", ParentName: "P"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	famB, err := s.CreateFamily(ctx, connect.NewRequest(&v1.CreateFamilyRequest{Name: "B", ParentName: "P"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := famA.Msg.Family.Id, famB.Msg.Family.Id
+
+	limited := createToken(t, s, ctx, &v1.CreatePersonalAccessTokenRequest{
+		Name:        "only A",
+		Permissions: allTokenPermissions(),
+		FamilyIds:   []string{a},
+	})
+	if got := callWithTokenBody(t, s, limited, "ListTasks", `{"familyId":"`+a+`"}`).Code; got != http.StatusOK {
+		t.Errorf("ListTasks in A: got %d, want 200", got)
+	}
+	rec := callWithTokenBody(t, s, limited, "ListTasks", `{"familyId":"`+b+`"}`)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "limited to other families") {
+		t.Errorf("ListTasks in B: got %d %s, want 403", rec.Code, rec.Body.String())
+	}
+	if got := callWithTokenBody(t, s, limited, "CreateFamily", `{"name":"C"}`).Code; got != http.StatusForbidden {
+		t.Errorf("CreateFamily: got %d, want 403", got)
+	}
+	rec = callWithTokenBody(t, s, limited, "ListFamilies", `{}`)
+	if !strings.Contains(rec.Body.String(), a) || strings.Contains(rec.Body.String(), b) {
+		t.Errorf("ListFamilies should list only A, got %s", rec.Body.String())
+	}
+	rec = callWithTokenBody(t, s, limited, "GetMyMembership", `{}`)
+	if !strings.Contains(rec.Body.String(), a) || strings.Contains(rec.Body.String(), b) {
+		t.Errorf("GetMyMembership should list only A, got %s", rec.Body.String())
+	}
+
+	// The default: every family.
+	all := createToken(t, s, ctx, &v1.CreatePersonalAccessTokenRequest{Name: "all"})
+	if got := callWithTokenBody(t, s, all, "ListTasks", `{"familyId":"`+b+`"}`).Code; got != http.StatusOK {
+		t.Errorf("unlimited token, ListTasks in B: got %d, want 200", got)
+	}
+
+	list, err := s.ListPersonalAccessTokens(ctx, connect.NewRequest(&v1.ListPersonalAccessTokensRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tok := range list.Msg.Tokens {
+		want := map[string]int{"only A": 1, "all": 0}[tok.Name]
+		if len(tok.FamilyIds) != want {
+			t.Errorf("%s lists families %v", tok.Name, tok.FamilyIds)
+		}
+	}
+}
+
+func TestTokenFamilies_OnlyYourOwnFamilies(t *testing.T) {
+	s := newTestServer(t)
+	other, err := s.CreateFamily(withIdentity("auth0|someone-else"), connect.NewRequest(&v1.CreateFamilyRequest{Name: "Theirs", ParentName: "P"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.CreatePersonalAccessToken(withIdentity("auth0|perm-families-own"), connect.NewRequest(&v1.CreatePersonalAccessTokenRequest{
+		Name: "x", FamilyIds: []string{other.Msg.Family.Id},
 	}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("got %v, want InvalidArgument", err)

@@ -54,13 +54,16 @@ func (s *Server) GetMyMembership(ctx context.Context, _ *connect.Request[v1.GetM
 		if err != nil {
 			return nil, err
 		}
+		if !tokenAllowsFamily(ctx, user.FamilyId) {
+			continue
+		}
 		family, err := s.getFamily(ctx, user.FamilyId)
 		if err != nil {
 			return nil, err
 		}
 		memberships = append(memberships, &v1.Membership{User: user, Family: family})
 	}
-	return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: true, Memberships: memberships}), nil
+	return connect.NewResponse(&v1.GetMyMembershipResponse{Bound: len(memberships) > 0, Memberships: memberships}), nil
 }
 
 // CreateInvitation creates an unclaimed parent slot in the family and an
