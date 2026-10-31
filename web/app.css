@@ -1472,6 +1472,7 @@ label {
 .perm-row:last-child { border-bottom: none; }
 .perm-row > span { display: flex; flex-direction: column; gap: 2px; }
 .perm-row .hint { font-weight: 400; }
+.key-count { color: var(--text); font-weight: 600; margin: 0 0 4px; }
 .key-perms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
 /* Deliberately narrow on desktop, where there's plenty of spare width to

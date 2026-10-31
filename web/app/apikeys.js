@@ -67,13 +67,28 @@ function triggerLoad() {
     });
 }
 
-// The entry point in Settings: a short description and a button, since the
-// keys themselves need more room than a Settings card gives them.
+// The entry point in Settings: a button, since the keys themselves need
+// more room than a Settings card gives them. When keys exist it says how
+// many, so someone glancing at Settings sees that something outside the
+// app can act as them, plus one piece of advice — the most pressing one.
 export function renderApiKeysSettingsCard() {
+  if (state.personalAccessTokens === null) triggerLoad();
+  const keys = state.personalAccessTokens || [];
+  const now = new Date();
+  const expired = keys.filter((k) => k.expiresAt && new Date(k.expiresAt) <= now);
+  const active = keys.length - expired.length;
+  let summary = "";
+  if (active) {
+    const advice = keys.some((k) => k.legacy) ? "apiTokens.adviceLegacy" : expired.length ? "apiTokens.adviceExpired" : "apiTokens.adviceDefault";
+    summary = `<p class="key-count">${escapeHtml(t(active === 1 ? "apiTokens.activeOne" : "apiTokens.activeMany", { count: active }))}</p>
+      <p class="hint">${escapeHtml(t(advice))}</p>`;
+  } else if (expired.length) {
+    summary = `<p class="hint">${escapeHtml(t("apiTokens.adviceExpired"))}</p>`;
+  }
   const card = el(`
     <div class="card">
       <h2>${escapeHtml(t("apiTokens.heading"))}</h2>
-      <p class="hint">${escapeHtml(t("apiTokens.settingsDesc"))}</p>
+      ${summary || `<p class="hint">${escapeHtml(t("apiTokens.settingsDesc"))}</p>`}
       <button type="button" class="secondary">${escapeHtml(t("apiTokens.open"))}</button>
     </div>
   `);
