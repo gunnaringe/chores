@@ -180,7 +180,7 @@ scrolling content between them — that widens into a centred desktop page above
   script in `index.html`/`login.html`'s `<head>` adds `icons-loading` to
   `<html>`, which `app.css` uses to `visibility: hidden` every
   `.material-symbols-outlined` glyph. Without it, a slow or missing font (just
-  the ~1.1MB self-hosted font in `web/fonts/` not yet downloaded on first
+  the ~460KB self-hosted font in `web/fonts/` not yet downloaded on first
   visit, or a request that failed) shows the raw ligature name the instant the HTML
   parses — worse than the overflow case above, since `overflow: hidden` alone
   just clips that text mid-word rather than hiding it.

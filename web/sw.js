@@ -12,9 +12,13 @@
 //
 // v16: prices and amounts became a Money message, the repeat fields became
 // a Schedule oneof, and completions folded into occurrences.
-const CACHE_NAME = "chores-shell-v36";
+const CACHE_NAME = "chores-shell-v37";
 const PRECACHE_URLS = [
   "/app.js",
+  "/theme.js",
+  "/icon-probe.js",
+  "/boot.js",
+  "/login.js",
   "/app.css",
   "/i18n.js",
   "/login.html",

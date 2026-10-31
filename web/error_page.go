@@ -36,7 +36,7 @@ const errorPageTemplate = `<!doctype html>
       <img src="/icons/logo.png" alt="" width="88" height="88" class="logo" />
       <h1>Something went wrong</h1>
       <p>{{MESSAGE}}</p>
-      <button type="button" class="block" onclick="location.href='/'">Back to Chores</button>
+      <form action="/" method="get"><button type="submit" class="block">Back to Chores</button></form>
     </div>
   </main>
 </div>

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"connectrpc.com/grpcreflect"
@@ -107,10 +108,22 @@ func main() {
 			"tenant, run `go run ./cmd/devauth` and point these at it instead")
 	}
 
+	conn, err := db.Open(dbPath)
+	if err != nil {
+		log.Fatalf("open database: %v", err)
+	}
+	defer conn.Close()
+	reader, err := db.OpenReader(dbPath)
+	if err != nil {
+		log.Fatalf("open database reader: %v", err)
+	}
+	defer reader.Close()
+
 	authMgr, err := auth.NewManager(auth.Config{
 		Domain:       auth0Domain,
 		ClientID:     auth0ClientID,
 		ClientSecret: auth0ClientSecret,
+		Sessions:     auth.NewSQLSessionStore(conn, reader),
 	})
 	if err != nil {
 		log.Fatalf("configure auth: %v", err)
@@ -118,13 +131,7 @@ func main() {
 
 	log.Printf("auth: login required (domain=%s)", auth0Domain)
 
-	conn, err := db.Open(dbPath)
-	if err != nil {
-		log.Fatalf("open database: %v", err)
-	}
-	defer conn.Close()
-
-	svc := server.New(conn)
+	svc := server.New(conn, reader)
 	// Occurrence history is kept for a bounded window (see retentionDays).
 	// The earnings a purge removes are carried into each child's ledger in
 	// the same transaction, so a balance never depends on whether — or
@@ -137,7 +144,10 @@ func main() {
 	mux.HandleFunc("/auth/logout", authMgr.LogoutHandler)
 	mux.HandleFunc("/auth/me", authMgr.MeHandler)
 
-	path, handler := choresv1connect.NewChoresServiceHandler(svc, server.JSONCodecOption())
+	// No legitimate request comes near 1MB — the largest is a task with
+	// its icon and schedule — and without a cap Connect reads a body of
+	// any size into memory.
+	path, handler := choresv1connect.NewChoresServiceHandler(svc, server.JSONCodecOption(), connect.WithReadMaxBytes(maxRequestBytes))
 	mux.Handle(path, svc.DashboardOrAuth(authMgr, handler))
 
 	// gRPC server reflection lets an ad-hoc client (grpcurl, grpcui, Postman's
@@ -186,9 +196,17 @@ func main() {
 	// it automatically, while every existing HTTP/1.1 caller (the browser,
 	// curl, Cloudflare's own origin connection unless reconfigured) is
 	// unaffected, since HTTP1 stays enabled alongside it.
+	//
+	// The timeouts bound how long a slow or idle client can hold a
+	// connection; there's deliberately no WriteTimeout, since reflection's
+	// streams are long-lived.
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+		Addr:              addr,
+		Handler:           web.SecurityHeaders(mux),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 << 10,
 	}
 	srv.Protocols = new(http.Protocols)
 	srv.Protocols.SetHTTP1(true)
@@ -199,6 +217,9 @@ func main() {
 		log.Fatalf("server error: %v", err)
 	}
 }
+
+// maxRequestBytes caps a Connect request body; see where it's used.
+const maxRequestBytes = 1 << 20
 
 // notFoundPage wraps the static file server so a bogus or stale URL (e.g. an
 // old bookmark) gets the same styled error page as everything else, instead
