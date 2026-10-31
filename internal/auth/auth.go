@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -37,6 +36,11 @@ type Config struct {
 	Domain       string
 	ClientID     string
 	ClientSecret string
+
+	// Sessions stores logged-in sessions. Nil keeps them in memory, which
+	// loses them on every restart — fine for tests, not for a deployment
+	// (cmd/chores passes a SQLSessionStore).
+	Sessions SessionStore
 }
 
 // baseURL resolves domain to the base URL its OAuth2 endpoints hang off of.
@@ -80,9 +84,7 @@ const (
 type Manager struct {
 	issuerBase string
 	oauthCfg   oauth2.Config
-
-	mu       sync.Mutex
-	sessions map[string]session
+	sessions   SessionStore
 }
 
 func NewManager(cfg Config) (*Manager, error) {
@@ -90,9 +92,13 @@ func NewManager(cfg Config) (*Manager, error) {
 		return nil, errors.New("auth requires a domain, client id and client secret")
 	}
 	issuerBase := baseURL(cfg.Domain)
+	sessions := cfg.Sessions
+	if sessions == nil {
+		sessions = newMemorySessionStore()
+	}
 	m := &Manager{
 		issuerBase: issuerBase,
-		sessions:   map[string]session{},
+		sessions:   sessions,
 		oauthCfg: oauth2.Config{
 			ClientID:     cfg.ClientID,
 			ClientSecret: cfg.ClientSecret,
@@ -178,14 +184,14 @@ func (m *Manager) sessionFromRequest(r *http.Request) (session, bool) {
 	if err != nil {
 		return session{}, false
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	s, ok := m.sessions[c.Value]
-	if !ok {
+	s, ok, err := m.sessions.Get(r.Context(), c.Value)
+	if err != nil {
+		// Fail closed: a store error reads as "not logged in", never as
+		// a pass.
+		log.Printf("look up session: %v", err)
 		return session{}, false
 	}
-	if time.Now().After(s.ExpiresAt) {
-		delete(m.sessions, c.Value)
+	if !ok || time.Now().After(s.ExpiresAt) {
 		return session{}, false
 	}
 	return s, true
@@ -198,14 +204,9 @@ func (m *Manager) createSession(w http.ResponseWriter, r *http.Request, id Ident
 	}
 	s := session{Identity: id, ExpiresAt: time.Now().Add(sessionTTL)}
 
-	m.mu.Lock()
-	m.sessions[token] = s
-	for k, v := range m.sessions {
-		if time.Now().After(v.ExpiresAt) {
-			delete(m.sessions, k)
-		}
+	if err := m.sessions.Put(r.Context(), token, s); err != nil {
+		return err
 	}
-	m.mu.Unlock()
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookieName,
@@ -221,9 +222,9 @@ func (m *Manager) createSession(w http.ResponseWriter, r *http.Request, id Ident
 
 func (m *Manager) clearSession(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookieName); err == nil {
-		m.mu.Lock()
-		delete(m.sessions, c.Value)
-		m.mu.Unlock()
+		if err := m.sessions.Delete(r.Context(), c.Value); err != nil {
+			log.Printf("delete session: %v", err)
+		}
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookieName,
