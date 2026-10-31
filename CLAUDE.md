@@ -40,7 +40,7 @@ needs nothing beyond Node itself.
 ## Verifying a change
 
 ```bash
-make check       # go build, go vet, gofmt, go test, node --check web/*.js
+make check       # go build, go vet, gofmt, go test, node --check web/*.js web/app/*.js
 scripts/e2e.sh   # browser smoke test on its own ports and a throwaway DB
 ```
 
@@ -57,7 +57,9 @@ Run the same locally when touching dates: `CHORES_TEST_SHIFT_DAYS=1100 go test -
 
 There is no linter beyond `go vet` and `gofmt`, no JS build step, and no
 frontend unit tests. `node --check` catches syntax errors and the smoke test
-covers one path, so **any frontend change still needs to be looked at in a
+covers one path. Between modules it checks nothing: a missing `export`
+breaks every page load, but a missing import is a `ReferenceError` only
+when that code path runs. So **any frontend change still needs to be looked at in a
 real browser** — see the `verify-ui` skill.
 
 ## The server

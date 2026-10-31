@@ -9,7 +9,7 @@ import { render } from "./shell.js";
 // ---- Accounting tab -----------------------------------------------------
 
 // Which child's month-by-month earnings breakdown is showing, if any —
-// transient UI state like expandedFamilyRow below: module-level rather than
+// transient UI state like expandedFamilyRow in family.js: module-level rather than
 // in `state`, reset on navigation by resetTransientUiState(). Only one
 // child's table is open at a time, the same restriction expandedFamilyRow
 // puts on the family list.

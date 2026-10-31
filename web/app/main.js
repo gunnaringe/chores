@@ -19,7 +19,7 @@ document.addEventListener("click", (e) => {
 // ---- boot -----------------------------------------------------
 
 // index.html/login.html already applied the stored theme before first
-// paint (see the comment on applyTheme() above); this call is just to
+// paint (see the comment on applyTheme() in helpers.js); this call is just to
 // pick up a change made in another tab since then. When no theme is
 // stored ("follow the OS"), the OS can still flip while this tab stays
 // open, and only JS — not the meta tag's own media attribute, gone now
