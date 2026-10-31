@@ -35,7 +35,7 @@ func TestMaterialSymbolsI18nNamesExist(t *testing.T) {
 		if !names[name] {
 			t.Errorf("%q is not in material-symbols.json (renamed or removed upstream?)", name)
 		}
-		// [nb, nn extras, sv] — see loadLocalIconWords in app.js.
+		// [nb, nn extras, sv] — see loadLocalIconWords in app/tasks.js.
 		if len(perLang) != 3 || perLang[0] == "" || perLang[2] == "" {
 			t.Errorf("%q: want [nb, nn extras, sv] with nb and sv filled in, got %q", name, perLang)
 		}

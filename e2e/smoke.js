@@ -1,7 +1,7 @@
 // End-to-end smoke test: the one path every family uses, driven in a real
 // browser against a running dev server (scripts/e2e.sh starts one on a
 // fresh database and runs this). The Go tests cover the API; this covers
-// what they can't see — that app.js actually renders, that a tap reaches
+// what they can't see — that the app (web/app/) actually renders, that a tap reaches
 // the server, and that the Content-Security-Policy doesn't block anything
 // (a blocked script or handler shows up as a console error, which fails
 // the run like any other).

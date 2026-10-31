@@ -24,6 +24,22 @@
      block); preloading it starts the ~460KB download before app.css is parsed. -->
 <link rel="preload" href="/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin />
 <script src="/icon-probe.js"></script>
+<!-- The app is ES modules under app/ (entry: app/main.js, loaded at the end
+     of <body>). Without these the browser only discovers each module after
+     parsing the one that imports it, a request chain several round trips
+     deep on a first visit; web/assets_test.go keeps the list complete. -->
+<link rel="modulepreload" href="/app/api.js" />
+<link rel="modulepreload" href="/app/balance.js" />
+<link rel="modulepreload" href="/app/dashboard.js" />
+<link rel="modulepreload" href="/app/family.js" />
+<link rel="modulepreload" href="/app/helpers.js" />
+<link rel="modulepreload" href="/app/history.js" />
+<link rel="modulepreload" href="/app/push.js" />
+<link rel="modulepreload" href="/app/settings.js" />
+<link rel="modulepreload" href="/app/shell.js" />
+<link rel="modulepreload" href="/app/state.js" />
+<link rel="modulepreload" href="/app/tasks.js" />
+<link rel="modulepreload" href="/app/today.js" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -38,6 +54,6 @@
 <script src="/i18n.js"></script>
 <script src="/boot.js"></script>
 <script src="/qrcode.js"></script>
-<script src="/app.js"></script>
+<script type="module" src="/app/main.js"></script>
 </body>
 </html>

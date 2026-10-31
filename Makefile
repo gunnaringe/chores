@@ -24,7 +24,7 @@ check: ## Build, vet, gofmt, unit tests and JS syntax — everything short of a 
 	$(MISE) go vet ./...
 	@out=$$(gofmt -l . | grep -v '^gen/'); [ -z "$$out" ] || { echo "gofmt needed:"; echo "$$out"; exit 1; }
 	$(MISE) go test ./...
-	@for f in web/*.js; do $(MISE) node --check $$f || exit 1; done
+	@for f in web/*.js web/app/*.js; do $(MISE) node --check $$f || exit 1; done
 
 e2e: ## Browser smoke test against a throwaway server (scripts/e2e.sh)
 	$(MISE) ./scripts/e2e.sh

@@ -91,7 +91,7 @@
 /* Settings offers an explicit Light/Dark/Retro/Playful/Hacker/High
    Contrast/... choice on top of the OS-following default ("Match device"). An
    explicit choice is stamped as
-   data-theme on <html> by applyTheme() in app.js (and, before that file
+   data-theme on <html> by applyTheme() in app/helpers.js (and, before that file
    even loads, by a standalone copy in index.html/login.html's <head> —
    see the comment there). The system-dark block below is scoped to
    :not([data-theme]) so it only fires for "Match device"; each explicit

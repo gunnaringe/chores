@@ -3,18 +3,30 @@
 // way of the Connect API and auth routes, which must always hit the
 // network — nothing about family data or login state is ever cached here.
 
-// Bump this whenever a release changes app.js in a way that cannot talk to
+// Bump this whenever a release changes the app (app/*.js) in a way that cannot talk to
 // the older server, or vice versa. The fetch handler below is cache-first,
 // so without a bump an already-installed client loads fresh index.html
-// against a *cached* app.js — fine for a cosmetic change, broken for an
+// against *cached* app modules — fine for a cosmetic change, broken for an
 // API change, since the stale script sends fields the server no longer
 // accepts.
 //
 // v16: prices and amounts became a Money message, the repeat fields became
 // a Schedule oneof, and completions folded into occurrences.
-const CACHE_NAME = "chores-shell-v37";
+const CACHE_NAME = "chores-shell-v38";
 const PRECACHE_URLS = [
-  "/app.js",
+  "/app/api.js",
+  "/app/balance.js",
+  "/app/dashboard.js",
+  "/app/family.js",
+  "/app/helpers.js",
+  "/app/history.js",
+  "/app/main.js",
+  "/app/push.js",
+  "/app/settings.js",
+  "/app/shell.js",
+  "/app/state.js",
+  "/app/tasks.js",
+  "/app/today.js",
   "/theme.js",
   "/icon-probe.js",
   "/boot.js",

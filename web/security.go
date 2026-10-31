@@ -7,7 +7,7 @@ import "net/http"
 // and this keeps such a hole from running script. It holds only because
 // no page has inline <script> blocks or on*= handler attributes — page
 // scripts live in their own files (head.js, login.js, privacy.js, boot.js)
-// and app.js wires events with addEventListener. Inline *styles* stay
+// and the app (app/*.js) wires events with addEventListener. Inline *styles* stay
 // allowed: the templates use style= attributes throughout, and styles
 // can't execute anything.
 //

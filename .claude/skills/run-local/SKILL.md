@@ -53,7 +53,7 @@ from Settings.
 
 `web/` is compiled into the binary by `//go:embed` (see `web/assets.go`).
 A running server keeps serving the assets it started with, so editing
-`app.js` / `app.css` / `i18n.js` and reloading the page shows **no change**.
+`app/*.js` / `app.css` / `i18n.js` and reloading the page shows **no change**.
 Restart after any frontend edit:
 
 ```bash
