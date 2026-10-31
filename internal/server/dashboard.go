@@ -72,7 +72,7 @@ func (s *Server) familyIDForDashboardKey(key string) (string, bool) {
 		return "", false
 	}
 	var familyID string
-	if err := s.db.QueryRow(`SELECT id FROM families WHERE dashboard_key = ?`, key).Scan(&familyID); err != nil {
+	if err := s.ro.QueryRow(`SELECT id FROM families WHERE dashboard_key = ?`, key).Scan(&familyID); err != nil {
 		return "", false
 	}
 	return familyID, true
@@ -101,6 +101,7 @@ func (s *Server) familyIDForDashboardKey(key string) (string, bool) {
 // See PersonalTokenOrAuth's own doc comment.
 func (s *Server) DashboardOrAuth(authMgr *auth.Manager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(withMembershipCache(r.Context()))
 		if dashboardAllowedMethods[r.URL.Path] {
 			if key := r.Header.Get(DashboardKeyHeader); key != "" {
 				familyID, ok := s.familyIDForDashboardKey(key)
@@ -133,7 +134,7 @@ func (s *Server) GetDashboardConfig(ctx context.Context, req *connect.Request[v1
 		return nil, err
 	}
 	var key sql.NullString
-	if err := s.db.QueryRowContext(ctx, `SELECT dashboard_key FROM families WHERE id = ?`, familyID).Scan(&key); err != nil {
+	if err := s.ro.QueryRowContext(ctx, `SELECT dashboard_key FROM families WHERE id = ?`, familyID).Scan(&key); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("family not found"))
 		}

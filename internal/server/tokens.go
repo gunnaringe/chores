@@ -94,7 +94,7 @@ func (s *Server) PersonalTokenOrAuth(authMgr *auth.Manager, next http.Handler) h
 
 func (s *Server) identityForPersonalAccessToken(ctx context.Context, token string) (auth.Identity, bool) {
 	var id, authSubject, name, email string
-	err := s.db.QueryRowContext(ctx, `
+	err := s.ro.QueryRowContext(ctx, `
 		SELECT id, auth_subject, identity_name, identity_email
 		FROM personal_access_tokens WHERE token_hash = ?
 	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email)
@@ -153,7 +153,7 @@ func (s *Server) ListPersonalAccessTokens(ctx context.Context, _ *connect.Reques
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.ro.QueryContext(ctx, `
 		SELECT id, name, created_at, last_used_at FROM personal_access_tokens
 		WHERE auth_subject = ? ORDER BY created_at
 	`, identity.Sub)

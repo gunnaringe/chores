@@ -76,29 +76,29 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 	// Includes anything carried forward when older occurrences were purged;
 	// the windowed figures below need no such adjustment, since they only
 	// ever look inside the retention window anyway.
-	totalEarned, err := s.totalEarnedCents(ctx, s.db, child.Id)
+	totalEarned, err := s.totalEarnedCents(ctx, s.ro, child.Id)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.ro.QueryRowContext(ctx,
 		earnedClause+` AND completed_at >= ?`,
 		child.Id, sevenDaysAgo,
 	).Scan(&earnedLast7Days); err != nil {
 		return nil, err
 	}
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.ro.QueryRowContext(ctx,
 		earnedClause+` AND due_date = ?`,
 		child.Id, today,
 	).Scan(&earnedToday); err != nil {
 		return nil, err
 	}
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.ro.QueryRowContext(ctx,
 		earnedClause+` AND due_date >= ?`,
 		child.Id, startOfWeek,
 	).Scan(&earnedThisWeek); err != nil {
 		return nil, err
 	}
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.ro.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(amount_cents), 0) FROM payouts WHERE child_id = ?`,
 		child.Id,
 	).Scan(&totalPaidOut); err != nil {
@@ -106,7 +106,7 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 	}
 
 	var lastPayoutAt sql.NullString
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.ro.QueryRowContext(ctx,
 		`SELECT MAX(created_at) FROM payouts WHERE child_id = ?`,
 		child.Id,
 	).Scan(&lastPayoutAt); err != nil {
@@ -133,7 +133,7 @@ func (s *Server) computeSummary(ctx context.Context, child *v1.User) (*v1.ChildS
 }
 
 func (s *Server) getUser(ctx context.Context, userID string) (*v1.User, error) {
-	row := s.db.QueryRowContext(ctx,
+	row := s.ro.QueryRowContext(ctx,
 		`SELECT id, family_id, name, role, created_at, email, auth_subject FROM users WHERE id = ?`,
 		userID,
 	)
@@ -191,7 +191,7 @@ func (s *Server) ListChildSummaries(ctx context.Context, req *connect.Request[v1
 	}
 	query += ` ORDER BY created_at`
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.ro.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

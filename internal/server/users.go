@@ -46,7 +46,7 @@ func (s *Server) ListUsers(ctx context.Context, req *connect.Request[v1.ListUser
 	if err := s.requireMembership(ctx, familyID); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT id, family_id, name, role, created_at, email, auth_subject FROM users WHERE family_id = ? ORDER BY created_at`,
 		familyID,
 	)
@@ -109,7 +109,7 @@ func (s *Server) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateU
 // how you get rid of the last parent).
 func (s *Server) countParents(ctx context.Context, familyID string) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx,
+	err := s.ro.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM users WHERE family_id = ? AND role = 'parent'`,
 		familyID,
 	).Scan(&n)

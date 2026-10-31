@@ -130,7 +130,7 @@ func seedScale(t *testing.T, p scaleParams) scaleFixture {
 		p.families, rows, float64(fi.Size())/(1<<20), time.Since(start).Round(time.Millisecond))
 
 	return scaleFixture{
-		s:        New(conn),
+		s:        New(conn, nil),
 		ctx:      auth.NewContextWithIdentity(context.Background(), auth.Identity{Sub: "auth0|par-" + fmt.Sprintf("%06d", p.families/2), Name: "Parent"}),
 		familyID: midFamily,
 		childID:  midChild,

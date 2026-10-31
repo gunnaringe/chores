@@ -25,7 +25,7 @@ func (s *Server) GetMyMembership(ctx context.Context, _ *connect.Request[v1.GetM
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
 
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM users WHERE auth_subject = ? ORDER BY created_at`, identity.Sub)
+	rows, err := s.ro.QueryContext(ctx, `SELECT id FROM users WHERE auth_subject = ? ORDER BY created_at`, identity.Sub)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -119,7 +119,7 @@ func (s *Server) ListInvitations(ctx context.Context, req *connect.Request[v1.Li
 		return nil, err
 	}
 
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.ro.QueryContext(ctx,
 		`SELECT i.id, i.family_id, i.user_id, u.name, u.role, i.created_at, i.expires_at, i.accepted_at, i.token
 		 FROM invitations i JOIN users u ON u.id = i.user_id
 		 WHERE i.family_id = ? ORDER BY i.created_at DESC`,
@@ -176,7 +176,7 @@ func (s *Server) RevokeInvitation(ctx context.Context, req *connect.Request[v1.R
 
 	var familyID, userID string
 	var acceptedAt sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT family_id, user_id, accepted_at FROM invitations WHERE id = ?`, invID).
+	err := s.ro.QueryRowContext(ctx, `SELECT family_id, user_id, accepted_at FROM invitations WHERE id = ?`, invID).
 		Scan(&familyID, &userID, &acceptedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("invitation not found"))
@@ -216,7 +216,7 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 
 	var invID, familyID, userID, expiresAtStr string
 	var acceptedAt sql.NullString
-	err := s.db.QueryRowContext(ctx,
+	err := s.ro.QueryRowContext(ctx,
 		`SELECT i.id, i.family_id, i.user_id, i.expires_at, i.accepted_at
 		 FROM invitations i
 		 WHERE i.token = ?`, token,
@@ -243,7 +243,7 @@ func (s *Server) AcceptInvitation(ctx context.Context, req *connect.Request[v1.A
 	// invited into (e.g. a parent co-running two households, or a child
 	// split between them).
 	var existing string
-	err = s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&existing)
+	err = s.ro.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&existing)
 	if err == nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("you are already a member of this family"))
 	}

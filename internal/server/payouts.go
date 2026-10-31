@@ -95,7 +95,7 @@ func (s *Server) ListPayouts(ctx context.Context, req *connect.Request[v1.ListPa
 	}
 	query += ` ORDER BY created_at DESC`
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.ro.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

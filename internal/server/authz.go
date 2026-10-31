@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 
 	"connectrpc.com/connect"
 
@@ -24,11 +25,50 @@ func (s *Server) currentIdentity(ctx context.Context) (auth.Identity, bool) {
 	return auth.FromContext(ctx)
 }
 
+// membershipCache remembers boundUserInFamily's answers for the length of
+// one request. A single RPC asks the same question several times over —
+// ListTaskOccurrences checks membership, then the child filter, then calls
+// ListUsers, which checks membership again — and each ask is two queries.
+// Scoped to one request, so a role change or removal takes effect from the
+// very next call; nothing outlives the request that filled it.
+type membershipCache struct {
+	mu    sync.Mutex
+	users map[string]*v1.User // identity sub + "\x00" + family id; nil = not bound
+}
+
+type membershipCacheKey struct{}
+
+func withMembershipCache(ctx context.Context) context.Context {
+	return context.WithValue(ctx, membershipCacheKey{}, &membershipCache{users: map[string]*v1.User{}})
+}
+
 // boundUserInFamily returns the user row the caller's login identity is
 // bound to within familyID specifically, or nil if none.
 func (s *Server) boundUserInFamily(ctx context.Context, identity auth.Identity, familyID string) (*v1.User, error) {
+	cache, _ := ctx.Value(membershipCacheKey{}).(*membershipCache)
+	if cache == nil {
+		return s.lookupBoundUser(ctx, identity, familyID)
+	}
+	key := identity.Sub + "\x00" + familyID
+	cache.mu.Lock()
+	user, hit := cache.users[key]
+	cache.mu.Unlock()
+	if hit {
+		return user, nil
+	}
+	user, err := s.lookupBoundUser(ctx, identity, familyID)
+	if err != nil {
+		return nil, err
+	}
+	cache.mu.Lock()
+	cache.users[key] = user
+	cache.mu.Unlock()
+	return user, nil
+}
+
+func (s *Server) lookupBoundUser(ctx context.Context, identity auth.Identity, familyID string) (*v1.User, error) {
 	var userID string
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&userID)
+	err := s.ro.QueryRowContext(ctx, `SELECT id FROM users WHERE auth_subject = ? AND family_id = ?`, identity.Sub, familyID).Scan(&userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
