@@ -1462,6 +1462,20 @@ label {
 }
 .switch-row input { flex: none; width: 20px; height: 20px; accent-color: var(--accent); }
 
+/* API keys page (app/apikeys.js). */
+.page-header { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.page-header .screen-title { margin: 0; }
+.perm-list { display: flex; flex-direction: column; }
+/* Each permission is a switch row with its own one-line explanation, at
+   the 44px tap height. */
+.perm-row { min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.perm-row:last-child { border-bottom: none; }
+.perm-row > span { display: flex; flex-direction: column; gap: 2px; }
+.perm-row .hint { font-weight: 400; }
+.key-perms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.more-options { margin: 4px 0 16px; }
+.more-options summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; padding: 12px 0; }
+
 /* Deliberately narrow on desktop, where there's plenty of spare width to
    leave unused; on a narrow viewport that same fixed width just wastes the
    little room there is; full width there is both easier to tap and easier

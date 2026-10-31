@@ -688,10 +688,40 @@ message PersonalAccessToken {
   google.protobuf.Timestamp created_at = 3;
   // Unset if the token has never been used.
   google.protobuf.Timestamp last_used_at = 4;
+  // What the token may do. A token created before permissions existed
+  // reports every permission and legacy = true.
+  repeated TokenPermission permissions = 5;
+  // Unset if the token never expires.
+  google.protobuf.Timestamp expires_at = 6;
+  bool legacy = 7;
+}
+
+// What a personal access token may do, checked per RPC before the request
+// reaches the service (internal/server/tokenperms.go). A login session is
+// never limited by these. Some RPCs are never open to a token at all:
+// managing tokens, accepting invitations and push subscriptions.
+enum TokenPermission {
+  TOKEN_PERMISSION_UNSPECIFIED = 0;
+  // Everything the login can see.
+  TOKEN_PERMISSION_READ = 1;
+  // Mark a chore done or not done.
+  TOKEN_PERMISSION_TICK_CHORES = 2;
+  // Create, edit and delete chores.
+  TOKEN_PERMISSION_MANAGE_CHORES = 3;
+  // Add, rename and remove children.
+  TOKEN_PERMISSION_MANAGE_CHILDREN = 4;
+  TOKEN_PERMISSION_PAYOUTS = 5;
+  // Create, rename or delete families, the kiosk dashboard key,
+  // invitations, renaming yourself and leaving a family.
+  TOKEN_PERMISSION_FAMILY_ADMIN = 6;
 }
 
 message CreatePersonalAccessTokenRequest {
   string name = 1;
+  // Empty means the defaults: READ and TICK_CHORES.
+  repeated TokenPermission permissions = 2;
+  // Optional; unset means the token never expires.
+  google.protobuf.Timestamp expires_at = 3;
 }
 message CreatePersonalAccessTokenResponse {
   PersonalAccessToken token = 1;

@@ -189,6 +189,25 @@ func migrate(db *sql.DB) error {
 	`); err != nil {
 		return fmt.Errorf("backfill task_assignments: %w", err)
 	}
+
+	// A token from before permissions existed keeps a NULL permissions
+	// column, which internal/server reads as "legacy": everything a token
+	// may do. That keeps existing integrations working until their owner
+	// replaces the token.
+	patCols, err := columnSet(db, "personal_access_tokens")
+	if err != nil {
+		return err
+	}
+	if !patCols["permissions"] {
+		if _, err := db.Exec(`ALTER TABLE personal_access_tokens ADD COLUMN permissions TEXT`); err != nil {
+			return fmt.Errorf("add personal_access_tokens.permissions: %w", err)
+		}
+	}
+	if !patCols["expires_at"] {
+		if _, err := db.Exec(`ALTER TABLE personal_access_tokens ADD COLUMN expires_at TEXT`); err != nil {
+			return fmt.Errorf("add personal_access_tokens.expires_at: %w", err)
+		}
+	}
 	return nil
 }
 

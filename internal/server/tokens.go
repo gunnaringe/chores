@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -84,12 +85,25 @@ func (s *Server) PersonalTokenOrAuth(authMgr *auth.Manager, next http.Handler) h
 			authMgr.RequireAuth(next).ServeHTTP(w, r)
 			return
 		}
-		identity, ok := s.identityForPersonalAccessToken(r.Context(), token)
+		pat, ok := s.lookupPersonalAccessToken(r.Context(), token)
 		if !ok {
 			auth.WriteUnauthenticated(w, r, "invalid personal access token")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(auth.NewContextWithIdentity(r.Context(), identity)))
+		if pat.expired {
+			auth.WriteUnauthenticated(w, r, "personal access token has expired")
+			return
+		}
+		need, ok := permissionForPath(r.URL.Path)
+		if !ok {
+			writePermissionDenied(w, r, "personal access tokens can't call this method")
+			return
+		}
+		if !slices.Contains(pat.permissions, need) {
+			writePermissionDenied(w, r, "this token lacks the "+permissionLabel(need)+" permission")
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(auth.NewContextWithIdentity(r.Context(), pat.identity)))
 	})
 }
 
@@ -100,17 +114,37 @@ func (s *Server) PersonalTokenOrAuth(authMgr *auth.Manager, next http.Handler) h
 // shows "last used" as a rough "is this still in use", so an hour is plenty.
 const tokenTouchInterval = time.Hour
 
-func (s *Server) identityForPersonalAccessToken(ctx context.Context, token string) (auth.Identity, bool) {
+type personalAccessToken struct {
+	identity    auth.Identity
+	permissions []v1.TokenPermission
+	expired     bool
+}
+
+// lookupPersonalAccessToken resolves a raw bearer value. ok is false only
+// for a token that doesn't exist; an expired one is returned with expired
+// set, so the caller can say so instead of "invalid".
+func (s *Server) lookupPersonalAccessToken(ctx context.Context, token string) (personalAccessToken, bool) {
 	var id, authSubject, name, email string
-	var lastUsedAt sql.NullString
+	var lastUsedAt, permissions, expiresAt sql.NullString
 	err := s.ro.QueryRowContext(ctx, `
-		SELECT id, auth_subject, identity_name, identity_email, last_used_at
+		SELECT id, auth_subject, identity_name, identity_email, last_used_at, permissions, expires_at
 		FROM personal_access_tokens WHERE token_hash = ?
-	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email, &lastUsedAt)
+	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email, &lastUsedAt, &permissions, &expiresAt)
 	if err != nil {
-		return auth.Identity{}, false
+		return personalAccessToken{}, false
 	}
 	now := nowUTC()
+	pat := personalAccessToken{
+		identity:    auth.Identity{Sub: authSubject, Name: name, Email: email},
+		permissions: allTokenPermissions(),
+		expired:     expiresAt.Valid && expiresAt.String <= formatTime(now),
+	}
+	if permissions.Valid {
+		pat.permissions = decodeTokenPermissions(permissions.String)
+	}
+	if pat.expired {
+		return pat, true
+	}
 	if !lastUsedAt.Valid || lastUsedAt.String < formatTime(now.Add(-tokenTouchInterval)) {
 		// Best-effort: a failed touch shouldn't fail the request it's riding
 		// along with, and losing one update doesn't matter for what this is
@@ -119,14 +153,23 @@ func (s *Server) identityForPersonalAccessToken(ctx context.Context, token strin
 			log.Printf("touch personal access token %s: %v", id, err)
 		}
 	}
-	return auth.Identity{Sub: authSubject, Name: name, Email: email}, true
+	return pat, true
+}
+
+// identityForPersonalAccessToken is lookupPersonalAccessToken for callers
+// that only need to know who a usable token acts as.
+func (s *Server) identityForPersonalAccessToken(ctx context.Context, token string) (auth.Identity, bool) {
+	pat, ok := s.lookupPersonalAccessToken(ctx, token)
+	if !ok || pat.expired {
+		return auth.Identity{}, false
+	}
+	return pat.identity, true
 }
 
 // CreatePersonalAccessToken mints a new token for the caller's own login
-// identity. Always requires a real session — a token can create sibling
-// tokens for the same identity (it authenticates as that identity, same as
-// a cookie would), but there is no way to bootstrap the first one without
-// having logged in through the browser at least once.
+// identity. Only a login session can reach this: no token may manage
+// tokens (see tokenMethodPermission), or a narrow token could mint itself a
+// broader one.
 func (s *Server) CreatePersonalAccessToken(ctx context.Context, req *connect.Request[v1.CreatePersonalAccessTokenRequest]) (*connect.Response[v1.CreatePersonalAccessTokenResponse], error) {
 	identity, ok := s.currentIdentity(ctx)
 	if !ok {
@@ -136,6 +179,18 @@ func (s *Server) CreatePersonalAccessToken(ctx context.Context, req *connect.Req
 	if name == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 	}
+	perms, err := validateTokenPermissions(req.Msg.GetPermissions())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	var expiresAt sql.NullString
+	if req.Msg.ExpiresAt != nil {
+		at := req.Msg.GetExpiresAt().AsTime()
+		if !at.After(nowUTC()) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("expires_at must be in the future"))
+		}
+		expiresAt = sql.NullString{String: formatTime(at), Valid: true}
+	}
 	secret, err := randomPersonalAccessToken()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -144,14 +199,18 @@ func (s *Server) CreatePersonalAccessToken(ctx context.Context, req *connect.Req
 	id := newID()
 	now := nowUTC()
 	if _, err := s.db.ExecContext(ctx, `
-		INSERT INTO personal_access_tokens (id, auth_subject, name, identity_name, identity_email, token_hash, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, id, identity.Sub, name, identity.Name, identity.Email, hashPersonalAccessToken(secret), formatTime(now)); err != nil {
+		INSERT INTO personal_access_tokens (id, auth_subject, name, identity_name, identity_email, token_hash, created_at, permissions, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, identity.Sub, name, identity.Name, identity.Email, hashPersonalAccessToken(secret), formatTime(now), encodeTokenPermissions(perms), expiresAt); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create personal access token: %w", err))
 	}
 
+	pbToken := &v1.PersonalAccessToken{Id: id, Name: name, CreatedAt: timestampPB(now), Permissions: perms}
+	if expiresAt.Valid {
+		pbToken.ExpiresAt = req.Msg.GetExpiresAt()
+	}
 	return connect.NewResponse(&v1.CreatePersonalAccessTokenResponse{
-		Token:  &v1.PersonalAccessToken{Id: id, Name: name, CreatedAt: timestampPB(now)},
+		Token:  pbToken,
 		Secret: secret,
 	}), nil
 }
@@ -166,7 +225,7 @@ func (s *Server) ListPersonalAccessTokens(ctx context.Context, _ *connect.Reques
 	}
 
 	rows, err := s.ro.QueryContext(ctx, `
-		SELECT id, name, created_at, last_used_at FROM personal_access_tokens
+		SELECT id, name, created_at, last_used_at, permissions, expires_at FROM personal_access_tokens
 		WHERE auth_subject = ? ORDER BY created_at
 	`, identity.Sub)
 	if err != nil {
@@ -177,8 +236,8 @@ func (s *Server) ListPersonalAccessTokens(ctx context.Context, _ *connect.Reques
 	var tokens []*v1.PersonalAccessToken
 	for rows.Next() {
 		var id, name, createdAtStr string
-		var lastUsedAtStr sql.NullString
-		if err := rows.Scan(&id, &name, &createdAtStr, &lastUsedAtStr); err != nil {
+		var lastUsedAtStr, permissions, expiresAtStr sql.NullString
+		if err := rows.Scan(&id, &name, &createdAtStr, &lastUsedAtStr, &permissions, &expiresAtStr); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdAt, err := parseTime(createdAtStr)
@@ -192,6 +251,19 @@ func (s *Server) ListPersonalAccessTokens(ctx context.Context, _ *connect.Reques
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			pbToken.LastUsedAt = timestampPB(lastUsedAt)
+		}
+		if permissions.Valid {
+			pbToken.Permissions = decodeTokenPermissions(permissions.String)
+		} else {
+			pbToken.Permissions = allTokenPermissions()
+			pbToken.Legacy = true
+		}
+		if expiresAtStr.Valid {
+			expiresAt, err := parseTime(expiresAtStr.String)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			pbToken.ExpiresAt = timestampPB(expiresAt)
 		}
 		tokens = append(tokens, pbToken)
 	}
