@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Refreshes web/material-symbols.json — the icon list the task icon picker's
-# search runs against (see loadMaterialSymbols in web/app.js) — from the
+# search runs against (see loadMaterialSymbols in web/app/tasks.js) — from the
 # metadata fonts.google.com/icons' own search uses. Run this occasionally to
 # pick up icons Google has added; the frontend just searches whatever is in
 # the file.

@@ -363,7 +363,7 @@ use `api.chores.apphub.casa`, a **DNS-only** CNAME to
 `sortland-chores.fly.dev` with its own Fly certificate; `GRPC_HOST` in
 `fly.toml` (the `-grpc-host` flag) makes the grpcurl example in Settings
 show that name. And **Cloudflare caches `.js`/`.css` by default**, which after a
-deploy could serve the previous release's `app.js` to the new page. So
+deploy could serve the previous release's scripts to the new page. So
 every embedded file is sent with an ETag, and the app shell with
 `Cache-Control: no-cache` (see `notFoundPage` in `cmd/chores/main.go`), so
 Cloudflare revalidates instead of guessing. Compression needs nothing from
@@ -417,7 +417,7 @@ Home**. Like the language and currency choices, it's purely a
 `localStorage` preference on that device and never reaches the server.
 Each theme is a block of CSS custom properties in `web/app.css`
 (`:root[data-theme="..."]`); add one there and an entry in `THEME_OPTIONS`
-in `web/app.js` to add another.
+in `web/app/shell.js` to add another.
 
 **Hacker** is the one theme with more than tokens: it matches the hacker
 theme on clock.apphub.casa — the VT323 pixel font (self-hosted in

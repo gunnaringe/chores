@@ -3,7 +3,7 @@
 // something else. Loaded as a blocking <script src> in <head> of every
 // page, which runs just as early as an inline script did — and inline
 // script is off the table under the Content-Security-Policy (see
-// web/security.go). A standalone copy of applyTheme() in app.js, which
+// web/security.go). A standalone copy of applyTheme() in app/helpers.js, which
 // loads too late in <body> to beat paint; keep the two in step.
 (function () {
   var theme = localStorage.getItem("chores.theme");

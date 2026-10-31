@@ -1,6 +1,7 @@
 package web
 
 import (
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -64,7 +65,11 @@ func TestErrorPageHasNoInlineScript(t *testing.T) {
 // attribute that creeps back into a page silently stops working in the
 // browser. Catch it here instead.
 func TestPagesHaveNoInlineScript(t *testing.T) {
-	for _, name := range []string{"index.html", "login.html", "privacy.html", "app.js"} {
+	modules, err := fs.Glob(FS, "app/*.js")
+	if err != nil || len(modules) == 0 {
+		t.Fatalf("no app modules embedded: %v", err)
+	}
+	for _, name := range append([]string{"index.html", "login.html", "privacy.html"}, modules...) {
 		b, err := FS.ReadFile(name)
 		if err != nil {
 			t.Fatal(err)

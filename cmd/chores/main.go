@@ -174,7 +174,7 @@ func main() {
 	// The kiosk dashboard is its own entry point, deliberately never behind
 	// the login gate — it authorizes itself with a per-family
 	// dashboard key instead (typed in or carried in ?key=, handled entirely
-	// client-side; see web/app.js). It's the same app shell as "/", just
+	// client-side; see web/app/dashboard.js). It's the same app shell as "/", just
 	// reached without a session.
 	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		pages.Render(w, r, "index.html")
@@ -238,7 +238,7 @@ func notFoundPage(next http.Handler) http.Handler {
 		// headers nothing can revalidate them, and Cloudflare (which
 		// proxies the hosted instance) falls back to its own default edge
 		// TTL for .js/.css — long enough to hand out the previous
-		// release's app.js after a deploy. The ETag lets a browser or
+		// release's app modules after a deploy. The ETag lets a browser or
 		// Cloudflare revalidate with a cheap 304. The app shell must
 		// always revalidate (no-cache); the service worker already keeps
 		// it offline. The icon font and the 540KB icon search list change

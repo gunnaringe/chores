@@ -452,7 +452,7 @@ func (m *Manager) RequirePage(next http.Handler) http.Handler {
 }
 
 // Gate protects the web UI's root document: an unauthenticated visit to "/"
-// gets loginPage instead of the app shell. Every other path (e.g. app.js,
+// gets loginPage instead of the app shell. Every other path (e.g. app/main.js,
 // app.css) is passed through untouched since those files carry no data and
 // gating them would break the login page's own styling/scripts.
 func (m *Manager) Gate(protected, loginPage http.Handler) http.Handler {

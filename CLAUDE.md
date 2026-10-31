@@ -86,14 +86,40 @@ silently blocked in the browser. Page code lives in files (`theme.js` and
 `icon-probe.js` in `<head>`, `boot.js`, `login.js`, `privacy.js`); wire
 events with `addEventListener` or delegation — for a read-only field that
 selects its value on click, just add `data-select-on-click`.
-`web/security_test.go` fails on inline script in the pages, `app.js` and
-the error page; anything new you embed needs adding to the `//go:embed`
-line in `web/assets.go` and, if it's part of the shell, `PRECACHE_URLS` in
-`web/sw.js`. Inline *styles* are allowed.
+`web/security_test.go` fails on inline script in the pages, every app
+module and the error page; anything new you embed needs adding to the
+`//go:embed` line in `web/assets.go` and, if it's part of the shell,
+`PRECACHE_URLS` in `web/sw.js`. Inline *styles* are allowed.
 
-`web/` is vanilla HTML/CSS/JS with no framework and no build step. `web/app.js`
-is a single file: a `state` object plus `render()`, which tears down and
-rebuilds the entire DOM on every change.
+`web/` is vanilla HTML/CSS/JS with no framework and no build step. The app is
+native ES modules in `web/app/` — a `state` object plus `render()`, which
+tears down and rebuilds the entire DOM on every change. Open only the module
+you need:
+
+| module | what's in it |
+| --- | --- |
+| `main.js` | entry point (the only `<script type="module">`), boot, global listeners |
+| `api.js` | `call()` — every Connect request — and `clientConfig` |
+| `state.js` | `state`, its persisting setters, `loadFamilyData()` & co., auto-refresh, `isEditingSomething()` |
+| `helpers.js` | `el()`, `escapeHtml()`, money/currency, theme, date helpers, task icons. **Imports nothing** — keep it a leaf |
+| `shell.js` | `render()` and routing, app bar, tab bar, switchers, onboarding, user picker, QR/copy buttons, `resetTransientUiState()`, `rerenderPreservingFocus()` |
+| `today.js` | Today tab (parents and kiosk) and a child's own checklist |
+| `tasks.js` | Tasks tab: task list, add/edit sheet, icon search |
+| `history.js` | History tab |
+| `balance.js` | Balance tab |
+| `family.js` | family management inside Settings |
+| `settings.js` | Settings tab, kiosk dashboard key, personal access tokens |
+| `push.js` | Web Push subscription glue |
+| `dashboard.js` | the kiosk at `/dashboard` |
+
+`i18n.js` and `qrcode.js` stay classic scripts loaded before the modules;
+`t()`, `appName()`, `getLang()`, `qrcode()` and friends are globals, not
+imports. Modules import each other in cycles (tabs call `render()`, `render()`
+calls the tabs). That's fine inside functions, but code at a module's top
+level must not touch an imported `const`/`let`: in a cycle it may not be
+initialized yet, and the page renders blank. **A new module** needs a
+`modulepreload` link in `index.html` and an entry in `PRECACHE_URLS`;
+`web/assets_test.go` fails until both are there.
 
 **Assets are compiled into the binary** via `//go:embed` in `web/assets.go`.
 Editing anything under `web/` has no effect on an already-running server —
@@ -126,10 +152,15 @@ id — this is what makes the History search box usable) and `isEditingSomething
 **Transient UI state lives in module-level `let`s, not in `state`.** Which row
 is expanded, which delete is awaiting confirmation, which task sheet is open —
 these are deliberately not persisted or reacted to elsewhere.
-`resetTransientUiState()` clears them on navigation; add new ones there too.
+`resetTransientUiState()` (`shell.js`) clears them on navigation. An imported
+binding is read-only, so each module clears its own: add a new one to that
+module's `reset…UiState()` (e.g. `resetTasksUiState()` in `tasks.js`), and
+give a new module with transient state its own reset, called from
+`resetTransientUiState()`. Another module can read one of these `let`s
+but never assign it — that throws at runtime, not at `node --check`.
 
 **Bump `CACHE_NAME` in `web/sw.js`** whenever you change a precached shell asset
-(`app.js`, `app.css`, `i18n.js`, `login.html`, the page scripts, the manifest,
+(`app/*.js`, `app.css`, `i18n.js`, `login.html`, the page scripts, the manifest,
 the icons). The
 service worker is cache-first, so without a bump returning users get one stale
 load of the old UI.
