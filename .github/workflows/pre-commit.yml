@@ -11,8 +11,8 @@ jobs:
   prek:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - uses: bufbuild/buf-setup-action@v1
@@ -20,4 +20,4 @@ jobs:
           version: "1.72.0"
       # Node ships preinstalled on ubuntu-latest, so the node-check hook
       # needs nothing extra set up here.
-      - uses: j178/prek-action@v3.0.0
+      - uses: j178/prek-action@v3.1.0
