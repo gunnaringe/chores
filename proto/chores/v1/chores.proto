@@ -694,6 +694,9 @@ message PersonalAccessToken {
   // Unset if the token never expires.
   google.protobuf.Timestamp expires_at = 6;
   bool legacy = 7;
+  // The families the token may act in. Empty means every family the login
+  // is bound to, including ones it joins later.
+  repeated string family_ids = 8;
 }
 
 // What a personal access token may do, checked per RPC before the request
@@ -722,6 +725,9 @@ message CreatePersonalAccessTokenRequest {
   repeated TokenPermission permissions = 2;
   // Optional; unset means the token never expires.
   google.protobuf.Timestamp expires_at = 3;
+  // Optional; empty means every family, including ones joined later.
+  // Each must be a family the caller is bound to.
+  repeated string family_ids = 4;
 }
 message CreatePersonalAccessTokenResponse {
   PersonalAccessToken token = 1;

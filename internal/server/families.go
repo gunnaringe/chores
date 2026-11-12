@@ -27,6 +27,11 @@ func (s *Server) CreateFamily(ctx context.Context, req *connect.Request[v1.Creat
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
+	// A token limited to some families couldn't use the family it creates,
+	// and shouldn't be a way out of its own limit either.
+	if _, limited := tokenFamilyLimit(ctx); limited {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("this token is limited to other families"))
+	}
 
 	id := newID()
 	now := nowUTC()
@@ -90,6 +95,9 @@ func (s *Server) ListFamilies(ctx context.Context, _ *connect.Request[v1.ListFam
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		f.CreatedAt = timestampPB(t)
+		if !tokenAllowsFamily(ctx, f.Id) {
+			continue
+		}
 		families = append(families, &f)
 	}
 	return connect.NewResponse(&v1.ListFamiliesResponse{Families: families}), nil

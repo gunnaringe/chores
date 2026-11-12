@@ -121,6 +121,9 @@ func (s *Server) requireRole(ctx context.Context, familyID string, allowed ...v1
 	if !ok {
 		return connect.NewError(connect.CodeUnauthenticated, errors.New("login required"))
 	}
+	if !tokenAllowsFamily(ctx, familyID) {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("this token is limited to other families"))
+	}
 	user, err := s.boundUserInFamily(ctx, identity, familyID)
 	if err != nil {
 		return err
