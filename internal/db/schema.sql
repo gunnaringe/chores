@@ -246,7 +246,10 @@ CREATE TABLE IF NOT EXISTS personal_access_tokens (
     -- NULL only for a token created before permissions existed.
     permissions TEXT,
     -- NULL = never expires.
-    expires_at TEXT
+    expires_at TEXT,
+    -- Space-separated family ids the token is limited to; NULL = every
+    -- family the login is bound to.
+    family_ids TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_auth_subject ON personal_access_tokens(auth_subject);
 

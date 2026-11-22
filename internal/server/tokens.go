@@ -103,7 +103,8 @@ func (s *Server) PersonalTokenOrAuth(authMgr *auth.Manager, next http.Handler) h
 			writePermissionDenied(w, r, "this token lacks the "+permissionLabel(need)+" permission")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(auth.NewContextWithIdentity(r.Context(), pat.identity)))
+		ctx := withTokenFamilies(auth.NewContextWithIdentity(r.Context(), pat.identity), pat.familyIDs)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -117,6 +118,7 @@ const tokenTouchInterval = time.Hour
 type personalAccessToken struct {
 	identity    auth.Identity
 	permissions []v1.TokenPermission
+	familyIDs   []string // empty = every family
 	expired     bool
 }
 
@@ -125,11 +127,11 @@ type personalAccessToken struct {
 // set, so the caller can say so instead of "invalid".
 func (s *Server) lookupPersonalAccessToken(ctx context.Context, token string) (personalAccessToken, bool) {
 	var id, authSubject, name, email string
-	var lastUsedAt, permissions, expiresAt sql.NullString
+	var lastUsedAt, permissions, expiresAt, familyIDs sql.NullString
 	err := s.ro.QueryRowContext(ctx, `
-		SELECT id, auth_subject, identity_name, identity_email, last_used_at, permissions, expires_at
+		SELECT id, auth_subject, identity_name, identity_email, last_used_at, permissions, expires_at, family_ids
 		FROM personal_access_tokens WHERE token_hash = ?
-	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email, &lastUsedAt, &permissions, &expiresAt)
+	`, hashPersonalAccessToken(token)).Scan(&id, &authSubject, &name, &email, &lastUsedAt, &permissions, &expiresAt, &familyIDs)
 	if err != nil {
 		return personalAccessToken{}, false
 	}
@@ -137,6 +139,7 @@ func (s *Server) lookupPersonalAccessToken(ctx context.Context, token string) (p
 	pat := personalAccessToken{
 		identity:    auth.Identity{Sub: authSubject, Name: name, Email: email},
 		permissions: allTokenPermissions(),
+		familyIDs:   strings.Fields(familyIDs.String),
 		expired:     expiresAt.Valid && expiresAt.String <= formatTime(now),
 	}
 	if permissions.Valid {
@@ -191,6 +194,10 @@ func (s *Server) CreatePersonalAccessToken(ctx context.Context, req *connect.Req
 		}
 		expiresAt = sql.NullString{String: formatTime(at), Valid: true}
 	}
+	familyIDs, err := s.validateTokenFamilies(ctx, identity, req.Msg.GetFamilyIds())
+	if err != nil {
+		return nil, err
+	}
 	secret, err := randomPersonalAccessToken()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -199,13 +206,13 @@ func (s *Server) CreatePersonalAccessToken(ctx context.Context, req *connect.Req
 	id := newID()
 	now := nowUTC()
 	if _, err := s.db.ExecContext(ctx, `
-		INSERT INTO personal_access_tokens (id, auth_subject, name, identity_name, identity_email, token_hash, created_at, permissions, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, identity.Sub, name, identity.Name, identity.Email, hashPersonalAccessToken(secret), formatTime(now), encodeTokenPermissions(perms), expiresAt); err != nil {
+		INSERT INTO personal_access_tokens (id, auth_subject, name, identity_name, identity_email, token_hash, created_at, permissions, expires_at, family_ids)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, identity.Sub, name, identity.Name, identity.Email, hashPersonalAccessToken(secret), formatTime(now), encodeTokenPermissions(perms), expiresAt, nullIfEmpty(strings.Join(familyIDs, " "))); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create personal access token: %w", err))
 	}
 
-	pbToken := &v1.PersonalAccessToken{Id: id, Name: name, CreatedAt: timestampPB(now), Permissions: perms}
+	pbToken := &v1.PersonalAccessToken{Id: id, Name: name, CreatedAt: timestampPB(now), Permissions: perms, FamilyIds: familyIDs}
 	if expiresAt.Valid {
 		pbToken.ExpiresAt = req.Msg.GetExpiresAt()
 	}
@@ -225,7 +232,7 @@ func (s *Server) ListPersonalAccessTokens(ctx context.Context, _ *connect.Reques
 	}
 
 	rows, err := s.ro.QueryContext(ctx, `
-		SELECT id, name, created_at, last_used_at, permissions, expires_at FROM personal_access_tokens
+		SELECT id, name, created_at, last_used_at, permissions, expires_at, family_ids FROM personal_access_tokens
 		WHERE auth_subject = ? ORDER BY created_at
 	`, identity.Sub)
 	if err != nil {
@@ -236,15 +243,15 @@ func (s *Server) ListPersonalAccessTokens(ctx context.Context, _ *connect.Reques
 	var tokens []*v1.PersonalAccessToken
 	for rows.Next() {
 		var id, name, createdAtStr string
-		var lastUsedAtStr, permissions, expiresAtStr sql.NullString
-		if err := rows.Scan(&id, &name, &createdAtStr, &lastUsedAtStr, &permissions, &expiresAtStr); err != nil {
+		var lastUsedAtStr, permissions, expiresAtStr, familyIDs sql.NullString
+		if err := rows.Scan(&id, &name, &createdAtStr, &lastUsedAtStr, &permissions, &expiresAtStr, &familyIDs); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdAt, err := parseTime(createdAtStr)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		pbToken := &v1.PersonalAccessToken{Id: id, Name: name, CreatedAt: timestampPB(createdAt)}
+		pbToken := &v1.PersonalAccessToken{Id: id, Name: name, CreatedAt: timestampPB(createdAt), FamilyIds: strings.Fields(familyIDs.String)}
 		if lastUsedAtStr.Valid {
 			lastUsedAt, err := parseTime(lastUsedAtStr.String)
 			if err != nil {
@@ -296,4 +303,30 @@ func (s *Server) RevokePersonalAccessToken(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("token not found"))
 	}
 	return connect.NewResponse(&v1.RevokePersonalAccessTokenResponse{}), nil
+}
+
+// validateTokenFamilies checks that every family a new token is limited to
+// is one the caller is bound to — a limit naming someone else's family
+// would grant nothing, but accepting it would suggest it did — and drops
+// duplicates. Empty stays empty: every family.
+func (s *Server) validateTokenFamilies(ctx context.Context, identity auth.Identity, requested []string) ([]string, error) {
+	var ids []string
+	for _, id := range requested {
+		if slices.Contains(ids, id) {
+			continue
+		}
+		user, err := s.boundUserInFamily(ctx, identity, id)
+		if err != nil {
+			return nil, err
+		}
+		if user == nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("not a member of family %q", id))
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func nullIfEmpty(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
 }

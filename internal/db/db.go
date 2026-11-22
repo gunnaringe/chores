@@ -208,6 +208,11 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("add personal_access_tokens.expires_at: %w", err)
 		}
 	}
+	if !patCols["family_ids"] {
+		if _, err := db.Exec(`ALTER TABLE personal_access_tokens ADD COLUMN family_ids TEXT`); err != nil {
+			return fmt.Errorf("add personal_access_tokens.family_ids: %w", err)
+		}
+	}
 	return nil
 }
 
